@@ -11,6 +11,7 @@ import '../models/note.dart';
 import '../state/unlocked_notes_session.dart';
 import '../widgets/pin_lock_modal.dart';
 import '../widgets/schedule_delete_modal.dart';
+import '../widgets/top_toast.dart';
 
 class NoteDetailScreen extends StatefulWidget {
   final NotesRepository notesRepository;
@@ -120,9 +121,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
 
     if (title.isEmpty && content.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please add a title or content')),
-      );
+      TopToast.show(context, message: 'Please add a title or content');
       return;
     }
 
@@ -147,9 +146,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     if (!mounted) return;
     setState(() => _isEditing = false);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Note updated successfully!')),
-    );
+    TopToast.show(context, message: 'Note updated successfully!');
   }
 
   Future<void> _deleteNote() async {
@@ -253,10 +250,9 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     if (!mounted) return;
     setState(() => _scheduleModalOpen = false);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(when == null ? 'Schedule removed' : 'Delete scheduled'),
-      ),
+    TopToast.show(
+      context,
+      message: when == null ? 'Schedule removed' : 'Delete scheduled',
     );
   }
 
@@ -408,12 +404,13 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
               tooltip: 'Edit',
               icon: const Icon(Icons.edit_outlined),
               onPressed: () {
-                if (note.isLocked) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Unlock to edit this note')),
-                  );
-                  return;
-                }
+                  if (note.isLocked) {
+                    TopToast.show(
+                      context,
+                      message: 'Unlock to edit this note',
+                    );
+                    return;
+                  }
                 setState(() => _isEditing = true);
               },
             ),

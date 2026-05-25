@@ -7,6 +7,7 @@ import '../models/note.dart';
 import '../state/theme_controller.dart';
 import '../widgets/pin_lock_modal.dart';
 import '../widgets/tab_navigation.dart';
+import '../widgets/top_toast.dart';
 
 class NotesListScreen extends StatefulWidget {
   final NotesRepository notesRepository;
@@ -78,9 +79,7 @@ class _NotesListScreenState extends State<NotesListScreen> {
   Future<void> _deleteNote(String id) async {
     await widget.notesRepository.deleteNote(id);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Note deleted')),
-    );
+    TopToast.show(context, message: 'Note deleted');
     await _loadNotes();
   }
 

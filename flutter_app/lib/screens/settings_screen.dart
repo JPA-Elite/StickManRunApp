@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 import '../data/notes_repository.dart';
 import '../state/theme_controller.dart';
 import '../widgets/tab_navigation.dart';
+import '../widgets/top_toast.dart';
 
 class SettingsScreen extends StatefulWidget {
   final NotesRepository notesRepository;
@@ -77,9 +78,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await widget.notesRepository.clearAll();
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('All notes deleted')),
-      );
+      TopToast.show(context, message: 'All notes deleted');
 
       if (Navigator.canPop(context)) Navigator.of(context).pop();
     } finally {
