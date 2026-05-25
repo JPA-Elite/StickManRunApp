@@ -10,6 +10,7 @@ import '../screens/create_note_screen.dart';
 import '../screens/note_detail_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/privacy_policy_screen.dart';
+import '../screens/terms_of_use_screen.dart';
 
 class NotebookApp extends StatefulWidget {
   const NotebookApp({super.key});
@@ -112,6 +113,14 @@ class _NotebookAppState extends State<NotebookApp> {
                 transitionDuration: Duration.zero,
                 reverseTransitionDuration: Duration.zero,
                 pageBuilder: (context, _, __) => const PrivacyPolicyScreen(),
+              );
+            }
+
+            if (settings.name == '/terms') {
+              return PageRouteBuilder(
+                transitionDuration: Duration.zero,
+                reverseTransitionDuration: Duration.zero,
+                pageBuilder: (context, _, __) => const TermsOfUseScreen(),
               );
             }
 

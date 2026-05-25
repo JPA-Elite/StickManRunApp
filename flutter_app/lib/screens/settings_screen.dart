@@ -137,6 +137,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 12),
             Card(
               child: ListTile(
+                leading: const Icon(Icons.description_outlined),
+                title: const Text('Terms of Use'),
+                subtitle: const Text('User responsibilities and limitations'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).pushNamed('/terms'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              child: ListTile(
                 leading: const Icon(Icons.privacy_tip_outlined),
                 title: const Text('Privacy Policy'),
                 subtitle: const Text('How your data is handled'),
