@@ -3,8 +3,6 @@ import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:speech_to_text/speech_to_text.dart';
 
 import '../data/notes_repository.dart';
 import '../models/note.dart';
@@ -35,28 +33,12 @@ class _CreateNoteScreenState extends State<CreateNoteScreen> {
   bool _saving = false;
 
   // Quill
-  late QuillController _quillController;
-
-  // Voice -> structured notes (offline heuristic)
-  final SpeechToText _speechToText = SpeechToText();
-  bool _speechAvailable = false;
-  bool _listening = false;
-  String _transcript = '';
+  late final QuillController _quillController;
 
   @override
   void initState() {
     super.initState();
     _quillController = QuillController.basic();
-    _initSpeech();
-  }
-
-  Future<void> _initSpeech() async {
-    final available = await _speechToText.initialize(
-      onStatus: (_) {},
-      onError: (_) {},
-    );
-    if (!mounted) return;
-    setState(() => _speechAvailable = available);
   }
 
   @override
@@ -97,95 +79,18 @@ class _CreateNoteScreenState extends State<CreateNoteScreen> {
     setState(() {});
   }
 
-  Future<void> _startListening() async {
-    final status = await Permission.microphone.request();
-    if (!status.isGranted) return;
-
-    setState(() {
-      _transcript = '';
-      _listening = true;
-    });
-
-    await _speechToText.listen(
-      onResult: (res) {
-        setState(() {
-          _transcript = res.recognizedWords;
-        });
-      },
-    );
-  }
-
-  Future<void> _stopListeningAndApply() async {
-    await _speechToText.stop();
-    if (!mounted) return;
-
-    setState(() => _listening = false);
-
-    final transcript = _transcript.trim();
-    if (transcript.isEmpty) return;
-
-    final structured = _structureTranscript(transcript);
-
-    final maybeTitle = structured.title.trim();
-    if (_titleController.text.trim().isEmpty && maybeTitle.isNotEmpty) {
-      _titleController.text = maybeTitle;
-    }
-
-    // Update quill document from structured body (plain text -> delta json -> Document.fromJson).
-    final deltaJsonString = plainTextToDeltaJsonString(structured.body);
-    final document = Document.fromJson(jsonDecode(deltaJsonString));
-
-    _quillController.document = document;
-
-    setState(() {});
-  }
-
-  _StructuredNote _structureTranscript(String transcript) {
-    // Offline-only heuristic:
-    // - First sentence -> title
-    // - Remaining sentences -> bullet list
-    final cleaned = transcript
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .replaceAll(RegExp(r'\.+\s*$'), '.')
-        .trim();
-
-    final parts = cleaned.split(RegExp(r'(?<=[.!?])\s+'));
-    final title = parts.isNotEmpty ? parts.first : cleaned;
-
-    final rest = parts.length > 1 ? parts.sublist(1).join(' ') : '';
-
-    final bullets = rest
-        .split(RegExp(r'[,;]\s*'))
-        .map((s) => s.trim())
-        .where((s) => s.isNotEmpty)
-        .toList();
-
-    final bodyBuffer = StringBuffer();
-    if (title.isNotEmpty) bodyBuffer.writeln(title);
-
-    if (bullets.isEmpty) {
-      bodyBuffer.writeln();
-      bodyBuffer.writeln(rest.isEmpty ? cleaned : rest);
-    } else {
-      bodyBuffer.writeln();
-      for (final b in bullets) {
-        bodyBuffer.writeln('- $b');
-      }
-    }
-
-    return _StructuredNote(
-      title: title,
-      body: bodyBuffer.toString().trim(),
-    );
-  }
-
   Future<void> _save() async {
     if (_saving) return;
 
     final title = _titleController.text.trim();
-    final contentDeltaJson = quillDocumentToDeltaJsonString(_quillController.document);
+    final contentDeltaJson = quillDocumentToDeltaJsonString(
+      _quillController.document,
+    );
 
-    final isContentEmpty = quillDeltaContentToPlainText(contentDeltaJson).trim().isEmpty;
+    final isContentEmpty = quillDeltaContentToPlainText(contentDeltaJson)
+        .trim()
+        .isEmpty;
+
     if (title.isEmpty && isContentEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -224,30 +129,16 @@ class _CreateNoteScreenState extends State<CreateNoteScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Create Note'),
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: theme.colorScheme.onPrimary,
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: widget.onBackToNotes,
         ),
         actions: [
-          if (_speechAvailable)
-            IconButton(
-              icon: Icon(_listening ? Icons.mic : Icons.mic_none),
-              tooltip: _listening ? 'Stop voice input' : 'Voice to structured notes',
-              onPressed: () async {
-                if (_listening) {
-                  await _stopListeningAndApply();
-                } else {
-                  await _startListening();
-                }
-              },
-            ),
           IconButton(
             icon: Icon(_toolbarExpanded ? Icons.unfold_less : Icons.unfold_more),
             tooltip: _toolbarExpanded ? 'Minimize editor toolbar' : 'Expand editor toolbar',
@@ -275,7 +166,6 @@ class _CreateNoteScreenState extends State<CreateNoteScreen> {
                 ),
               ),
             ),
-
             if (_attachments.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -297,9 +187,7 @@ class _CreateNoteScreenState extends State<CreateNoteScreen> {
                   ],
                 ),
               ),
-
             const SizedBox(height: 12),
-
             Row(
               children: [
                 const SizedBox(width: 16),
@@ -311,19 +199,7 @@ class _CreateNoteScreenState extends State<CreateNoteScreen> {
                 const SizedBox(width: 16),
               ],
             ),
-
-            if (_speechAvailable && _listening)
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Text(
-                  'Listening... ${_transcript.isEmpty ? '' : "(${_transcript.length} chars)"}',
-                  style: theme.textTheme.bodySmall,
-                ),
-              ),
-
             const SizedBox(height: 12),
-
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -378,15 +254,5 @@ class NoteAttachmentDraft {
     required this.name,
     required this.type,
     required this.base64Data,
-  });
-}
-
-class _StructuredNote {
-  final String title;
-  final String body;
-
-  const _StructuredNote({
-    required this.title,
-    required this.body,
   });
 }
