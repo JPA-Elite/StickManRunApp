@@ -272,7 +272,9 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   }
 
   Widget _buildAttachmentsSection(Note note) {
-    if (note.attachments.isEmpty && !_isEditing) return const SizedBox.shrink();
+    if (note.attachments.isEmpty && !_isEditing) {
+      return const SizedBox.shrink();
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -307,8 +309,9 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                   ),
                   onDeleted: () {
                     setState(() {
-                      _draftAttachments =
-                          _draftAttachments.where((x) => x.name != a.name).toList();
+                      _draftAttachments = _draftAttachments
+                          .where((x) => x.name != a.name)
+                          .toList();
                     });
                   },
                 )
@@ -323,7 +326,6 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
           ],
         ),
         if (_isEditing)
-          // ensure UI reflects drafts even if note.attachments hasn't refreshed yet
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -337,8 +339,9 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                     ),
                     onDeleted: () {
                       setState(() {
-                        _draftAttachments =
-                            _draftAttachments.where((x) => x.name != a.name).toList();
+                        _draftAttachments = _draftAttachments
+                            .where((x) => x.name != a.name)
+                            .toList();
                       });
                     },
                   ),
@@ -425,7 +428,8 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
               onPressed: () {
                 _titleController.text = note?.title ?? '';
                 _contentController.text = note?.contentDeltaJson ?? '';
-                _draftAttachments = List<NoteAttachment>.from(note?.attachments ?? []);
+                _draftAttachments =
+                    List<NoteAttachment>.from(note?.attachments ?? []);
                 setState(() => _isEditing = false);
               },
             ),
@@ -441,10 +445,11 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
           ? const Center(child: CircularProgressIndicator())
           : note == null
               ? const SizedBox.shrink()
-              : SafeArea(
-                  child: Stack(
-                    children: [
-                      Padding(
+              : Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    SafeArea(
+                      child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -480,7 +485,8 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                                       const SizedBox(height: 2),
                                       Text(
                                         note.title,
-                                        style: Theme.of(context).textTheme.headlineSmall,
+                                        style:
+                                            Theme.of(context).textTheme.headlineSmall,
                                       ),
                                       const SizedBox(height: 8),
                                       if (note.isLocked)
@@ -492,7 +498,8 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                                       if (note.contentDeltaJson.trim().isNotEmpty)
                                         Text(
                                           note.contentDeltaJson,
-                                          style: Theme.of(context).textTheme.bodyLarge,
+                                          style:
+                                              Theme.of(context).textTheme.bodyLarge,
                                         ),
                                       const SizedBox(height: 16),
                                       _buildAttachmentsSection(note),
@@ -505,40 +512,41 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                           ],
                         ),
                       ),
-                      if (_pinModalOpen)
-                        Positioned.fill(
-                          child: PinLockModal(
-                            isOpen: true,
-                            mode: note.isLocked
-                                ? PinLockMode.verify
-                                : PinLockMode.set,
-                            correctPin: note.pin,
-                            onSetSuccess: (pin) async {
-                              await _applyLockFromPin(pin);
-                              setState(() => _pinModalOpen = false);
-                            },
-                            onVerified: () async {
-                              await _unlockWithPinSuccess();
-                              setState(() => _pinModalOpen = false);
-                            },
-                            onClosed: () {
-                              setState(() => _pinModalOpen = false);
-                            },
-                          ),
+                    ),
+                    if (_pinModalOpen)
+                      Positioned.fill(
+                        child: PinLockModal(
+                          isOpen: true,
+                          mode: note.isLocked
+                              ? PinLockMode.verify
+                              : PinLockMode.set,
+                          correctPin: note.pin,
+                          onSetSuccess: (pin) async {
+                            await _applyLockFromPin(pin);
+                            setState(() => _pinModalOpen = false);
+                          },
+                          onVerified: () async {
+                            await _unlockWithPinSuccess();
+                            setState(() => _pinModalOpen = false);
+                          },
+                          onClosed: () {
+                            setState(() => _pinModalOpen = false);
+                          },
                         ),
-                      if (_scheduleModalOpen)
-                        Positioned.fill(
-                          child: ScheduleDeleteModal(
-                            isOpen: true,
-                            currentScheduleIso: note.scheduledDeleteIso,
-                            onSchedule: (when) async {
-                              await _setSchedule(when);
-                            },
-                            onClose: () => setState(() => _scheduleModalOpen = false),
-                          ),
+                      ),
+                    if (_scheduleModalOpen)
+                      Positioned.fill(
+                        child: ScheduleDeleteModal(
+                          isOpen: true,
+                          currentScheduleIso: note.scheduledDeleteIso,
+                          onSchedule: (when) async {
+                            await _setSchedule(when);
+                          },
+                          onClose: () =>
+                              setState(() => _scheduleModalOpen = false),
                         ),
-                    ],
-                  ),
+                      ),
+                  ],
                 ),
     );
   }

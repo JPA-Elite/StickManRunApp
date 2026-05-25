@@ -10,16 +10,21 @@ import '../widgets/tab_navigation.dart';
 
 class NotesListScreen extends StatefulWidget {
   final NotesRepository notesRepository;
-  final VoidCallback onCreate;
-  final void Function(String id) onOpenNote;
   final ThemeController themeController;
+
+  // Backward-compatible constructor params.
+  // Some stale bundles/hot-reload paths may still try to create the screen
+  // with these named parameters. Making them optional prevents
+  // NoSuchMethodError at runtime.
+  final VoidCallback? onCreate;
+  final void Function(String id)? onOpenNote;
 
   const NotesListScreen({
     super.key,
     required this.notesRepository,
-    required this.onCreate,
-    required this.onOpenNote,
     required this.themeController,
+    this.onCreate,
+    this.onOpenNote,
   });
 
   @override
@@ -63,6 +68,7 @@ class _NotesListScreenState extends State<NotesListScreen> {
   Future<void> _loadNotes() async {
     setState(() => _loading = true);
     final notes = await widget.notesRepository.getNotes();
+    if (!mounted) return;
     setState(() {
       _notes = notes;
       _loading = false;
@@ -113,15 +119,17 @@ class _NotesListScreenState extends State<NotesListScreen> {
     return '${local.month}/${local.day}';
   }
 
-  Future<void> _handleNoteTap(Note note) async {
-    if (note.isLocked) {
-      setState(() {
-        _selectedLockedNoteId = note.id;
-        _pinModalOpen = true;
-      });
-      return;
-    }
-    widget.onOpenNote(note.id);
+  Future<void> _openNoteAndRefresh(String id) async {
+    await Navigator.of(context).pushNamed('/note', arguments: id);
+    if (!mounted) return;
+    await _loadNotes();
+  }
+
+  void _createAndRefresh() {
+    Navigator.of(context).pushNamed('/create').then((_) async {
+      if (!mounted) return;
+      await _loadNotes();
+    });
   }
 
   @override
@@ -136,7 +144,7 @@ class _NotesListScreenState extends State<NotesListScreen> {
         actions: [
           IconButton(
             tooltip: 'Create',
-            onPressed: widget.onCreate,
+            onPressed: _createAndRefresh,
             icon: const Icon(Icons.add),
           ),
         ],
@@ -163,153 +171,171 @@ class _NotesListScreenState extends State<NotesListScreen> {
                   ? const Center(child: CircularProgressIndicator())
                   : _filteredNotes.isEmpty
                       ? _EmptyState(searching: _searchQuery.isNotEmpty)
-                      : ListView.separated(
-                          itemCount: _filteredNotes.length,
-                          separatorBuilder: (_, __) =>
-                              const Divider(height: 0),
-                          itemBuilder: (context, index) {
-                            final note = _filteredNotes[index];
-                            return InkWell(
-                              onTap: () => _handleNoteTap(note),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Row(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: Text(
-                                                  note.title,
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: theme
-                                                      .textTheme
-                                                      .titleMedium
-                                                      ?.copyWith(
-                                                    fontWeight: FontWeight.w700,
-                                                  ),
-                                                ),
-                                              ),
-                                              if (note.isLocked)
-                                                const Padding(
-                                                  padding: EdgeInsets.only(
-                                                      left: 8),
-                                                  child: Icon(Icons.lock,
-                                                      size: 18),
-                                                ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 6),
-                                          Text(
-                                            note.isLocked
-                                                ? '🔒 Locked content'
-                                                : _contentToSearchText(
-                                                        note.contentDeltaJson)
-                                                    .trim(),
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: theme
-                                                .textTheme.bodySmall
-                                                ?.copyWith(
-                                              color: theme
-                                                  .colorScheme.onSurfaceVariant,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 10),
-                                          Row(
-                                            children: [
-                                              Icon(
-                                                Icons.access_time,
-                                                size: 14,
-                                                color: theme
-                                                    .colorScheme
-                                                    .onSurfaceVariant,
-                                              ),
-                                              const SizedBox(width: 6),
-                                              Text(
-                                                _formatRelativeUpdated(
-                                                    note.updatedAt),
-                                                style: theme
-                                                    .textTheme.bodySmall
-                                                    ?.copyWith(
-                                                  color: theme.colorScheme
-                                                      .onSurfaceVariant,
-                                                ),
-                                              ),
-                                              const Spacer(),
-                                              if (note.attachments.isNotEmpty)
-                                                Text(
-                                                  '📎 ${note.attachments.length}',
-                                                  style: theme
-                                                      .textTheme.bodySmall,
-                                                ),
-                                              if (note.hasScheduledDelete)
-                                                Padding(
-                                                  padding: const EdgeInsets.only(
-                                                      left: 10),
+                      : RefreshIndicator(
+                          onRefresh: _loadNotes,
+                          child: ListView.separated(
+                            itemCount: _filteredNotes.length,
+                            separatorBuilder: (_, __) =>
+                                const Divider(height: 0),
+                            itemBuilder: (context, index) {
+                              final note = _filteredNotes[index];
+
+                              return InkWell(
+                                onTap: () async {
+                                  if (note.isLocked) {
+                                    setState(() {
+                                      _selectedLockedNoteId = note.id;
+                                      _pinModalOpen = true;
+                                    });
+                                    return;
+                                  }
+
+                                  await _openNoteAndRefresh(note.id);
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Expanded(
                                                   child: Text(
-                                                    '🕐 Scheduled',
+                                                    note.title,
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
                                                     style: theme
-                                                        .textTheme.bodySmall
+                                                        .textTheme
+                                                        .titleMedium
                                                         ?.copyWith(
-                                                      color: Colors.orange,
+                                                      fontWeight:
+                                                          FontWeight.w700,
                                                     ),
                                                   ),
                                                 ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    IconButton(
-                                      tooltip: 'Delete',
-                                      onPressed: () async {
-                                        final confirmed =
-                                            await showDialog<bool>(
-                                          context: context,
-                                          builder: (_) => AlertDialog(
-                                            title: const Text('Delete Note?'),
-                                            content: const Text(
-                                              'Are you sure you want to delete this note?',
+                                                if (note.isLocked)
+                                                  const Padding(
+                                                    padding: EdgeInsets.only(
+                                                        left: 8),
+                                                    child: Icon(Icons.lock,
+                                                        size: 18),
+                                                  ),
+                                              ],
                                             ),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () =>
-                                                    Navigator.of(context).pop(false),
-                                                child: const Text('Cancel'),
+                                            const SizedBox(height: 6),
+                                            Text(
+                                              note.isLocked
+                                                  ? '🔒 Locked content'
+                                                  : _contentToSearchText(
+                                                          note.contentDeltaJson)
+                                                      .trim(),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: theme.textTheme.bodySmall
+                                                  ?.copyWith(
+                                                color: theme
+                                                    .colorScheme.onSurfaceVariant,
                                               ),
-                                              TextButton(
-                                                onPressed: () =>
-                                                    Navigator.of(context).pop(true),
-                                                child: const Text(
-                                                  'Delete',
-                                                  style: TextStyle(
-                                                      color: Colors.red),
+                                            ),
+                                            const SizedBox(height: 10),
+                                            Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.access_time,
+                                                  size: 14,
+                                                  color: theme.colorScheme
+                                                      .onSurfaceVariant,
                                                 ),
+                                                const SizedBox(width: 6),
+                                                Text(
+                                                  _formatRelativeUpdated(
+                                                      note.updatedAt),
+                                                  style: theme.textTheme
+                                                      .bodySmall
+                                                      ?.copyWith(
+                                                    color: theme.colorScheme
+                                                        .onSurfaceVariant,
+                                                  ),
+                                                ),
+                                                const Spacer(),
+                                                if (note.attachments
+                                                    .isNotEmpty)
+                                                  Text(
+                                                    '📎 ${note.attachments.length}',
+                                                    style: theme.textTheme
+                                                        .bodySmall,
+                                                  ),
+                                                if (note.hasScheduledDelete)
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                      left: 10,
+                                                    ),
+                                                    child: Text(
+                                                      '🕐 Scheduled',
+                                                      style: theme
+                                                          .textTheme.bodySmall
+                                                          ?.copyWith(
+                                                        color: Colors.orange,
+                                                      ),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      IconButton(
+                                        tooltip: 'Delete',
+                                        onPressed: () async {
+                                          final confirmed = await showDialog<bool>(
+                                            context: context,
+                                            builder: (_) => AlertDialog(
+                                              title: const Text('Delete Note?'),
+                                              content: const Text(
+                                                'Are you sure you want to delete this note?',
                                               ),
-                                            ],
-                                          ),
-                                        );
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () => Navigator.of(
+                                                          context)
+                                                      .pop(false),
+                                                  child: const Text('Cancel'),
+                                                ),
+                                                TextButton(
+                                                  onPressed: () => Navigator.of(
+                                                          context)
+                                                      .pop(true),
+                                                  child: const Text(
+                                                    'Delete',
+                                                    style: TextStyle(
+                                                      color: Colors.red,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
 
-                                        if (confirmed == true) {
-                                          await _deleteNote(note.id);
-                                        }
-                                      },
-                                      icon: const Icon(Icons.delete_outline),
-                                    ),
-                                  ],
+                                          if (confirmed == true) {
+                                            await _deleteNote(note.id);
+                                          }
+                                        },
+                                        icon: const Icon(Icons.delete_outline),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            );
-                          },
+                              );
+                            },
+                          ),
                         ),
             ),
           ],
@@ -318,9 +344,11 @@ class _NotesListScreenState extends State<NotesListScreen> {
       bottomNavigationBar: SafeArea(
         child: TabNavigation(
           active: TabRoute.notes,
-          onNotes: () => Navigator.of(context).pushNamed('/notes'),
-          onCreate: widget.onCreate,
-          onSettings: () => Navigator.of(context).pushNamed('/settings'),
+          onNotes: () {},
+          onCreate: _createAndRefresh,
+          onSettings: () {
+            Navigator.of(context).pushNamed('/settings');
+          },
         ),
       ),
       bottomSheet: _pinModalOpen
@@ -340,7 +368,15 @@ class _NotesListScreenState extends State<NotesListScreen> {
                     _pinModalOpen = false;
                     _selectedLockedNoteId = null;
                   });
-                  if (id != null) widget.onOpenNote(id);
+
+                  if (id == null) return;
+
+                  Navigator.of(context)
+                      .pushNamed('/note', arguments: id)
+                      .then((_) async {
+                    if (!mounted) return;
+                    await _loadNotes();
+                  });
                 },
                 onClosed: () {
                   setState(() {
@@ -371,9 +407,7 @@ class _EmptyState extends StatelessWidget {
             const Icon(Icons.edit_outlined, size: 48),
             const SizedBox(height: 12),
             Text(
-              searching
-                  ? 'No notes found'
-                  : 'No notes yet. Create your first note!',
+              searching ? 'No notes found' : 'No notes yet. Create your first note!',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyLarge,
             ),

@@ -63,35 +63,61 @@ class _NotebookAppState extends State<NotebookApp> {
           theme: _themeController.lightTheme,
           darkTheme: _themeController.darkTheme,
           initialRoute: '/notes',
-          routes: {
-            '/notes': (context) => NotesListScreen(
-                  notesRepository: _notesRepository,
-                  onCreate: () => Navigator.of(context).pushNamed('/create'),
-                  onOpenNote: (id) =>
-                      Navigator.of(context).pushNamed('/note', arguments: id),
-                  themeController: _themeController,
-                ),
-            '/create': (context) => CreateNoteScreen(
-                  notesRepository: _notesRepository,
-                  onBackToNotes: () => Navigator.of(context).pop(),
-                ),
-            '/settings': (context) => SettingsScreen(
-                  notesRepository: _notesRepository,
-                  themeController: _themeController,
-                ),
-            '/privacy': (context) => const PrivacyPolicyScreen(),
-          },
           onGenerateRoute: (settings) {
-            if (settings.name == '/note') {
-              final id = settings.arguments as String;
-              return MaterialPageRoute(
-                builder: (_) => NoteDetailScreen(
+            // Keep tab switches (notes/create/settings/privacy) instant so
+            // the fade animation doesn't affect the bottom navigation.
+            if (settings.name == '/notes') {
+              return PageRouteBuilder(
+                transitionDuration: Duration.zero,
+                reverseTransitionDuration: Duration.zero,
+                pageBuilder: (routeContext, _, __) => NotesListScreen(
                   notesRepository: _notesRepository,
-                  noteId: id,
-                  onBack: () => Navigator.of(context).pop(),
+                  themeController: _themeController,
                 ),
               );
             }
+
+            if (settings.name == '/create') {
+              return PageRouteBuilder(
+                transitionDuration: Duration.zero,
+                reverseTransitionDuration: Duration.zero,
+                pageBuilder: (routeContext, _, __) => CreateNoteScreen(
+                  notesRepository: _notesRepository,
+                  onBackToNotes: () => Navigator.of(routeContext).pop(),
+                ),
+              );
+            }
+
+            if (settings.name == '/settings') {
+              return PageRouteBuilder(
+                transitionDuration: Duration.zero,
+                reverseTransitionDuration: Duration.zero,
+                pageBuilder: (context, _, __) => SettingsScreen(
+                  notesRepository: _notesRepository,
+                  themeController: _themeController,
+                ),
+              );
+            }
+
+            if (settings.name == '/privacy') {
+              return PageRouteBuilder(
+                transitionDuration: Duration.zero,
+                reverseTransitionDuration: Duration.zero,
+                pageBuilder: (context, _, __) => const PrivacyPolicyScreen(),
+              );
+            }
+
+            if (settings.name == '/note') {
+              final id = settings.arguments as String;
+              return MaterialPageRoute(
+                builder: (routeContext) => NoteDetailScreen(
+                  notesRepository: _notesRepository,
+                  noteId: id,
+                  onBack: () => Navigator.of(routeContext).pop(),
+                ),
+              );
+            }
+
             return null;
           },
         );
