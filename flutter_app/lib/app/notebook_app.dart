@@ -16,6 +16,7 @@ import '../screens/settings_screen.dart';
 import '../screens/privacy_policy_screen.dart';
 import '../screens/terms_of_use_screen.dart';
 import '../screens/reminders_screen.dart';
+import '../screens/faqs_screen.dart';
 
 class NotebookApp extends StatefulWidget {
   const NotebookApp({super.key});
@@ -164,6 +165,14 @@ class _NotebookAppState extends State<NotebookApp> {
                 pageBuilder: (context, _, __) => RemindersScreen(
                   remindersRepository: _remindersRepository,
                 ),
+              );
+            }
+
+            if (settings.name == '/faqs') {
+              return PageRouteBuilder(
+                transitionDuration: Duration.zero,
+                reverseTransitionDuration: Duration.zero,
+                pageBuilder: (context, _, __) => const FaqsScreen(),
               );
             }
 
