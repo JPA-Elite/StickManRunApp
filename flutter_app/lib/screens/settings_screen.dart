@@ -23,6 +23,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _busy = false;
+  bool _themeBusy = false;
 
   Future<void> _exportNotes() async {
     setState(() => _busy = true);
@@ -102,7 +103,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: SwitchListTile(
                 title: const Text('Dark Mode'),
                 value: darkMode,
-                onChanged: (_) => widget.themeController.toggleDarkMode(),
+                secondary: _themeBusy
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : null,
+                onChanged: _themeBusy
+                    ? null
+                    : (value) async {
+                        setState(() => _themeBusy = true);
+                        try {
+                          await widget.themeController.toggleDarkMode();
+                        } finally {
+                          if (mounted) setState(() => _themeBusy = false);
+                        }
+                      },
               ),
             ),
             const SizedBox(height: 12),

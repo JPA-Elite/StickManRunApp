@@ -30,9 +30,9 @@ class ThemeController extends ChangeNotifier {
         scaffoldBackgroundColor: const Color(0xFF111827), // gray-900
       );
 
-  void toggleDarkMode() {
+  Future<void> toggleDarkMode() async {
     _darkMode = !_darkMode;
-    prefs.setBool(_darkModeKey, _darkMode);
+    await prefs.setBool(_darkModeKey, _darkMode);
     notifyListeners();
   }
 }
