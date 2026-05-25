@@ -368,7 +368,6 @@ class _NotesListScreenState extends State<NotesListScreen> {
         child: TabNavigation(
           active: TabRoute.notes,
           onNotes: () {},
-          onCreate: _createAndRefresh,
           onReminders: () => Navigator.of(context).pushNamed('/reminders'),
           onSettings: () {
             Navigator.of(context).pushNamed('/settings');

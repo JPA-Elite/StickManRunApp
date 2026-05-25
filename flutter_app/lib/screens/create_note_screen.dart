@@ -7,7 +7,6 @@ import 'package:flutter_quill/flutter_quill.dart';
 import '../data/notes_repository.dart';
 import '../models/note.dart';
 import '../utils/quill_delta_utils.dart';
-import '../widgets/tab_navigation.dart';
 
 class CreateNoteScreen extends StatefulWidget {
   final NotesRepository notesRepository;
@@ -231,15 +230,6 @@ class _CreateNoteScreenState extends State<CreateNoteScreen> {
               ),
             ),
           ],
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        child: TabNavigation(
-          active: TabRoute.create,
-          onNotes: () => Navigator.of(context).pushNamed('/notes'),
-          onCreate: () => Navigator.of(context).pushNamed('/create'),
-          onReminders: () => Navigator.of(context).pushNamed('/reminders'),
-          onSettings: () => Navigator.of(context).pushNamed('/settings'),
         ),
       ),
     );
