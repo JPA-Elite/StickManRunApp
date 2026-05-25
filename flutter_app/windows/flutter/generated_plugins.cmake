@@ -3,9 +3,11 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
-  irondash_engine_context
+  file_selector_windows
+  local_auth_windows
+  permission_handler_windows
   share_plus
-  super_native_extensions
+  speech_to_text_windows
   url_launcher_windows
 )
 

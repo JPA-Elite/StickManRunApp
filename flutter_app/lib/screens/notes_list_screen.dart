@@ -125,6 +125,28 @@ class _NotesListScreenState extends State<NotesListScreen> {
     await _loadNotes();
   }
 
+  Future<void> _unlockNoteFromList(String id) async {
+    final existing = _notes.where((n) => n.id == id).cast<Note?>().firstOrNull;
+    if (existing == null) return;
+
+    final now = DateTime.now();
+
+    final updated = Note(
+      id: existing.id,
+      title: existing.title,
+      contentDeltaJson: existing.contentDeltaJson,
+      createdAt: existing.createdAt,
+      updatedAt: now,
+      attachments: List<NoteAttachment>.from(existing.attachments),
+      isLocked: false,
+      pin: null,
+      scheduledDeleteIso: existing.scheduledDeleteIso,
+    );
+
+    await widget.notesRepository.updateNote(updated);
+    await _loadNotes();
+  }
+
   void _createAndRefresh() {
     Navigator.of(context).pushNamed('/create').then((_) async {
       if (!mounted) return;
@@ -135,6 +157,7 @@ class _NotesListScreenState extends State<NotesListScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final lockedId = _selectedLockedNoteId;
 
     return Scaffold(
       appBar: AppBar(
@@ -362,7 +385,7 @@ class _NotesListScreenState extends State<NotesListScreen> {
                     .cast<Note?>()
                     .firstOrNull
                     ?.pin,
-                onVerified: () {
+                onVerified: () async {
                   final id = _selectedLockedNoteId;
                   setState(() {
                     _pinModalOpen = false;
@@ -371,12 +394,13 @@ class _NotesListScreenState extends State<NotesListScreen> {
 
                   if (id == null) return;
 
-                  Navigator.of(context)
-                      .pushNamed('/note', arguments: id)
-                      .then((_) async {
-                    if (!mounted) return;
-                    await _loadNotes();
-                  });
+                  // Persist unlock so the note is no longer marked locked.
+                  await _unlockNoteFromList(id);
+
+                  if (!mounted) return;
+
+                  // Navigate using the same path as unlocked notes.
+                  await _openNoteAndRefresh(id);
                 },
                 onClosed: () {
                   setState(() {

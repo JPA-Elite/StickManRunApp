@@ -15,8 +15,8 @@ dependencies:
   # Notes persistence + settings
   shared_preferences: ^2.3.2
 
-  # Rich text editing
-  flutter_quill: ^9.1.2
+  # Rich text editing (needs to be compatible with current Flutter TextInputClient API)
+  flutter_quill: ^11.5.1
 
   # Attachments (pick files, open them)
   file_picker: ^8.1.6
@@ -28,6 +28,13 @@ dependencies:
 
   # Helpers
   intl: ^0.20.2
+
+  # Biometric auth (unlock locked notes)
+  local_auth: ^2.3.0
+
+  # Voice-to-notes (speech recognition)
+  speech_to_text: ^7.0.0
+  permission_handler: ^11.3.1
 
 dev_dependencies:
   flutter_test:

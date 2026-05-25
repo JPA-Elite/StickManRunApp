@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_quill/flutter_quill.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/notes_repository.dart';
@@ -62,6 +64,12 @@ class _NotebookAppState extends State<NotebookApp> {
           themeMode: _themeController.themeMode,
           theme: _themeController.lightTheme,
           darkTheme: _themeController.darkTheme,
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            FlutterQuillLocalizations.delegate,
+          ],
           initialRoute: '/notes',
           onGenerateRoute: (settings) {
             // Keep tab switches (notes/create/settings/privacy) instant so

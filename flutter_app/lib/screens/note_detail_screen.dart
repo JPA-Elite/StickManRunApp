@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../data/notes_repository.dart';
 import '../models/note.dart';
+import '../state/unlocked_notes_session.dart';
 import '../widgets/pin_lock_modal.dart';
 import '../widgets/schedule_delete_modal.dart';
 
@@ -70,6 +71,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       _titleController.text = found.title;
       _contentController.text = found.contentDeltaJson;
       _draftAttachments = List<NoteAttachment>.from(found.attachments);
+      _pinModalOpen = found.isLocked;
       _loading = false;
     });
   }

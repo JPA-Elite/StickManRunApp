@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:local_auth/local_auth.dart';
 
 enum PinLockMode { set, verify }
 
@@ -45,11 +46,35 @@ class _PinLockModalState extends State<PinLockModal> {
 
   String? _errorText;
 
+  bool _biometricsAvailable = false;
+  bool _biometricInFlight = false;
+
   @override
   void initState() {
     super.initState();
+    _checkBiometrics();
     if (_cooldownUntil != null) {
       _startCooldownTimer();
+    }
+  }
+
+  Future<void> _checkBiometrics() async {
+    // Only relevant for verify mode.
+    if (widget.mode != PinLockMode.verify || widget.onVerified == null) return;
+
+    try {
+      final auth = LocalAuthentication();
+      final supported = await auth.isDeviceSupported();
+      if (!supported) return;
+
+      final biometrics = await auth.getAvailableBiometrics();
+      if (!mounted) return;
+
+      setState(() {
+        _biometricsAvailable = biometrics.isNotEmpty;
+      });
+    } catch (_) {
+      // Ignore.
     }
   }
 
@@ -85,7 +110,59 @@ class _PinLockModalState extends State<PinLockModal> {
     _attempts = 0;
     _cooldownUntil = null;
     _errorText = null;
+    _biometricInFlight = false;
     widget.onClosed?.call();
+  }
+
+  Future<void> _authenticateWithBiometrics() async {
+    if (widget.mode != PinLockMode.verify || widget.onVerified == null) return;
+    if (_biometricInFlight) return;
+
+    setState(() {
+      _biometricInFlight = true;
+      _errorText = null;
+    });
+
+    try {
+      final auth = LocalAuthentication();
+
+      final supported = await auth.isDeviceSupported();
+      if (!supported) {
+        if (mounted) {
+          setState(() {
+            _biometricInFlight = false;
+            _errorText = 'Biometrics not supported on this device';
+          });
+        }
+        return;
+      }
+
+      final result = await auth.authenticate(
+        localizedReason: 'Unlock with biometrics',
+        options: const AuthenticationOptions(
+          biometricOnly: true,
+          useErrorDialogs: true,
+        ),
+      );
+
+      if (!mounted) return;
+
+      if (result) {
+        widget.onVerified?.call();
+        _close();
+      } else {
+        setState(() {
+          _biometricInFlight = false;
+          _errorText = 'Biometric authentication failed';
+        });
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _biometricInFlight = false;
+        _errorText = 'Biometric authentication unavailable';
+      });
+    }
   }
 
   void _handleSubmit() {
@@ -112,8 +189,8 @@ class _PinLockModalState extends State<PinLockModal> {
     if (widget.mode == PinLockMode.verify) {
       final correct = widget.correctPin ?? '';
       if (pin == correct) {
-        _close();
         widget.onVerified?.call();
+        _close();
       } else {
         final newAttempts = _attempts + 1;
         if (newAttempts >= 5) {
@@ -188,8 +265,7 @@ class _PinLockModalState extends State<PinLockModal> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(title,
-                        style: Theme.of(context).textTheme.titleLarge),
+                    Text(title, style: Theme.of(context).textTheme.titleLarge),
                     const SizedBox(height: 6),
                     Text(
                       subtitle,
@@ -219,6 +295,24 @@ class _PinLockModalState extends State<PinLockModal> {
                       onSubmitted: (_) => _handleSubmit(),
                     ),
 
+                    if (_biometricsAvailable &&
+                        widget.mode == PinLockMode.verify &&
+                        !_isLocked) ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _biometricInFlight
+                              ? null
+                              : _authenticateWithBiometrics,
+                          icon: const Icon(Icons.fingerprint),
+                          label: _biometricInFlight
+                              ? const Text('Authenticating...')
+                              : const Text('Use Biometric'),
+                        ),
+                      ),
+                    ],
+
                     if (widget.mode == PinLockMode.set) ...[
                       const SizedBox(height: 12),
                       TextField(
@@ -228,7 +322,7 @@ class _PinLockModalState extends State<PinLockModal> {
                         keyboardType: TextInputType.number,
                         maxLength: 10,
                         textAlign: TextAlign.center,
-                        decoration: InputDecoration(
+                        decoration: const InputDecoration(
                           hintText: 'Confirm PIN',
                           errorText: null,
                         ),
@@ -243,16 +337,17 @@ class _PinLockModalState extends State<PinLockModal> {
                       ),
                     ],
 
-                    if (widget.mode == PinLockMode.verify && _attempts > 0 && !_isLocked)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          '${5 - _attempts} attempts remaining',
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.secondary,
-                          ),
+                    if (widget.mode == PinLockMode.verify &&
+                        _attempts > 0 &&
+                        !_isLocked) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        '${5 - _attempts} attempts remaining',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.secondary,
                         ),
                       ),
+                    ],
 
                     if (_isLocked)
                       Padding(
@@ -270,7 +365,9 @@ class _PinLockModalState extends State<PinLockModal> {
                               '$_remainingCooldownSeconds s',
                               style: TextStyle(
                                 color: Theme.of(context).colorScheme.error,
-                                fontFeatures: const [FontFeature.tabularFigures()],
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures()
+                                ],
                               ),
                             ),
                           ],
@@ -290,11 +387,12 @@ class _PinLockModalState extends State<PinLockModal> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: FilledButton(
-                            onPressed:
-                                _isLocked ? null : _handleSubmit,
-                            child: Text(widget.mode == PinLockMode.set
-                                ? 'Set Lock'
-                                : 'Unlock'),
+                            onPressed: _isLocked ? null : _handleSubmit,
+                            child: Text(
+                              widget.mode == PinLockMode.set
+                                  ? 'Set Lock'
+                                  : 'Unlock',
+                            ),
                           ),
                         ),
                       ],

@@ -1,4 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- local_auth (biometric) permissions/features -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <uses-permission android:name="android.permission.USE_FINGERPRINT" />
+    <uses-feature android:name="android.hardware.biometrics" android:required="false" />
+    <uses-feature android:name="android.hardware.fingerprint" android:required="false" />
     <application
         android:label="flutter_app"
         android:name="${applicationName}"

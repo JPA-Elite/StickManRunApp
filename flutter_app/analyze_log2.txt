@@ -1,0 +1,23 @@
+Analyzing flutter_app...                                        
+
+warning - The value of the local variable 'themeMode' isn't used. Try removing the variable or using it - lib\app\notebook_app.dart:55:11 - unused_local_variable
+   info - Unnecessary use of multiple underscores. Try using '_' - lib\app\notebook_app.dart:73:48 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores. Try using '_' - lib\app\notebook_app.dart:84:48 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores. Try using '_' - lib\app\notebook_app.dart:95:43 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores. Try using '_' - lib\app\notebook_app.dart:106:43 - unnecessary_underscores
+  error - The method 'QuillSimpleToolbarConfigurations' isn't defined for the type '_CreateNoteScreenState'. Try correcting the name to the name of an existing method, or defining a method named 'QuillSimpleToolbarConfigurations' - lib\screens\create_note_screen.dart:227:35 - undefined_method
+  error - The method 'QuillEditorConfigurations' isn't defined for the type '_CreateNoteScreenState'. Try correcting the name to the name of an existing method, or defining a method named 'QuillEditorConfigurations' - lib\screens\create_note_screen.dart:231:34 - undefined_method
+  error - The named parameter 'controller' is required, but there's no corresponding argument. Try adding the required argument - lib\screens\create_note_screen.dart:332:21 - missing_required_argument
+  error - The named parameter 'configurations' isn't defined. Try correcting the name to an existing named parameter's name, or defining a named parameter with the name 'configurations' - lib\screens\create_note_screen.dart:332:40 - undefined_named_parameter
+  error - The named parameter 'controller' is required, but there's no corresponding argument. Try adding the required argument - lib\screens\create_note_screen.dart:335:30 - missing_required_argument
+  error - The named parameter 'configurations' isn't defined. Try correcting the name to an existing named parameter's name, or defining a named parameter with the name 'configurations' - lib\screens\create_note_screen.dart:335:48 - undefined_named_parameter
+   info - Unnecessary use of multiple underscores. Try using '_' - lib\screens\notes_list_screen.dart:178:51 - unnecessary_underscores
+warning - Unused import: '../data/notes_repository.dart'. Try removing the import directive - lib\screens\privacy_policy_screen.dart:3:8 - unused_import
+warning - Unused import: '../state/theme_controller.dart'. Try removing the import directive - lib\screens\privacy_policy_screen.dart:4:8 - unused_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement - lib\widgets\confirm_modal.dart:38:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement - lib\widgets\pin_lock_modal.dart:254:50 - deprecated_member_use
+   info - Unnecessary braces in a string interpolation. Try removing the braces - lib\widgets\schedule_delete_modal.dart:78:43 - unnecessary_brace_in_string_interps
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement - lib\widgets\schedule_delete_modal.dart:110:50 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement - lib\widgets\schedule_delete_modal.dart:149:48 - deprecated_member_use
+
+19 issues found. (ran in 93.3s)
