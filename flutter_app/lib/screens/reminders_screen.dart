@@ -4,6 +4,7 @@ import 'package:timezone/timezone.dart' as tz;
 import '../data/reminders_repository.dart';
 import '../models/reminder.dart';
 import '../services/local_notifications_service.dart';
+import '../widgets/tab_navigation.dart';
 import '../widgets/top_toast.dart';
 
 class RemindersScreen extends StatefulWidget {
@@ -175,9 +176,14 @@ class _RemindersScreenState extends State<RemindersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text('Reminders'),
+        backgroundColor: theme.colorScheme.primary,
+        foregroundColor: theme.colorScheme.onPrimary,
       ),
       body: SafeArea(
         child: ListView(
@@ -265,6 +271,14 @@ class _RemindersScreenState extends State<RemindersScreen> {
                   ),
                 ),
           ],
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: TabNavigation(
+          active: TabRoute.reminders,
+          onNotes: () => Navigator.of(context).pushNamed('/notes'),
+          onReminders: () {},
+          onSettings: () => Navigator.of(context).pushNamed('/settings'),
         ),
       ),
     );

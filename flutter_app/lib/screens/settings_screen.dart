@@ -92,7 +92,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text('Settings'),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
       ),
       body: SafeArea(
         child: ListView(
