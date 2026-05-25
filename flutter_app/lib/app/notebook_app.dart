@@ -3,14 +3,19 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:timezone/timezone.dart' as tz;
+
 import '../data/notes_repository.dart';
+import '../data/reminders_repository.dart';
 import '../state/theme_controller.dart';
+import '../services/local_notifications_service.dart';
 import '../screens/notes_list_screen.dart';
 import '../screens/create_note_screen.dart';
 import '../screens/note_detail_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/privacy_policy_screen.dart';
 import '../screens/terms_of_use_screen.dart';
+import '../screens/reminders_screen.dart';
 
 class NotebookApp extends StatefulWidget {
   const NotebookApp({super.key});
@@ -22,6 +27,7 @@ class NotebookApp extends StatefulWidget {
 class _NotebookAppState extends State<NotebookApp> {
   bool _bootstrapped = false;
   late final NotesRepository _notesRepository;
+  late final RemindersRepository _remindersRepository;
   late final ThemeController _themeController;
 
   @override
@@ -33,10 +39,37 @@ class _NotebookAppState extends State<NotebookApp> {
   Future<void> _bootstrap() async {
     final prefs = await SharedPreferences.getInstance();
     _notesRepository = NotesRepository(prefs: prefs);
+    _remindersRepository = RemindersRepository(prefs: prefs);
     _themeController = ThemeController(prefs: prefs);
 
     // Purge expired scheduled deletes on startup.
     await _notesRepository.purgeExpiredScheduledDeletes();
+
+    // Initialize reminders notifications + reschedule from local storage.
+    final notifications = LocalNotificationsService();
+    await notifications.init();
+    await notifications.requestPermissions();
+
+    await _remindersRepository.purgeExpiredReminders();
+
+    final now = DateTime.now();
+    final reminders = await _remindersRepository.getReminders();
+    for (final r in reminders) {
+      if (r.scheduledAt.isBefore(now)) continue;
+
+      final reminderId = int.tryParse(r.id);
+      if (reminderId == null) continue;
+
+      final scheduled = tz.TZDateTime.from(r.scheduledAt, tz.local);
+
+      await notifications.scheduleOneShot(
+        id: reminderId,
+        title: r.title,
+        body: r.message.isEmpty ? 'Reminder' : r.message,
+        scheduledDate: scheduled,
+        payload: r.id,
+      );
+    }
 
     if (!mounted) return;
     setState(() {
@@ -121,6 +154,16 @@ class _NotebookAppState extends State<NotebookApp> {
                 transitionDuration: Duration.zero,
                 reverseTransitionDuration: Duration.zero,
                 pageBuilder: (context, _, __) => const TermsOfUseScreen(),
+              );
+            }
+
+            if (settings.name == '/reminders') {
+              return PageRouteBuilder(
+                transitionDuration: Duration.zero,
+                reverseTransitionDuration: Duration.zero,
+                pageBuilder: (context, _, __) => RemindersScreen(
+                  remindersRepository: _remindersRepository,
+                ),
               );
             }
 

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
-enum TabRoute { notes, create, settings }
+enum TabRoute { notes, create, reminders, settings }
 
 class TabNavigation extends StatelessWidget {
   final TabRoute active;
   final VoidCallback onNotes;
   final VoidCallback onCreate;
+  final VoidCallback onReminders;
   final VoidCallback onSettings;
 
   const TabNavigation({
@@ -13,6 +14,7 @@ class TabNavigation extends StatelessWidget {
     required this.active,
     required this.onNotes,
     required this.onCreate,
+    required this.onReminders,
     required this.onSettings,
   });
 
@@ -22,8 +24,10 @@ class TabNavigation extends StatelessWidget {
         return 0;
       case TabRoute.create:
         return 1;
-      case TabRoute.settings:
+      case TabRoute.reminders:
         return 2;
+      case TabRoute.settings:
+        return 3;
     }
   }
 
@@ -34,7 +38,8 @@ class TabNavigation extends StatelessWidget {
       onTap: (i) {
         if (i == 0) onNotes();
         if (i == 1) onCreate();
-        if (i == 2) onSettings();
+        if (i == 2) onReminders();
+        if (i == 3) onSettings();
       },
       items: const [
         BottomNavigationBarItem(
@@ -46,14 +51,18 @@ class TabNavigation extends StatelessWidget {
           label: 'Create',
         ),
         BottomNavigationBarItem(
+          icon: Icon(Icons.alarm),
+          label: 'Reminders',
+        ),
+        BottomNavigationBarItem(
           icon: Icon(Icons.settings),
           label: 'Settings',
         ),
       ],
       selectedItemColor: Theme.of(context).colorScheme.primary,
       unselectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
-      backgroundColor: Theme.of(context).bottomAppBarTheme.color ??
-          Theme.of(context).colorScheme.surface,
+      backgroundColor:
+          Theme.of(context).bottomAppBarTheme.color ?? Theme.of(context).colorScheme.surface,
       type: BottomNavigationBarType.fixed,
     );
   }

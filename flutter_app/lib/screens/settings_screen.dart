@@ -179,6 +179,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           active: TabRoute.settings,
           onNotes: () => Navigator.of(context).pushNamed('/notes'),
           onCreate: () => Navigator.of(context).pushNamed('/create'),
+          onReminders: () => Navigator.of(context).pushNamed('/reminders'),
           onSettings: () => Navigator.of(context).pushNamed('/settings'),
         ),
       ),
