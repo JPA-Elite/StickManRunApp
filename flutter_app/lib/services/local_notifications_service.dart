@@ -4,6 +4,13 @@ import 'package:timezone/timezone.dart' as tz;
 
 /// Central place to initialize and schedule local phone notifications (reminders).
 class LocalNotificationsService {
+  static const int _maxAndroidNotificationId = 0x7fffffff; // 2^31 - 1
+
+  static int _toAndroidNotificationId(int id) {
+    final mod = id % _maxAndroidNotificationId;
+    // Avoid 0 just in case; keeps ids valid and non-zero.
+    return mod == 0 ? 1 : mod;
+  }
   static final LocalNotificationsService _instance =
       LocalNotificationsService._internal();
 
@@ -71,11 +78,13 @@ class LocalNotificationsService {
   }) async {
     await init();
 
+    final safeId = _toAndroidNotificationId(id);
+
     // Ensure idempotency: cancel any existing notification with the same id.
-    await _plugin.cancel(id);
+    await _plugin.cancel(safeId);
 
     await _plugin.zonedSchedule(
-      id,
+      safeId,
       title,
       body,
       scheduledDate,
@@ -91,14 +100,15 @@ class LocalNotificationsService {
         iOS: DarwinNotificationDetails(),
       ),
       payload: payload,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
     );
   }
 
   Future<void> cancel(int id) async {
-    await _plugin.cancel(id);
+    final safeId = _toAndroidNotificationId(id);
+    await _plugin.cancel(safeId);
   }
 
   Future<void> cancelAll() async {
