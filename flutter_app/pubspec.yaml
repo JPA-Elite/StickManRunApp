@@ -29,7 +29,6 @@ dependencies:
   # Local notifications (Reminders)
   flutter_local_notifications: ^17.2.2
   timezone: ^0.9.4
-  flutter_native_timezone: ^2.0.0
 
   # Helpers
   intl: ^0.20.2

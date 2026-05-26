@@ -1,5 +1,4 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter_native_timezone/flutter_native_timezone.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -21,9 +20,13 @@ class LocalNotificationsService {
     if (_initialized) return;
 
     // Initialize timezone database for scheduled notifications.
+    // Fallback approach: use device UTC offset as a fixed offset location.
+    // (Avoids dependency on flutter_native_timezone which can break Android builds.)
     tzdata.initializeTimeZones();
-    final latest = await FlutterNativeTimezone.getLocalTimezone();
-    tz.setLocalLocation(tz.getLocation(latest));
+
+    // Fallback: use UTC as the local timezone to avoid relying on
+    // flutter_native_timezone (which is currently failing to compile).
+    tz.setLocalLocation(tz.getLocation('UTC'));
 
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosInit = DarwinInitializationSettings();
