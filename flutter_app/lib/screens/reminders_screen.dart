@@ -88,23 +88,17 @@ class _RemindersScreenState extends State<RemindersScreen> {
     final pickedAt = _pickedAt;
 
     if (title.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a title')),
-      );
+      TopToast.show(context, message: 'Please enter a title');
       return;
     }
 
     if (pickedAt == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please pick a date/time')),
-      );
+      TopToast.show(context, message: 'Please pick a date/time');
       return;
     }
 
     if (pickedAt.isBefore(DateTime.now())) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pick a future time')),
-      );
+      TopToast.show(context, message: 'Pick a future time');
       return;
     }
 
@@ -143,14 +137,10 @@ class _RemindersScreenState extends State<RemindersScreen> {
 
       await _load();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Reminder scheduled')),
-      );
+      TopToast.show(context, message: 'Reminder scheduled');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to schedule reminder: $e')),
-      );
+      TopToast.show(context, message: 'Failed to schedule reminder: $e');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -169,6 +159,11 @@ class _RemindersScreenState extends State<RemindersScreen> {
       }
 
       await _load();
+      if (!mounted) return;
+      TopToast.show(context, message: 'Reminder deleted');
+    } catch (e) {
+      if (!mounted) return;
+      TopToast.show(context, message: 'Failed to delete reminder: $e');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
