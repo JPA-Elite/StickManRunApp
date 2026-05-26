@@ -61,7 +61,7 @@ class _NotebookAppState extends State<NotebookApp> {
       final reminderId = int.tryParse(r.id);
       if (reminderId == null) continue;
 
-      final scheduled = tz.TZDateTime.from(r.scheduledAt, tz.local);
+      final scheduled = tz.TZDateTime.from(r.scheduledAt.toUtc(), tz.local);
 
       await notifications.scheduleOneShot(
         id: reminderId,

@@ -120,8 +120,8 @@ class _RemindersScreenState extends State<RemindersScreen> {
       // Schedule notification.
       final service = LocalNotificationsService();
       await service.init();
-      final location = tz.local;
-      final scheduled = tz.TZDateTime.from(pickedAt, location);
+      // LocalNotificationsService sets tz.local = UTC, so convert pickedAt to UTC.
+      final scheduled = tz.TZDateTime.from(pickedAt.toUtc(), tz.local);
 
       await service.scheduleOneShot(
         id: int.parse(reminderId),
