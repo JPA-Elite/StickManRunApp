@@ -125,6 +125,251 @@ class StickmanRunPainter extends CustomPainter {
 
       canvas.drawRect(Rect.fromLTWH(x, y, s, s), dotPaint);
     }
+
+    // Trees + houses removed (kept game background clean so obstacles stay readable).
+  }
+
+  void _drawVillageScene(
+    Canvas canvas,
+    double topY,
+    double groundY, {
+    required double scrollX,
+  }) {
+    // Deterministic layout per level.
+    final rng = Random(level.levelIndex * 7777);
+
+    // We avoid per-object modulo wrapping (which causes visible “popping/flicker”).
+    // Instead we tile the scene twice (offset + span) so there is always a copy
+    // covering the viewport while shift wraps.
+    //
+    // Far layer (smaller, further)
+    final farCount = 18;
+    final farSpan = width + 220;
+    final farSpacing = farSpan / farCount;
+    final farSpeed = 1.0;
+
+    final farShift = (scrollX * farSpeed) % farSpan;
+
+    for (int i = 0; i < farCount; i++) {
+      final baseX = (i * farSpacing + rng.nextDouble() * 30) % farSpan;
+
+      // Smaller/fainter so it doesn't intrude into the obstacle band.
+      final size = 0.45 + rng.nextDouble() * 0.25;
+      final y = groundY - (70 + rng.nextDouble() * 22) * size;
+
+      final x1 = baseX - farShift - 110;
+      final x2 = x1 + farSpan;
+
+      if (x1 > -60 && x1 < width + 60) {
+        _drawTree(
+          canvas,
+          Offset(x1, y),
+          leafFill: const Color.fromARGB(255, 8, 92, 20),
+          trunkFill: const Color.fromARGB(255, 62, 34, 0),
+          scale: size,
+          outlineAlpha: 0.9,
+        );
+      }
+      if (x2 > -60 && x2 < width + 60) {
+        _drawTree(
+          canvas,
+          Offset(x2, y),
+          leafFill: const Color.fromARGB(255, 8, 92, 20),
+          trunkFill: const Color.fromARGB(255, 62, 34, 0),
+          scale: size,
+          outlineAlpha: 0.9,
+        );
+      }
+    }
+
+    // Near layer (smaller + houses, but much fainter so obstacles stay readable)
+    final nearCount = 12;
+    final nearSpan = width + 240;
+    final nearSpacing = nearSpan / nearCount;
+    final nearSpeed = 1.15;
+
+    final nearShift = (scrollX * nearSpeed) % nearSpan;
+
+    for (int i = 0; i < nearCount; i++) {
+      final baseX = (i * nearSpacing + rng.nextDouble() * 40) % nearSpan;
+
+      // Smaller, so roofs/windows don't compete with obstacle silhouettes.
+      final size = 0.55 + rng.nextDouble() * 0.22;
+
+      // Push the whole layer upward.
+      final y = groundY - (95 + rng.nextDouble() * 38) * size;
+
+      // Mix: fewer items become houses.
+      final isHouse = rng.nextDouble() < 0.25;
+
+      final x1 = baseX - nearShift - 120;
+      final x2 = x1 + nearSpan;
+
+      if (isHouse) {
+        final w = 34 + rng.nextDouble() * 18;
+        final h = 26 + rng.nextDouble() * 18;
+
+        if (x1 > -60 && x1 < width + 60) {
+          _drawHouse(
+            canvas,
+            topLeft: Offset(x1, y),
+            widthPx: w * size,
+            heightPx: h * size,
+            fill: const Color.fromARGB(255, 220, 220, 220),
+            roof: const Color.fromARGB(255, 70, 70, 70),
+            outline: Paint()
+              ..color = Colors.black.withOpacity(0.95)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2,
+            window: Colors.black.withOpacity(0.25),
+          );
+        }
+        if (x2 > -60 && x2 < width + 60) {
+          _drawHouse(
+            canvas,
+            topLeft: Offset(x2, y),
+            widthPx: w * size,
+            heightPx: h * size,
+            fill: const Color.fromARGB(38, 220, 220, 220),
+            roof: const Color.fromARGB(80, 70, 70, 70),
+            outline: Paint()
+              ..color = Colors.black.withOpacity(0.14)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.0,
+            window: Colors.black.withOpacity(0.08),
+          );
+        }
+      } else {
+        if (x1 > -60 && x1 < width + 60) {
+          _drawTree(
+            canvas,
+            Offset(x1, y),
+            leafFill: const Color.fromARGB(70, 8, 112, 26),
+            trunkFill: const Color.fromARGB(70, 86, 46, 0),
+            scale: size,
+            outlineAlpha: 0.4,
+          );
+        }
+        if (x2 > -60 && x2 < width + 60) {
+          _drawTree(
+            canvas,
+            Offset(x2, y),
+            leafFill: const Color.fromARGB(255, 8, 112, 26),
+            trunkFill: const Color.fromARGB(255, 86, 46, 0),
+            scale: size,
+            outlineAlpha: 1.0,
+          );
+        }
+      }
+    }
+  }
+
+  void _drawTree(
+    Canvas canvas,
+    Offset baseTopLeft,
+    {
+      required Color leafFill,
+      required Color trunkFill,
+      required double scale,
+      required double outlineAlpha,
+    }) {
+    final outline = Paint()
+      ..color = Colors.black.withOpacity(outlineAlpha)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3;
+
+    final trunkW = 10 * scale;
+    final trunkH = 30 * scale;
+
+    final trunkRect = Rect.fromLTWH(baseTopLeft.dx + 6 * scale, baseTopLeft.dy + trunkH, trunkW, trunkH * 0.9);
+
+    // Leaves: triangle stack.
+    final trunkPaint = Paint()..color = trunkFill;
+    final leafPaint = Paint()..color = leafFill;
+
+    final tip = Offset(baseTopLeft.dx + 16 * scale, baseTopLeft.dy);
+    final left = Offset(baseTopLeft.dx + 6 * scale, baseTopLeft.dy + 28 * scale);
+    final right = Offset(baseTopLeft.dx + 26 * scale, baseTopLeft.dy + 28 * scale);
+
+    final path = Path()
+      ..moveTo(tip.dx, tip.dy)
+      ..lineTo(right.dx, right.dy)
+      ..lineTo(left.dx, left.dy)
+      ..close();
+
+    canvas.drawPath(path, leafPaint);
+    canvas.drawPath(path, outline);
+
+    final trunkOutline = outline;
+    final trunkR = RRect.fromRectAndRadius(trunkRect, Radius.circular(4 * scale));
+    canvas.drawRRect(trunkR, trunkPaint);
+    canvas.drawRRect(trunkR, trunkOutline);
+  }
+
+  void _drawHouse(
+    Canvas canvas, {
+    required Offset topLeft,
+    required double widthPx,
+    required double heightPx,
+    required Color fill,
+    required Color roof,
+    required Paint outline,
+    required Color window,
+  }) {
+    final bodyRect = Rect.fromLTWH(topLeft.dx, topLeft.dy, widthPx, heightPx);
+    final bodyPaint = Paint()..color = fill;
+
+    // Roof = triangle.
+    final roofPeak = Offset(topLeft.dx + widthPx / 2, topLeft.dy - heightPx * 0.18);
+    final roofLeft = Offset(topLeft.dx, topLeft.dy);
+    final roofRight = Offset(topLeft.dx + widthPx, topLeft.dy);
+
+    final roofPath = Path()
+      ..moveTo(roofPeak.dx, roofPeak.dy)
+      ..lineTo(roofRight.dx, roofRight.dy)
+      ..lineTo(roofLeft.dx, roofLeft.dy)
+      ..close();
+
+    final houseOutlinePaint = outline;
+
+    canvas.drawPath(roofPath, Paint()..color = roof);
+    canvas.drawPath(roofPath, houseOutlinePaint);
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bodyRect, Radius.circular(6)),
+      bodyPaint,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bodyRect, Radius.circular(6)),
+      houseOutlinePaint,
+    );
+
+    // Windows: 2x2 blocks.
+    final winW = widthPx * 0.18;
+    final winH = heightPx * 0.18;
+
+    final wPaint = Paint()..color = window;
+    final wOutline = Paint()
+      ..color = Colors.black.withOpacity(0.9)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
+    final win1 = Rect.fromLTWH(topLeft.dx + widthPx * 0.18, topLeft.dy + heightPx * 0.36, winW, winH);
+    final win2 = Rect.fromLTWH(topLeft.dx + widthPx * 0.64, topLeft.dy + heightPx * 0.36, winW, winH);
+    final win3 = Rect.fromLTWH(topLeft.dx + widthPx * 0.18, topLeft.dy + heightPx * 0.62, winW, winH);
+    final win4 = Rect.fromLTWH(topLeft.dx + widthPx * 0.64, topLeft.dy + heightPx * 0.62, winW, winH);
+
+    for (final r in [win1, win2, win3, win4]) {
+      canvas.drawRRect(RRect.fromRectAndRadius(r, Radius.circular(3)), wPaint);
+      canvas.drawRRect(RRect.fromRectAndRadius(r, Radius.circular(3)), wOutline);
+    }
+
+    // Chimney.
+    final chimW = widthPx * 0.12;
+    final chimH = heightPx * 0.22;
+    final chimRect = Rect.fromLTWH(topLeft.dx + widthPx * 0.72, topLeft.dy - chimH * 0.02, chimW, chimH);
+    canvas.drawRRect(RRect.fromRectAndRadius(chimRect, Radius.circular(3)), Paint()..color = Colors.black.withOpacity(0.9));
+    canvas.drawRRect(RRect.fromRectAndRadius(chimRect, Radius.circular(3)), wOutline);
   }
 
   void _drawLevelLabel(Canvas canvas) {
