@@ -145,7 +145,9 @@ class _StickmanRunScreenState extends State<StickmanRunScreen> with SingleTicker
 
   Widget _buildJumpButton() {
     // Visible “jump” control for mouse/touch (bottom-right).
-    // This bypasses any web pointer/tap issues with the full-screen input layer.
+    // Disabled until START RUN / RETRY LEVEL starts the game.
+    final isRunning = _snapshot.status == GameStatus.running;
+
     return Positioned(
       right: 18,
       bottom: 18 + 76, // Jump now below
@@ -153,10 +155,12 @@ class _StickmanRunScreenState extends State<StickmanRunScreen> with SingleTicker
         width: 64,
         height: 64,
         child: ElevatedButton(
-          onPressed: _onJump,
+          onPressed: isRunning ? _onJump : null,
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.yellow,
+            backgroundColor: isRunning ? Colors.yellow : Colors.yellow.withOpacity(0.35),
             foregroundColor: Colors.black,
+            disabledForegroundColor: Colors.black.withOpacity(0.35),
+            disabledBackgroundColor: Colors.yellow.withOpacity(0.2),
             shape: const CircleBorder(),
             elevation: 10,
             padding: EdgeInsets.zero,
@@ -173,6 +177,8 @@ class _StickmanRunScreenState extends State<StickmanRunScreen> with SingleTicker
 
   Widget _buildCrawlButton() {
     // Additional button below Jump.
+    final isRunning = _snapshot.status == GameStatus.running;
+
     return Positioned(
       right: 18,
       bottom: 18, // Crawl now above
@@ -180,16 +186,20 @@ class _StickmanRunScreenState extends State<StickmanRunScreen> with SingleTicker
         width: 64,
         height: 64,
         child: ElevatedButton(
-          onPressed: () {
-            _engine.crawl();
-            // Refresh immediately so it feels responsive.
-            setState(() {
-              _snapshot = _engine.snapshot();
-            });
-          },
+          onPressed: isRunning
+              ? () {
+                  _engine.crawl();
+                  // Refresh immediately so it feels responsive.
+                  setState(() {
+                    _snapshot = _engine.snapshot();
+                  });
+                }
+              : null,
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.cyanAccent,
+            backgroundColor: isRunning ? Colors.cyanAccent : Colors.cyanAccent.withOpacity(0.35),
             foregroundColor: Colors.black,
+            disabledForegroundColor: Colors.black.withOpacity(0.35),
+            disabledBackgroundColor: Colors.cyanAccent.withOpacity(0.2),
             shape: const CircleBorder(),
             elevation: 10,
             padding: EdgeInsets.zero,
@@ -305,6 +315,25 @@ class _StickmanRunScreenState extends State<StickmanRunScreen> with SingleTicker
                     style: TextStyle(fontWeight: FontWeight.w900),
                   ),
                 ),
+              // EXIT (always visible in the center overlay when game is not running).
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.redAccent,
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  ),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text(
+                    'EXIT',
+                    style: TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                ),
+              ),
               if (isComplete)
                 Padding(
                   padding: const EdgeInsets.only(top: 10),
