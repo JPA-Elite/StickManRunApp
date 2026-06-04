@@ -116,8 +116,6 @@ final levels = engine.LevelConfig.all();
 
                         const SizedBox(height: 10),
 
-                        // Bottom legend (circular buttons like the screenshot)
-                        _BottomLegend(),
                       ],
                     ),
                   );
@@ -453,84 +451,6 @@ class _LevelPanel extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _BottomLegend extends StatelessWidget {
-  const _BottomLegend();
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: 12,
-      runSpacing: 12,
-      children: [
-        _LegendRound(
-          icon: Icons.speed,
-          label: 'SPEED',
-          accent: Colors.yellow,
-        ),
-        _LegendRound(
-          icon: Icons.shield,
-          label: 'SHIELD',
-          accent: Colors.yellow,
-        ),
-        _LegendRound(
-          icon: Icons.auto_fix_high,
-          label: 'MAGNET',
-          accent: Colors.yellow,
-        ),
-        _LegendRound(
-          icon: Icons.arrow_upward,
-          label: 'JUMP',
-          accent: Colors.yellow,
-        ),
-      ],
-    );
-  }
-}
-
-class _LegendRound extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color accent;
-
-  const _LegendRound({
-    required this.icon,
-    required this.label,
-    required this.accent,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            border: Border.all(color: accent, width: 4),
-            borderRadius: BorderRadius.circular(22),
-            color: Colors.black.withOpacity(0.35),
-          ),
-          child: Center(
-            child: Icon(icon, color: accent, size: 26),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w900,
-            fontSize: 12,
-            letterSpacing: 0.4,
-          ),
-        ),
-      ],
     );
   }
 }
