@@ -144,7 +144,9 @@ class StickmanRunEngine {
     _height = max(1, height);
 
     _groundY = _height * 0.78;
-    _stickmanX = _width * 0.28;
+
+    // Stickman should start very near the left edge, but keep a bit more padding.
+    _stickmanX = max(18.0, _width * 0.06);
 
     // Keep stickman aligned to the resized ground.
     // If we're resting (or not running yet), snap to ground so tap jump works reliably.
