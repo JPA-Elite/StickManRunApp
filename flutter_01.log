@@ -1,0 +1,73 @@
+Flutter crash report.
+Please report a bug at https://github.com/flutter/flutter/issues.
+
+## command
+
+flutter run -d chrome
+
+## exception
+
+ArgumentError: Invalid argument(s): Uri org-dartlang-app:/web_plugin_registrant.dart must have scheme 'file:'.
+
+```
+#0      WindowsStyle.pathFromUri (package:path/src/style/windows.dart:86:7)
+#1      Context.fromUri (package:path/src/context.dart:1040:40)
+#2      FileSystem.getPath (package:file/src/interface/file_system.dart:158:24)
+#3      LocalFileSystem.file (package:file/src/backends/local/local_file_system.dart:26:54)
+#4      ErrorHandlingFileSystem.file (package:flutter_tools/src/base/error_handling_io.dart:139:83)
+#5      ProjectFileInvalidator.findInvalidated (package:flutter_tools/src/run_hot.dart:1621:27)
+#6      ResidentWebRunner._updateDevFS (package:flutter_tools/src/isolated/resident_web_runner.dart:786:80)
+#7      ResidentWebRunner.restart (package:flutter_tools/src/isolated/resident_web_runner.dart:461:22)
+<asynchronous suspension>
+#8      TerminalHandler._commonTerminalInputHandler (package:flutter_tools/src/resident_runner.dart:1735:40)
+<asynchronous suspension>
+#9      TerminalHandler.processTerminalInput (package:flutter_tools/src/resident_runner.dart:1805:7)
+<asynchronous suspension>
+```
+
+## flutter doctor
+
+```
+[32m[✓][39m Flutter (Channel stable, 3.44.0, on Microsoft Windows [Version 10.0.26200.8457], locale en-US) [289ms]
+    [32m•[39m Flutter version 3.44.0 on channel stable at C:\src\flutter
+    [32m•[39m Upstream repository https://github.com/flutter/flutter.git
+    [32m•[39m Framework revision 559ffa3f75 (10 days ago), 2026-05-15 14:13:13 -0700
+    [32m•[39m Engine revision 4c525dac5e
+    [32m•[39m Dart version 3.12.0
+    [32m•[39m DevTools version 2.57.0
+    [32m•[39m Feature flags: enable-web, enable-linux-desktop, enable-macos-desktop, enable-windows-desktop, enable-android,
+      enable-ios, cli-animations, enable-native-assets, enable-swift-package-manager, omit-legacy-version-file,
+      enable-lldb-debugging, enable-uiscene-migration
+
+[32m[✓][39m Windows Version (11 Home Single Language 64-bit, 25H2, 2009) [1,531ms]
+
+[33m[!][39m Android toolchain - develop for Android devices (Android SDK version 35.0.0) [562ms]
+    [32m•[39m Android SDK at C:\Users\algad\AppData\Local\Android\sdk
+    [32m•[39m Emulator version 35.5.10.0 (build_id 13402964) (CL:N/A)
+    [31m✗[39m cmdline-tools component is missing.
+      Try installing or updating Android Studio.
+      Alternatively, download the tools from https://developer.android.com/studio#command-line-tools-only and make
+      sure to set the ANDROID_HOME environment variable.
+      See https://developer.android.com/studio/command-line for more details.
+    [31m✗[39m Android license status unknown.
+      Run `flutter doctor --android-licenses` to accept the SDK licenses.
+      See https://flutter.dev/to/windows-android-setup for more details.
+
+[32m[✓][39m Chrome - develop for the web [8ms]
+    [32m•[39m Chrome at C:\Program Files\Google\Chrome\Application\chrome.exe
+
+[31m[✗][39m Visual Studio - develop Windows apps [7ms]
+    [31m✗[39m Visual Studio not installed; this is necessary to develop Windows apps.
+      Download at https://visualstudio.microsoft.com/downloads/.
+      Please install the "Desktop development with C++" workload, including all of its default components
+
+[32m[✓][39m Connected device (3 available) [176ms]
+    [32m•[39m Windows (desktop) • windows • windows-x64    • Microsoft Windows [Version 10.0.26200.8457]
+    [32m•[39m Chrome (web)      • chrome  • web-javascript • Google Chrome 148.0.7778.179
+    [32m•[39m Edge (web)        • edge    • web-javascript • Microsoft Edge 148.0.3967.83
+
+[32m[✓][39m Network resources [1,217ms]
+    [32m•[39m All expected network resources are available.
+
+[33m![39m Doctor found issues in 2 categories.
+```
