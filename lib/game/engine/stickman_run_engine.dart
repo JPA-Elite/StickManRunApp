@@ -433,7 +433,9 @@ class StickmanRunEngine {
     // Spawn columns from the far right edge of the screen.
     // For the very first column, spawn much further right so it enters
     // the viewport from the right side (not appearing mid-screen).
-    final colX = (_spawnTick <= 1) ? (_width + 260) : (_width + 60);
+    // Add random variation (±60px) so obstacle distances aren't identical.
+    final baseX = (_spawnTick <= 1) ? (_width + 260) : (_width + 60);
+    final colX = baseX + (_rng.nextDouble() - 0.5) * 120;
 
     final stickmanBottom = _groundY;
     final r = _rng.nextDouble();
