@@ -81,6 +81,11 @@ class StickmanRunPainter extends CustomPainter {
     // Stickman.
     _drawStickman(canvas, snapshot.stickman);
 
+    // Shield-swoosh effect when smash is active (Captain America style).
+    if (snapshot.smashActive) {
+      _drawSmashShield(canvas, snapshot.stickman);
+    }
+
     // HUD ornaments (top-right).
     // Hide HUD when the overlay is showing (ready/game-over/level-complete)
     // to prevent SCORE/COINS from overlapping the overlay card.
@@ -985,6 +990,89 @@ class StickmanRunPainter extends CustomPainter {
     final valueCenterY = y + h * 0.62;
     titlePainter.paint(canvas, Offset(x + 12, titleY));
     valuePainter.paint(canvas, Offset(x + 12, valueCenterY - valuePainter.height / 2));
+  }
+
+  void _drawSmashShield(Canvas canvas, Stickman stickman) {
+    final cx = stickman.x;
+    final w = _stickmanWidthPx();
+    final h = _stickmanHeightPx();
+    final effectiveH = snapshot.crawlingActive ? h * 0.58 : h;
+    final bottomY = stickman.y;
+
+    // Shield center: in front of the stickman's torso (right side).
+    final shieldCx = cx + w * 0.52;
+    final shieldCy = bottomY - effectiveH * 0.52;
+    final r = w * 0.46;
+
+    // Metallic shield fill (blue/red/silver rings).
+    final ring1 = Paint()..color = const Color.fromARGB(170, 60, 120, 255);
+    final ring2 = Paint()..color = const Color.fromARGB(170, 220, 60, 60);
+    final ring3 = Paint()..color = const Color.fromARGB(170, 200, 200, 210);
+    final outline = Paint()
+      ..color = Colors.black.withOpacity(0.8)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
+    // Draw 3 concentric rings.
+    canvas.drawCircle(Offset(shieldCx, shieldCy), r, ring1);
+    canvas.drawCircle(Offset(shieldCx, shieldCy), r, outline);
+    canvas.drawCircle(Offset(shieldCx, shieldCy), r * 0.72, ring2);
+    canvas.drawCircle(Offset(shieldCx, shieldCy), r * 0.72, outline);
+    canvas.drawCircle(Offset(shieldCx, shieldCy), r * 0.42, ring3);
+    canvas.drawCircle(Offset(shieldCx, shieldCy), r * 0.42, outline);
+
+    // Center star (small).
+    final starPaint = Paint()..color = Colors.white;
+    canvas.drawCircle(Offset(shieldCx, shieldCy), r * 0.18, starPaint);
+
+    // Swoosh lines extending outward to give a “thrown shield” effect.
+    final swooshPaint = Paint()
+      ..color = Colors.white.withOpacity(0.55)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+
+    final t = snapshot.timeSec * 24.0; // rapid animation phase
+    final arcR = r * 1.35;
+
+    // 3 swoosh arcs at different angles.
+    for (int i = 0; i < 3; i++) {
+      final baseAngle = -0.5 + i * 0.35 + sin(t + i * 2.1) * 0.2;
+      final aStart = baseAngle;
+      final aEnd = baseAngle + 0.5 + sin(t * 0.7 + i * 1.3) * 0.15;
+
+      canvas.drawArc(
+        Rect.fromCircle(center: Offset(shieldCx, shieldCy), radius: arcR + i * 12),
+        aStart,
+        aEnd,
+        false,
+        swooshPaint..color = Colors.white.withOpacity(0.35 + 0.15 * (1 - i * 0.3)),
+      );
+    }
+
+    // Quick outward “thrust” lines.
+    final thrustPaint = Paint()
+      ..color = Colors.white.withOpacity(0.6)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round;
+
+    final thrustPhase = sin(t * 1.5);
+    for (int i = 0; i < 3; i++) {
+      final angle = -0.4 + i * 0.35 + thrustPhase * 0.1;
+      final len = 14 + i * 6;
+      canvas.drawLine(
+        Offset(
+          shieldCx + (r + 4) * cos(angle),
+          shieldCy + (r + 4) * sin(angle),
+        ),
+        Offset(
+          shieldCx + (r + 4 + len) * cos(angle),
+          shieldCy + (r + 4 + len) * sin(angle),
+        ),
+        thrustPaint,
+      );
+    }
   }
 
   double _stickmanWidthPx() => max(32.0, width * 0.12);

@@ -34,6 +34,8 @@ class _StickmanRunScreenState extends State<StickmanRunScreen> with SingleTicker
     magnetRemainingSec: 0,
     crawlingActive: false,
     crawlRemainingSec: 0,
+    smashActive: false,
+    smashCooldownSec: 0,
     stickman: Stickman(x: 0, y: 0, vy: 0),
     obstacles: [],
     coinsOnTrack: [],
@@ -133,6 +135,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen> with SingleTicker
                   ),
                 ),
                 _buildOverlay(),
+                _buildSmashButton(),
                 _buildJumpButton(),
                 _buildCrawlButton(),
               ],
@@ -209,6 +212,73 @@ class _StickmanRunScreenState extends State<StickmanRunScreen> with SingleTicker
             size: 30,
             weight: 900,
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSmashButton() {
+    // Left-side SMASH button.
+    final isRunning = _snapshot.status == GameStatus.running;
+    final isOnCooldown = _snapshot.smashCooldownSec > 0;
+    final canSmash = isRunning && !isOnCooldown;
+
+    return Positioned(
+      left: 18,
+      bottom: 18,
+      child: SizedBox(
+        width: 64,
+        height: 72,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Cooldown bar.
+            SizedBox(
+              width: 64,
+              height: 6,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: LinearProgressIndicator(
+                  value: isRunning ? (1 - _snapshot.smashCooldownSec / 1.2) : 1,
+                  backgroundColor: Colors.white.withOpacity(0.2),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    canSmash ? const Color.fromARGB(255, 255, 80, 80) : Colors.grey,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            SizedBox(
+              width: 64,
+              height: 64,
+              child: ElevatedButton(
+                onPressed: canSmash
+                    ? () {
+                        _engine.smash();
+                        setState(() {
+                          _snapshot = _engine.snapshot();
+                        });
+                      }
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: canSmash
+                      ? const Color.fromARGB(255, 255, 80, 80)
+                      : const Color.fromARGB(100, 255, 80, 80),
+                  foregroundColor: Colors.black,
+                  disabledForegroundColor: Colors.black.withOpacity(0.35),
+                  disabledBackgroundColor: const Color.fromARGB(60, 255, 80, 80),
+                  shape: const CircleBorder(),
+                  elevation: 10,
+                  padding: EdgeInsets.zero,
+                ),
+                child: const Icon(
+                  Icons.flash_on,
+                  size: 30,
+                  weight: 900,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

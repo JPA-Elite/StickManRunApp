@@ -29,6 +29,9 @@ class StickmanRunSnapshot {
   final bool crawlingActive;
   final double crawlRemainingSec;
 
+  final bool smashActive;
+  final double smashCooldownSec;
+
   final Stickman stickman;
   final List<Obstacle> obstacles;
   final List<Coin> coinsOnTrack;
@@ -48,6 +51,8 @@ class StickmanRunSnapshot {
     required this.magnetRemainingSec,
     required this.crawlingActive,
     required this.crawlRemainingSec,
+    required this.smashActive,
+    required this.smashCooldownSec,
     required this.stickman,
     required this.obstacles,
     required this.coinsOnTrack,
@@ -93,6 +98,13 @@ class StickmanRunEngine {
   // Crawl (lower head while still running)
   double _crawlRemainingSec = 0;
 
+  // Smash (punch/destroy front obstacle)
+  double _smashActiveSec = 0;
+  double _smashCooldownSecRemaining = 0;
+  static const double _smashDurationSec = 0.18;
+  static const double _smashCooldownTimeSec = 1.2;
+  static const double _smashRangePx = 130;
+
   // Prevent “instant death” from the very first spawn right after START RUN.
   // (First obstacle column can overlap slightly due to resize/layout rounding.)
   double _collisionGraceSec = 0;
@@ -131,6 +143,8 @@ class StickmanRunEngine {
       magnetRemainingSec: _magnetRemainingSec,
       crawlingActive: _crawlRemainingSec > 0,
       crawlRemainingSec: _crawlRemainingSec,
+      smashActive: _smashActiveSec > 0,
+      smashCooldownSec: _smashCooldownSecRemaining,
       stickman: _stickman,
       obstacles: List.unmodifiable(_obstacles),
       coinsOnTrack: List.unmodifiable(_coins),
@@ -270,6 +284,23 @@ class StickmanRunEngine {
     // invulnerability window (so it doesn't feel unfair).
   }
 
+  /// Smash — destroys any obstacle within reach in front of the stickman.
+  void smash() {
+    if (_status != GameStatus.running) return;
+    if (_smashCooldownSecRemaining > 0) return;
+
+    _smashActiveSec = _smashDurationSec;
+    _smashCooldownSecRemaining = _smashCooldownTimeSec;
+
+    // Destroy obstacles within smash range (in front of stickman).
+    _obstacles.removeWhere((o) {
+      final dist = o.x - _stickman.x;
+      return dist >= 0 && dist <= _smashRangePx && o.y + o.height > _groundY - _stickmanHeightPx() * 1.6;
+    });
+
+    _score += 5;
+  }
+
   void tick(double dtSec) {
     if (_status != GameStatus.running) {
       _timeSec += dtSec;
@@ -283,6 +314,8 @@ class StickmanRunEngine {
     _postJumpCollisionGraceSec = max(0, _postJumpCollisionGraceSec - dtSec);
 
     _crawlRemainingSec = max(0, _crawlRemainingSec - dtSec);
+    _smashActiveSec = max(0, _smashActiveSec - dtSec);
+    _smashCooldownSecRemaining = max(0, _smashCooldownSecRemaining - dtSec);
 
     _initialObstacleDelaySec = max(0, _initialObstacleDelaySec - dtSec);
 
