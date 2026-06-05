@@ -21,6 +21,8 @@ class StickmanRunScreen extends StatefulWidget {
 class _StickmanRunScreenState extends State<StickmanRunScreen> with SingleTickerProviderStateMixin {
   late final StickmanRunEngine _engine;
   late final AnimationController _controller;
+  double _buttonBottom = 16;
+  double _jumpSpacing = 60;
 
   StickmanRunSnapshot _snapshot = StickmanRunSnapshot(
     status: GameStatus.ready,
@@ -120,8 +122,8 @@ class _StickmanRunScreenState extends State<StickmanRunScreen> with SingleTicker
         return Scaffold(
           backgroundColor: Colors.black,
           body: SizedBox.expand(
-            child: Stack(
-              children: [
+          child: Stack(
+            children: [
                 Positioned.fill(
                   child: CustomPaint(
                     painter: StickmanRunPainter(
@@ -147,97 +149,68 @@ class _StickmanRunScreenState extends State<StickmanRunScreen> with SingleTicker
   }
 
   Widget _buildJumpButton() {
-    // Visible “jump” control for mouse/touch (bottom-right).
-    // Disabled until START RUN / RETRY LEVEL starts the game.
     final isRunning = _snapshot.status == GameStatus.running;
-
     return Positioned(
-      right: 18,
-      bottom: 18 + 76, // Jump now below
+      right: 14,
+      bottom: _buttonBottom + _jumpSpacing,
       child: SizedBox(
-        width: 64,
-        height: 64,
+        width: 52,
+        height: 52,
         child: ElevatedButton(
           onPressed: isRunning ? _onJump : null,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: isRunning ? Colors.yellow : Colors.yellow.withOpacity(0.35),
-            foregroundColor: Colors.black,
-            disabledForegroundColor: Colors.black.withOpacity(0.35),
-            disabledBackgroundColor: Colors.yellow.withOpacity(0.2),
-            shape: const CircleBorder(),
-            elevation: 10,
-            padding: EdgeInsets.zero,
+          style: _circleBtnStyle(
+            isRunning: isRunning,
+            activeColor: Colors.yellow,
           ),
-          child: const Icon(
-            Icons.arrow_upward,
-            size: 34,
-            weight: 900,
-          ),
+          child: const Icon(Icons.arrow_upward, size: 28, weight: 900),
         ),
       ),
     );
   }
 
   Widget _buildCrawlButton() {
-    // Additional button below Jump.
     final isRunning = _snapshot.status == GameStatus.running;
-
     return Positioned(
-      right: 18,
-      bottom: 18, // Crawl now above
+      right: 14,
+      bottom: _buttonBottom,
       child: SizedBox(
-        width: 64,
-        height: 64,
+        width: 52,
+        height: 52,
         child: ElevatedButton(
           onPressed: isRunning
               ? () {
                   _engine.crawl();
-                  // Refresh immediately so it feels responsive.
-                  setState(() {
-                    _snapshot = _engine.snapshot();
-                  });
+                  setState(() => _snapshot = _engine.snapshot());
                 }
               : null,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: isRunning ? Colors.cyanAccent : Colors.cyanAccent.withOpacity(0.35),
-            foregroundColor: Colors.black,
-            disabledForegroundColor: Colors.black.withOpacity(0.35),
-            disabledBackgroundColor: Colors.cyanAccent.withOpacity(0.2),
-            shape: const CircleBorder(),
-            elevation: 10,
-            padding: EdgeInsets.zero,
+          style: _circleBtnStyle(
+            isRunning: isRunning,
+            activeColor: Colors.cyanAccent,
           ),
-          child: const Icon(
-            Icons.subdirectory_arrow_left, // squat/crawl-ish icon
-            size: 30,
-            weight: 900,
-          ),
+          child: const Icon(Icons.subdirectory_arrow_left, size: 26, weight: 900),
         ),
       ),
     );
   }
 
   Widget _buildSmashButton() {
-    // Left-side SMASH button.
     final isRunning = _snapshot.status == GameStatus.running;
-    final isOnCooldown = _snapshot.smashCooldownSec > 0;
-    final canSmash = isRunning && !isOnCooldown;
+    final canSmash = isRunning && _snapshot.smashCooldownSec <= 0;
 
     return Positioned(
-      left: 18,
-      bottom: 18,
+      left: 14,
+      bottom: _buttonBottom,
       child: SizedBox(
-        width: 64,
-        height: 72,
+        width: 56,
+        height: 64,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Cooldown bar.
             SizedBox(
-              width: 64,
-              height: 6,
+              width: 56,
+              height: 5,
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(3),
+                borderRadius: BorderRadius.circular(2.5),
                 child: LinearProgressIndicator(
                   value: isRunning ? (1 - _snapshot.smashCooldownSec / 1.2) : 1,
                   backgroundColor: Colors.white.withOpacity(0.2),
@@ -247,40 +220,43 @@ class _StickmanRunScreenState extends State<StickmanRunScreen> with SingleTicker
                 ),
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
             SizedBox(
-              width: 64,
-              height: 64,
+              width: 52,
+              height: 52,
               child: ElevatedButton(
                 onPressed: canSmash
                     ? () {
                         _engine.smash();
-                        setState(() {
-                          _snapshot = _engine.snapshot();
-                        });
+                        setState(() => _snapshot = _engine.snapshot());
                       }
                     : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: canSmash
-                      ? const Color.fromARGB(255, 255, 80, 80)
-                      : const Color.fromARGB(100, 255, 80, 80),
-                  foregroundColor: Colors.black,
-                  disabledForegroundColor: Colors.black.withOpacity(0.35),
-                  disabledBackgroundColor: const Color.fromARGB(60, 255, 80, 80),
-                  shape: const CircleBorder(),
-                  elevation: 10,
-                  padding: EdgeInsets.zero,
+                style: _circleBtnStyle(
+                  isRunning: isRunning,
+                  activeColor: const Color.fromARGB(255, 255, 80, 80),
                 ),
-                child: const Icon(
-                  Icons.flash_on,
-                  size: 30,
-                  weight: 900,
-                ),
+                child: const Icon(Icons.flash_on, size: 26, weight: 900),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  ButtonStyle _circleBtnStyle({
+    required bool isRunning,
+    required Color activeColor,
+  }) {
+    final disabled = activeColor.withOpacity(0.3);
+    return ElevatedButton.styleFrom(
+      backgroundColor: isRunning ? activeColor : disabled,
+      foregroundColor: Colors.black,
+      disabledForegroundColor: Colors.black.withOpacity(0.3),
+      disabledBackgroundColor: disabled,
+      shape: const CircleBorder(),
+      elevation: 6,
+      padding: EdgeInsets.zero,
     );
   }
 
@@ -317,107 +293,109 @@ class _StickmanRunScreenState extends State<StickmanRunScreen> with SingleTicker
             border: Border.all(color: Colors.white.withOpacity(0.9), width: 3),
             borderRadius: BorderRadius.circular(18),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  letterSpacing: 1,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    letterSpacing: 1,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 10),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
+                const SizedBox(height: 10),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 14),
-              if (!isReady)
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.yellow,
-                    foregroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  ),
-                  onPressed: () {
-                    _engine.start(levelIndex: _levelIndex);
-                    _engine.startRunning();
-                    setState(() {
-                      _snapshot = _engine.snapshot();
-                    });
-                  },
-                  child: const Text(
-                    'RETRY LEVEL',
-                    style: TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                ),
-              if (isReady)
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white.withOpacity(0.9),
-                    foregroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  ),
-                  onPressed: () {
-                    _engine.startRunning();
-                    _engine.jump();
-
-                    // Force one immediate simulation step so obstacles start appearing immediately.
-                    _engine.tick(1 / 60.0);
-
-                    setState(() {
-                      _snapshot = _engine.snapshot();
-                    });
-                  },
-                  child: const Text(
-                    'START RUN',
-                    style: TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                ),
-              // EXIT (always visible in the center overlay when game is not running).
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.redAccent,
-                    foregroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  ),
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                  child: const Text(
-                    'EXIT',
-                    style: TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                ),
-              ),
-              if (isComplete)
-                Padding(
-                  padding: const EdgeInsets.only(top: 10),
-                  child: Text(
-                    'Tap to start the next run (same level for now)',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white.withOpacity(0.85),
-                      fontWeight: FontWeight.w700,
+                const SizedBox(height: 14),
+                if (!isReady)
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.yellow,
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     ),
-                    textAlign: TextAlign.center,
+                    onPressed: () {
+                      _engine.start(levelIndex: _levelIndex);
+                      _engine.startRunning();
+                      setState(() {
+                        _snapshot = _engine.snapshot();
+                      });
+                    },
+                    child: const Text(
+                      'RETRY LEVEL',
+                      style: TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                  ),
+                if (isReady)
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white.withOpacity(0.9),
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    ),
+                    onPressed: () {
+                      _engine.startRunning();
+                      _engine.jump();
+
+                      // Force one immediate simulation step so obstacles start appearing immediately.
+                      _engine.tick(1 / 60.0);
+
+                      setState(() {
+                        _snapshot = _engine.snapshot();
+                      });
+                    },
+                    child: const Text(
+                      'START RUN',
+                      style: TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                  ),
+                // EXIT (always visible in the center overlay when game is not running).
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    ),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text(
+                      'EXIT',
+                      style: TextStyle(fontWeight: FontWeight.w900),
+                    ),
                   ),
                 ),
-            ],
+                if (isComplete)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Text(
+                      'Tap to start the next run (same level for now)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withOpacity(0.85),
+                        fontWeight: FontWeight.w700,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
