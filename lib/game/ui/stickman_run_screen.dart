@@ -235,7 +235,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen> with SingleTicker
                   isRunning: isRunning,
                   activeColor: const Color.fromARGB(255, 255, 80, 80),
                 ),
-                child: const Icon(Icons.flash_on, size: 26, weight: 900),
+                child: const Icon(Icons.sports_mma, size: 26, weight: 900),
               ),
             ),
           ],
