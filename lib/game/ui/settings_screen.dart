@@ -224,10 +224,10 @@ class SettingsScreen extends StatelessWidget {
             },
             child: const Text(
               'RESET',
-              style: TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.w900,
-              ),
+               style: TextStyle(
+                 color: Colors.white,
+                 fontWeight: FontWeight.w900,
+               ),
             ),
           ),
         ],
