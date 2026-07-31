@@ -11,6 +11,8 @@ class StickmanRunPainter extends CustomPainter {
   final lc.LevelConfig level;
   final double width;
   final double height;
+  final Color stickmanColor;
+  final bool highContrast;
 
   const StickmanRunPainter({
     super.repaint,
@@ -18,6 +20,8 @@ class StickmanRunPainter extends CustomPainter {
     required this.level,
     required this.width,
     required this.height,
+    this.stickmanColor = Colors.white,
+    this.highContrast = false,
   });
 
   @override
@@ -483,11 +487,11 @@ class StickmanRunPainter extends CustomPainter {
     final torsoTop = headCenterY + effectiveH * 0.09;
 
     final outline = Paint()
-      ..color = Colors.white
+      ..color = stickmanColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4;
 
-    final fillPaint = Paint()..color = Colors.white;
+    final fillPaint = Paint()..color = stickmanColor;
 
     // Head.
     canvas.drawCircle(Offset(cx, headCenterY), effectiveH * 0.09, fillPaint);
@@ -604,7 +608,7 @@ class StickmanRunPainter extends CustomPainter {
 
   void _drawObstacle(Canvas canvas, Obstacle o) {
     final outline = Paint()
-      ..color = Colors.black
+      ..color = _outlineColor()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4;
 
@@ -677,6 +681,10 @@ class StickmanRunPainter extends CustomPainter {
 
   Color _flutterColor(int argb) => Color(argb);
 
+  /// Obstacle outline color. High-contrast mode swaps the usual black
+  /// outlines for white so obstacles pop against any background.
+  Color _outlineColor() => highContrast ? Colors.white : Colors.black;
+
   void _drawSpike(Canvas canvas, Obstacle o, Paint fill, Paint outline) {
     final x1 = o.x;
     final y1 = o.y;
@@ -720,7 +728,7 @@ class StickmanRunPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final armOutline = Paint()
-      ..color = Colors.black
+      ..color = _outlineColor()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4;
 
@@ -775,7 +783,7 @@ class StickmanRunPainter extends CustomPainter {
 
     // little cracks
     final crack = Paint()
-      ..color = Colors.black
+      ..color = _outlineColor()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3;
     canvas.drawLine(
@@ -835,7 +843,7 @@ class StickmanRunPainter extends CustomPainter {
 
     // Tail hook
     final hook = Paint()
-      ..color = Colors.black
+      ..color = _outlineColor()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4;
     canvas.drawLine(Offset(midX, y2), Offset(midX, y2 + 10), hook);
@@ -872,7 +880,7 @@ class StickmanRunPainter extends CustomPainter {
     final center = Offset((x1 + x2) / 2, (y1 + y2) / 2);
 
     final rope = Paint()
-      ..color = Colors.black
+      ..color = _outlineColor()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4;
 
@@ -884,7 +892,7 @@ class StickmanRunPainter extends CustomPainter {
 
     // Spikes
     final spikePaint = Paint()
-      ..color = Colors.black
+      ..color = _outlineColor()
       ..style = PaintingStyle.fill;
     canvas.drawCircle(Offset(center.dx - 6, center.dy), 3.5, spikePaint);
     canvas.drawCircle(Offset(center.dx + 6, center.dy), 3.5, spikePaint);
@@ -1314,6 +1322,9 @@ class StickmanRunPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant StickmanRunPainter oldDelegate) {
-    return oldDelegate.snapshot != snapshot || oldDelegate.level != level;
+    return oldDelegate.snapshot != snapshot ||
+        oldDelegate.level != level ||
+        oldDelegate.stickmanColor != stickmanColor ||
+        oldDelegate.highContrast != highContrast;
   }
 }

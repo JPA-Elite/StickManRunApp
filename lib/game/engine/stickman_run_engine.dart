@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
+import '../settings/game_settings.dart';
 import 'entities.dart';
 import 'level_config.dart';
 
@@ -64,10 +65,12 @@ class StickmanRunSnapshot {
 class StickmanRunEngine {
   final List<LevelConfig> levels;
   final Random _rng;
+  final GameSettings _settings;
 
-  StickmanRunEngine({List<LevelConfig>? levels, int? seed})
+  StickmanRunEngine({List<LevelConfig>? levels, int? seed, GameSettings? settings})
       : levels = levels ?? LevelConfig.all(),
-        _rng = Random(seed);
+        _rng = Random(seed),
+        _settings = settings ?? const GameSettings();
 
   late LevelConfig _level;
 
@@ -129,6 +132,9 @@ class StickmanRunEngine {
   // Deterministic base cadence, then randomized per spawn so gaps vary.
   double _baseSpawnEverySec = 1;
   double _nextSpawnEverySec = 1;
+
+  // Coin size (visual + collision) from user settings.
+  double _coinRadiusMultiplier = 1.0;
 
   double _timeSec = 0;
 
@@ -193,6 +199,22 @@ class StickmanRunEngine {
   void start({int levelIndex = 1}) {
     final idx = (levelIndex - 1).clamp(0, levels.length - 1);
     _level = levels[idx];
+
+    // Apply the global difficulty preset to this level's tuning.
+    final difficulty = _settings.difficulty;
+    final t = _level.tuning;
+    _level = _level.copyWith(
+      tuning: t.copyWith(
+        speed: t.speed * difficulty.speedMultiplier,
+        obstacleSpawnEvery:
+            t.obstacleSpawnEvery * difficulty.spawnIntervalMultiplier,
+        coinChance: (t.coinChance * difficulty.coinMultiplier).clamp(0.0, 1.0),
+        powerUpChance:
+            (t.powerUpChance * difficulty.powerUpMultiplier).clamp(0.0, 1.0),
+      ),
+    );
+
+    _coinRadiusMultiplier = _settings.coinSize.radiusMultiplier;
 
     _obstacles.clear();
     _coins.clear();
@@ -574,7 +596,7 @@ class StickmanRunEngine {
     final baseY = bottomY - (80 + _rng.nextDouble() * 110);
 
     for (var i = 0; i < count; i++) {
-      final radius = 5.5 + _rng.nextDouble() * 2.5;
+      final radius = (5.5 + _rng.nextDouble() * 2.5) * _coinRadiusMultiplier;
       final y = baseY - i * (22 + _rng.nextDouble() * 18);
       _coins.add(
         Coin(

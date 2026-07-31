@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../engine/entities.dart';
 import '../engine/stickman_run_engine.dart';
+import '../settings/game_settings.dart';
+import '../settings/settings_controller.dart';
 import 'stickman_run_painter.dart';
 
 class StickmanRunScreen extends StatefulWidget {
@@ -44,11 +46,13 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   );
 
   int _levelIndex = 1;
+  late final GameSettings _settings;
 
   @override
   void initState() {
     super.initState();
-    _engine = StickmanRunEngine();
+    _settings = SettingsController.instance.settings;
+    _engine = StickmanRunEngine(settings: _settings);
     _engine.start(levelIndex: widget.initialLevel);
     _levelIndex = widget.initialLevel;
 
@@ -108,6 +112,13 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     });
   }
 
+  /// Taps start a jump from the ready card, or during a run when the
+  /// "tap to jump" setting is enabled.
+  bool get _canTapToJump {
+    if (_snapshot.status == GameStatus.ready) return true;
+    return _settings.tapToJump && _snapshot.status == GameStatus.running;
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -125,9 +136,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                 Positioned.fill(
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onTap: _snapshot.status == GameStatus.ready
-                        ? _onJump
-                        : null,
+                    onTap: _canTapToJump ? _onJump : null,
                     child: CustomPaint(
                       painter: StickmanRunPainter(
                         snapshot: _snapshot,
@@ -141,6 +150,8 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                               )],
                         width: width,
                         height: height,
+                        stickmanColor: Color(_settings.stickmanColor),
+                        highContrast: _settings.highContrast,
                       ),
                     ),
                   ),
@@ -345,7 +356,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
               constraints: BoxConstraints(minHeight: constraints.maxHeight),
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: isReady ? _onJump : null,
+                onTap: _canTapToJump ? _onJump : null,
                 child: Center(
                   child: SizedBox(
                     width: min(340.0, MediaQuery.of(context).size.width - 32),
@@ -355,7 +366,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                       children: [
                         // The main overlay card.
                         GestureDetector(
-                          onTap: isReady ? _onJump : null,
+                          onTap: _canTapToJump ? _onJump : null,
                           child: Container(
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(

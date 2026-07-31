@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../ui/settings_screen.dart';
 import '../ui/stickman_run_screen.dart';
 import '../../game/engine/level_config.dart' as engine;
 
@@ -59,176 +60,186 @@ class _StickmanRunAppState extends State<StickmanRunApp> {
                 ),
               ),
 
-              // Brand card pinned at top
-              Positioned(top: 12, left: 16, right: 16, child: _BrandCard()),
+              // Brand card pinned at top (level select page only)
+              if (_showLevelSelect)
+                Positioned(top: 12, left: 16, right: 16, child: _BrandCard()),
 
               // Main content — fills the screen so cards can grow as large
               // as possible.
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  children: [
-                    if (!_showLevelSelect) ...[
-                      const Spacer(flex: 3),
-                      // Big title (no brand card in way)
-                      const Text(
-                        'STICKMAN\nRUN',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 52,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          letterSpacing: 2,
-                          height: 1.1,
+              Positioned.fill(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    children: [
+                      if (!_showLevelSelect) ...[
+                        const Spacer(flex: 3),
+                        // Big title (no brand card in way)
+                        const Text(
+                          'STICKMAN\nRUN',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 52,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                            letterSpacing: 2,
+                            height: 1.1,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Jump obstacles • Collect coins',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white.withOpacity(0.7),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Jump obstacles • Collect coins',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white.withOpacity(0.7),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 28),
-                      GestureDetector(
-                        onTap: () => setState(() => _showLevelSelect = true),
-                        child: Container(
-                          width: 100,
-                          height: 100,
-                          decoration: BoxDecoration(
-                            color: Colors.yellow,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 4),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.yellow.withOpacity(0.4),
-                                blurRadius: 24,
-                                spreadRadius: 2,
+                        const SizedBox(height: 28),
+                        GestureDetector(
+                          onTap: () => setState(() => _showLevelSelect = true),
+                          child: Container(
+                            width: 100,
+                            height: 100,
+                            decoration: BoxDecoration(
+                              color: Colors.yellow,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 4),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.yellow.withOpacity(0.4),
+                                  blurRadius: 24,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.play_arrow,
+                              size: 56,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ),
+                        const Spacer(flex: 4),
+                      ] else ...[
+                        // Level select area
+                        const SizedBox(height: 76),
+                        Expanded(
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Positioned.fill(
+                                child: PageView.builder(
+                                  controller: _pageController,
+                                  itemCount: levels.length,
+                                  onPageChanged: (index) {
+                                    setState(
+                                      () => _selectedLevel =
+                                          levels[index].levelIndex,
+                                    );
+                                  },
+                                  itemBuilder: (context, index) {
+                                    final l = levels[index];
+                                    final isActive =
+                                        l.levelIndex == _selectedLevel;
+                                    return _CarouselLevelCard(
+                                      level: l,
+                                      isActive: isActive,
+                                      starCount: (l.levelIndex.clamp(1, 5)),
+                                    );
+                                  },
+                                ),
+                              ),
+                              Positioned(
+                                left: 0,
+                                child: _ArrowButton(
+                                  icon: Icons.arrow_left,
+                                  onTap: () {
+                                    final idx = levels.indexWhere(
+                                      (l) => l.levelIndex == _selectedLevel,
+                                    );
+                                    final prev = (idx > 0)
+                                        ? idx - 1
+                                        : levels.length - 1;
+                                    setState(
+                                      () => _selectedLevel =
+                                          levels[prev].levelIndex,
+                                    );
+                                    _pageController.animateToPage(
+                                      prev,
+                                      duration: const Duration(
+                                        milliseconds: 300,
+                                      ),
+                                      curve: Curves.easeInOut,
+                                    );
+                                  },
+                                ),
+                              ),
+                              Positioned(
+                                right: 0,
+                                child: _ArrowButton(
+                                  icon: Icons.arrow_right,
+                                  onTap: () {
+                                    final idx = levels.indexWhere(
+                                      (l) => l.levelIndex == _selectedLevel,
+                                    );
+                                    final next = (idx < levels.length - 1)
+                                        ? idx + 1
+                                        : 0;
+                                    setState(
+                                      () => _selectedLevel =
+                                          levels[next].levelIndex,
+                                    );
+                                    _pageController.animateToPage(
+                                      next,
+                                      duration: const Duration(
+                                        milliseconds: 300,
+                                      ),
+                                      curve: Curves.easeInOut,
+                                    );
+                                  },
+                                ),
                               ),
                             ],
                           ),
-                          child: const Icon(
+                        ),
+                        const SizedBox(height: 12),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            _navigatorKey.currentState!.push(
+                              MaterialPageRoute(
+                                builder: (_) => StickmanRunScreen(
+                                  initialLevel: _selectedLevel,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(
                             Icons.play_arrow,
-                            size: 56,
                             color: Colors.black,
                           ),
-                        ),
-                      ),
-                      const Spacer(flex: 4),
-                    ] else ...[
-                      // Level select area
-                      const SizedBox(height: 76),
-                      Expanded(
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            Positioned.fill(
-                              child: PageView.builder(
-                                controller: _pageController,
-                                itemCount: levels.length,
-                                onPageChanged: (index) {
-                                  setState(
-                                    () => _selectedLevel =
-                                        levels[index].levelIndex,
-                                  );
-                                },
-                                itemBuilder: (context, index) {
-                                  final l = levels[index];
-                                  final isActive =
-                                      l.levelIndex == _selectedLevel;
-                                  return _CarouselLevelCard(
-                                    level: l,
-                                    isActive: isActive,
-                                    starCount: (l.levelIndex.clamp(1, 5)),
-                                  );
-                                },
-                              ),
+                          label: const Text(
+                            'PLAY LEVEL',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 18,
                             ),
-                            Positioned(
-                              left: 0,
-                              child: _ArrowButton(
-                                icon: Icons.arrow_left,
-                                onTap: () {
-                                  final idx = levels.indexWhere(
-                                    (l) => l.levelIndex == _selectedLevel,
-                                  );
-                                  final prev = (idx > 0)
-                                      ? idx - 1
-                                      : levels.length - 1;
-                                  setState(
-                                    () => _selectedLevel =
-                                        levels[prev].levelIndex,
-                                  );
-                                  _pageController.animateToPage(
-                                    prev,
-                                    duration: const Duration(milliseconds: 300),
-                                    curve: Curves.easeInOut,
-                                  );
-                                },
-                              ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.yellow,
+                            foregroundColor: Colors.black,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
                             ),
-                            Positioned(
-                              right: 0,
-                              child: _ArrowButton(
-                                icon: Icons.arrow_right,
-                                onTap: () {
-                                  final idx = levels.indexWhere(
-                                    (l) => l.levelIndex == _selectedLevel,
-                                  );
-                                  final next = (idx < levels.length - 1)
-                                      ? idx + 1
-                                      : 0;
-                                  setState(
-                                    () => _selectedLevel =
-                                        levels[next].levelIndex,
-                                  );
-                                  _pageController.animateToPage(
-                                    next,
-                                    duration: const Duration(milliseconds: 300),
-                                    curve: Curves.easeInOut,
-                                  );
-                                },
-                              ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 32,
+                              vertical: 10,
                             ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          _navigatorKey.currentState!.push(
-                            MaterialPageRoute(
-                              builder: (_) => StickmanRunScreen(
-                                initialLevel: _selectedLevel,
-                              ),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.play_arrow, color: Colors.black),
-                        label: const Text(
-                          'PLAY LEVEL',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 18,
                           ),
                         ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.yellow,
-                          foregroundColor: Colors.black,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 32,
-                            vertical: 10,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
+                        const SizedBox(height: 4),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ],
@@ -294,20 +305,29 @@ class _BrandCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          const Text(
-            'LEVEL SELECT',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-              fontSize: 10,
-              letterSpacing: 1,
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: const Text(
+                'LEVEL SELECT',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 10,
+                  letterSpacing: 1,
+                ),
+              ),
             ),
           ),
-          const Spacer(),
           IconButton(
             icon: const Icon(Icons.settings, color: Colors.white, size: 24),
-            tooltip: 'Settings (coming soon)',
-            onPressed: () {},
+            tooltip: 'Settings',
+            onPressed: () {
+              Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
+            },
           ),
         ],
       ),

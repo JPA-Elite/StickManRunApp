@@ -54,6 +54,27 @@ class LevelTuning {
     required this.coinChance,
     required this.powerUpChance,
   });
+
+  LevelTuning copyWith({
+    double? speed,
+    double? gravity,
+    double? jumpVelocity,
+    double? obstacleSpawnEvery,
+    double? speedMultiplierPerCoin,
+    double? coinChance,
+    double? powerUpChance,
+  }) {
+    return LevelTuning(
+      speed: speed ?? this.speed,
+      gravity: gravity ?? this.gravity,
+      jumpVelocity: jumpVelocity ?? this.jumpVelocity,
+      obstacleSpawnEvery: obstacleSpawnEvery ?? this.obstacleSpawnEvery,
+      speedMultiplierPerCoin:
+          speedMultiplierPerCoin ?? this.speedMultiplierPerCoin,
+      coinChance: coinChance ?? this.coinChance,
+      powerUpChance: powerUpChance ?? this.powerUpChance,
+    );
+  }
 }
 
 @immutable
@@ -99,6 +120,16 @@ class LevelConfig {
     required this.obstacleRules,
     required this.ruleOrder,
   });
+
+  LevelConfig copyWith({LevelTuning? tuning}) {
+    return LevelConfig(
+      levelIndex: levelIndex,
+      visuals: visuals,
+      tuning: tuning ?? this.tuning,
+      obstacleRules: obstacleRules,
+      ruleOrder: ruleOrder,
+    );
+  }
 
   static Color _c(int value) => value;
 
