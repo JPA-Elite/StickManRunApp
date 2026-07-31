@@ -1059,26 +1059,40 @@ class StickmanRunPainter extends CustomPainter {
     );
 
     // Sparkle glint: a flickering 4-point twinkle over the coin.
+    _drawSparkleGlint(
+      canvas,
+      center: Offset(c.x, c.y + bob),
+      phase: phase,
+      scale: r,
+    );
+  }
+
+  /// A flickering 4-point twinkle used to highlight collectibles.
+  /// [scale] sizes the glint relative to the underlying icon.
+  void _drawSparkleGlint(
+    Canvas canvas, {
+    required Offset center,
+    required double phase,
+    required double scale,
+  }) {
     final twinkle = (sin(snapshot.timeSec * 6.0 + phase) + 1) / 2; // 0..1
     final flare = 0.5 + twinkle * 0.7; // 0.5..1.2
     final sparklePaint = Paint()
       ..color = Colors.white.withOpacity(0.35 + twinkle * 0.6)
       ..style = PaintingStyle.fill;
 
-    final cx = c.x;
-    final cy = c.y + bob;
-    final fl = r * 1.8 * flare;
-    final sw = r * 0.28;
+    final fl = scale * 1.8 * flare;
+    final sw = scale * 0.28;
 
     canvas.save();
-    canvas.translate(cx, cy);
+    canvas.translate(center.dx, center.dy);
     canvas.rotate(phase + snapshot.timeSec * 2.0);
     canvas.drawOval(
-      Rect.fromCenter(center: Offset(0, 0), width: fl * 2, height: sw),
+      Rect.fromCenter(center: Offset.zero, width: fl * 2, height: sw),
       sparklePaint,
     );
     canvas.drawOval(
-      Rect.fromCenter(center: Offset(0, 0), width: sw, height: fl * 2),
+      Rect.fromCenter(center: Offset.zero, width: sw, height: fl * 2),
       sparklePaint,
     );
     canvas.restore();
@@ -1129,6 +1143,12 @@ class StickmanRunPainter extends CustomPainter {
         Offset(cx + s * 0.22, cy - s * 0.05),
         bolt,
       );
+      _drawSparkleGlint(
+        canvas,
+        center: Offset(cx, cy),
+        phase: p.phase,
+        scale: s * 0.5,
+      );
       return;
     }
 
@@ -1157,6 +1177,12 @@ class StickmanRunPainter extends CustomPainter {
       Offset(cx - half * 0.35, cy),
       Offset(cx + half * 0.35, cy),
       bar,
+    );
+    _drawSparkleGlint(
+      canvas,
+      center: Offset(cx, cy),
+      phase: p.phase,
+      scale: s * 0.5,
     );
   }
 
