@@ -7,6 +7,7 @@ import '../engine/stickman_run_engine.dart';
 import '../settings/game_settings.dart';
 import '../settings/settings_controller.dart';
 import 'obstacle_guide.dart';
+import 'settings_screen.dart';
 import 'stickman_run_painter.dart';
 
 class StickmanRunScreen extends StatefulWidget {
@@ -331,6 +332,16 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                     label: 'GUIDE',
                     icon: Icons.help_outline,
                     onTap: _openGuide,
+                  ),
+                  const SizedBox(height: 10),
+                  _PauseActionButton(
+                    label: 'SETTINGS',
+                    icon: Icons.settings,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const SettingsScreen(),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 10),
                   _PauseActionButton(
