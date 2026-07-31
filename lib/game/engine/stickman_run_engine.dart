@@ -783,6 +783,14 @@ class StickmanRunEngine {
         if (hit) {
           _coinsCollected += 1;
           _score += 10;
+          _smashScorePopups.add(
+            SmashScorePopup(
+              x: c.x,
+              y: c.y,
+              remainingSec: 0.8,
+              score: 10,
+            ),
+          );
           return true;
         }
         return false;
