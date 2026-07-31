@@ -463,7 +463,7 @@ class StickmanRunPainter extends CustomPainter {
   }
 
   void _drawLevelLabel(Canvas canvas) {
-    final label = 'LEVEL ${snapshot.levelIndex}';
+    final label = level.visuals.name;
     final paint = Paint()
       ..color = Colors.black
       ..style = PaintingStyle.stroke
