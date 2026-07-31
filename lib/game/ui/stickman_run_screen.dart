@@ -6,6 +6,7 @@ import '../engine/entities.dart';
 import '../engine/stickman_run_engine.dart';
 import '../settings/game_settings.dart';
 import '../settings/settings_controller.dart';
+import 'obstacle_guide.dart';
 import 'stickman_run_painter.dart';
 
 class StickmanRunScreen extends StatefulWidget {
@@ -23,6 +24,9 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   late final AnimationController _controller;
   double _buttonBottom = 16;
   double _jumpSpacing = 60;
+
+  bool _paused = false;
+  bool _showPauseCard = false;
 
   StickmanRunSnapshot _snapshot = StickmanRunSnapshot(
     status: GameStatus.ready,
@@ -120,6 +124,50 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     return _settings.tapToJump && _snapshot.status == GameStatus.running;
   }
 
+  void _pause() {
+    _paused = true;
+    _showPauseCard = true;
+    _controller.stop();
+    setState(() {});
+  }
+
+  void _resume() {
+    _paused = false;
+    _showPauseCard = false;
+    _lastTime = 0;
+    _controller.repeat();
+    setState(() {});
+  }
+
+  void _restartLevel() {
+    _engine.start(levelIndex: _levelIndex);
+    _engine.startRunning();
+    _paused = false;
+    _showPauseCard = false;
+    _lastTime = 0;
+    _controller.repeat();
+    setState(() {
+      _snapshot = _engine.snapshot();
+    });
+  }
+
+  /// Opens the obstacle guide page. From the in-game hint button the run is
+  /// frozen while the guide is open and resumes when it closes; from the
+  /// pause card the game stays paused.
+  Future<void> _openGuide() async {
+    if (!_paused) {
+      _paused = true;
+      _controller.stop();
+      setState(() {});
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const ObstacleGuideScreen(),
+      ),
+    );
+    if (!_showPauseCard) _resume();
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -158,6 +206,8 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                   ),
                 ),
                 _buildOverlay(),
+                _buildTopButtons(),
+                _buildPauseOverlay(),
                 _buildSmashButton(),
                 _buildJumpButton(),
                 _buildCrawlButton(),
@@ -166,6 +216,112 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
           ),
         );
       },
+    );
+  }
+
+  /// Pause + guide buttons, centered at the top. Visible only while running.
+  Widget _buildTopButtons() {
+    final isRunning = _snapshot.status == GameStatus.running;
+    if (!isRunning || _paused) return const SizedBox.shrink();
+
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _TopCircleButton(
+                icon: Icons.pause_rounded,
+                tooltip: 'Pause',
+                onTap: _pause,
+              ),
+              const SizedBox(width: 12),
+              _TopCircleButton(
+                icon: Icons.help_outline,
+                tooltip: 'Obstacle guide',
+                onTap: _openGuide,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Full-screen pause card that blocks input while the game is paused.
+  Widget _buildPauseOverlay() {
+    if (!_showPauseCard) return const SizedBox.shrink();
+
+    return Positioned.fill(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {},
+        child: Center(
+          child: SingleChildScrollView(
+            child: Container(
+              width: min(340.0, MediaQuery.of(context).size.width - 32),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+              decoration: BoxDecoration(
+                color: const Color(0xFF111318),
+                border: Border.all(color: Colors.yellow, width: 2),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'PAUSED',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.yellow,
+                      letterSpacing: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Take a breather',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white.withValues(alpha: 0.7),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _PauseActionButton(
+                    label: 'RESUME',
+                    icon: Icons.play_arrow_rounded,
+                    onTap: _resume,
+                  ),
+                  const SizedBox(height: 10),
+                  _PauseActionButton(
+                    label: 'RESTART LEVEL',
+                    icon: Icons.replay_rounded,
+                    onTap: _restartLevel,
+                  ),
+                  const SizedBox(height: 10),
+                  _PauseActionButton(
+                    label: 'GUIDE',
+                    icon: Icons.help_outline,
+                    onTap: _openGuide,
+                  ),
+                  const SizedBox(height: 10),
+                  _PauseActionButton(
+                    label: 'EXIT',
+                    icon: Icons.exit_to_app_rounded,
+                    red: true,
+                    onTap: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -537,6 +693,80 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _TopCircleButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  const _TopCircleButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.45),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+          ),
+          child: Icon(icon, color: Colors.white, size: 26),
+        ),
+      ),
+    );
+  }
+}
+
+class _PauseActionButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool red;
+  final VoidCallback onTap;
+
+  const _PauseActionButton({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    this.red = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 44,
+      child: ElevatedButton.icon(
+        icon: Icon(icon, size: 20),
+        onPressed: onTap,
+        label: Text(
+          label,
+          style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.8),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: red
+              ? const Color.fromARGB(255, 230, 70, 70)
+              : Colors.yellow,
+          foregroundColor: Colors.black,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(color: red ? Colors.white : Colors.yellow, width: 2),
+          ),
+          elevation: 4,
+        ),
       ),
     );
   }
