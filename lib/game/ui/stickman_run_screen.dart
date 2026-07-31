@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../engine/entities.dart';
 import '../engine/stickman_run_engine.dart';
@@ -94,6 +95,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   }
 
   double _lastTime = 0;
+  bool _wasSmashActive = false;
 
   void _tick() {
     final now = _controller.lastElapsedDuration?.inMicroseconds.toDouble() ?? 0;
@@ -106,11 +108,27 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     _lastTime = now;
 
     final dtSec = max(0.0001, dtMicro / 1e6);
+    final wasRunning = _snapshot.status == GameStatus.running;
     _engine.tick(dtSec);
 
     setState(() {
       _snapshot = _engine.snapshot();
     });
+
+    // Vibrate when the smash actually impacts (animation starts).
+    if (!_wasSmashActive && _snapshot.smashActive) {
+      if (_settings.vibrationsEnabled) {
+        HapticFeedback.heavyImpact();
+      }
+    }
+    _wasSmashActive = _snapshot.smashActive;
+
+    // Vibrate when the stickman hits an obstacle (game over).
+    if (wasRunning && _snapshot.status == GameStatus.gameOver) {
+      if (_settings.vibrationsEnabled) {
+        HapticFeedback.heavyImpact();
+      }
+    }
   }
 
   int _lastJumpMicros = 0;
@@ -127,6 +145,10 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     _engine.jump();
     _engine.tick(1 / 60.0);
 
+    if (_settings.vibrationsEnabled) {
+      HapticFeedback.heavyImpact();
+    }
+
     setState(() {
       _snapshot = _engine.snapshot();
     });
@@ -140,13 +162,9 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     setState(() => _snapshot = _engine.snapshot());
   }
 
-  /// Taps start a jump from the ready card, or during a run when the
-  /// "tap to jump" setting is enabled (buttons control scheme only).
-  bool get _canTapToJump {
-    if (_snapshot.status == GameStatus.ready) return true;
-    if (_settings.controlScheme == ControlScheme.gestures) return false;
-    return _settings.tapToJump && _snapshot.status == GameStatus.running;
-  }
+  /// Tap-to-jump has been removed; use the JUMP button (buttons mode)
+  /// or swipe gestures to jump.
+  bool get _canTapToJump => false;
 
   /// In gestures mode a single tap smashes (cooldown handled by the engine).
   bool get _canTapToSmash =>
@@ -174,6 +192,9 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
 
   void _onCrawl() {
     _engine.crawl();
+    if (_settings.vibrationsEnabled) {
+      HapticFeedback.lightImpact();
+    }
     setState(() => _snapshot = _engine.snapshot());
   }
 
@@ -565,6 +586,9 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                 onPressed: canSmash
                     ? () {
                         _engine.smash();
+                        if (_settings.vibrationsEnabled) {
+                          HapticFeedback.heavyImpact();
+                        }
                         setState(() => _snapshot = _engine.snapshot());
                       }
                     : null,
@@ -640,7 +664,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
         : 'LEVEL COMPLETE';
 
     final subtitle = isReady
-        ? 'Tap anywhere to JUMP • Survive & collect coins'
+        ? 'Survive & collect coins'
         : isOver
         ? 'Score: ${_snapshot.score} • Coins: ${_snapshot.coins}'
         : 'Nice! Score: ${_snapshot.score} • Coins: ${_snapshot.coins}';
@@ -750,13 +774,16 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                                         ),
                                       ),
                                       onPressed: () {
-                                        _engine.startRunning();
-                                        _engine.jump();
-                                        _engine.tick(1 / 60.0);
-                                        setState(() {
-                                          _snapshot = _engine.snapshot();
-                                        });
-                                      },
+                                          _engine.startRunning();
+                                          _engine.jump();
+                                          _engine.tick(1 / 60.0);
+                                          if (_settings.vibrationsEnabled) {
+                                            HapticFeedback.heavyImpact();
+                                          }
+                                          setState(() {
+                                            _snapshot = _engine.snapshot();
+                                          });
+                                        },
                                       child: const Text(
                                         'START RUN',
                                         style: TextStyle(

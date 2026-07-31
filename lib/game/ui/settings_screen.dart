@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../settings/game_settings.dart';
 import '../settings/settings_controller.dart';
@@ -72,15 +73,20 @@ class SettingsScreen extends StatelessWidget {
                                   .setControlScheme,
                             ),
                           ),
-                          const _RowDivider(),
-                          _SettingRow(
-                            label: 'TAP ANYWHERE TO JUMP',
-                            control: _ArcadeSwitch(
-                              value: settings.tapToJump,
-                              onChanged: SettingsController.instance
-                                  .setTapToJump,
-                            ),
-                          ),
+                           const _RowDivider(),
+                           _SettingRow(
+                             label: 'VIBRATIONS',
+                             control: _ArcadeSwitch(
+                               value: settings.vibrationsEnabled,
+                               onChanged: (value) {
+                                 if (value) {
+                                   HapticFeedback.mediumImpact();
+                                 }
+                                 SettingsController.instance
+                                     .setVibrationsEnabled(value);
+                               },
+                             ),
+                           ),
                         ],
                       ),
                     ),

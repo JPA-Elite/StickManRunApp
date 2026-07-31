@@ -114,7 +114,6 @@ enum ControlScheme {
 @immutable
 class GameSettings {
   final GameDifficulty difficulty;
-  final bool tapToJump;
   final int stickmanColor;
   final CoinSize coinSize;
   final bool highContrast;
@@ -124,30 +123,33 @@ class GameSettings {
   /// uninitialized. Consumers treat null as [ControlScheme.buttons].
   final ControlScheme? controlScheme;
 
+  /// When true, the device vibrates on smash and on hitting an obstacle.
+  final bool vibrationsEnabled;
+
   const GameSettings({
     this.difficulty = GameDifficulty.normal,
-    this.tapToJump = true,
     this.stickmanColor = 0xFFFFFFFF,
     this.coinSize = CoinSize.medium,
     this.highContrast = false,
     this.controlScheme = ControlScheme.buttons,
+    this.vibrationsEnabled = false,
   });
 
   GameSettings copyWith({
     GameDifficulty? difficulty,
-    bool? tapToJump,
     int? stickmanColor,
     CoinSize? coinSize,
     bool? highContrast,
     ControlScheme? controlScheme,
+    bool? vibrationsEnabled,
   }) {
     return GameSettings(
       difficulty: difficulty ?? this.difficulty,
-      tapToJump: tapToJump ?? this.tapToJump,
       stickmanColor: stickmanColor ?? this.stickmanColor,
       coinSize: coinSize ?? this.coinSize,
       highContrast: highContrast ?? this.highContrast,
       controlScheme: controlScheme ?? this.controlScheme,
+      vibrationsEnabled: vibrationsEnabled ?? this.vibrationsEnabled,
     );
   }
 }

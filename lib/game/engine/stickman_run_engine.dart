@@ -319,7 +319,7 @@ class StickmanRunEngine {
 
     // Force a visibly obvious jump immediately.
     // This removes any timing sensitivity and makes it easy to confirm
-    // whether tap-to-jump is actually firing.
+    // that the jump button is working.
     const jumpHeightPx = 120.0;
 
     _stickman = _stickman.copyWith(
