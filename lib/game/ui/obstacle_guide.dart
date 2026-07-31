@@ -228,7 +228,9 @@ class _HowToItems extends StatelessWidget {
         _HowToRow(
           icon: Icons.sports_mma,
           title: 'SMASH',
-          definition: 'Press the red smash button to destroy obstacles.',
+          definition: gestures
+              ? 'Tap the screen to smash and destroy obstacles.'
+              : 'Press the red smash button to destroy obstacles.',
         ),
         _HowToRow(
           icon: Icons.star,

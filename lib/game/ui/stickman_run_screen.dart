@@ -52,7 +52,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   );
 
   int _levelIndex = 1;
-  late final GameSettings _settings;
+  late GameSettings _settings;
 
   @override
   void initState() {
@@ -61,6 +61,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     _engine = StickmanRunEngine(settings: _settings);
     _engine.start(levelIndex: widget.initialLevel);
     _levelIndex = widget.initialLevel;
+    SettingsController.instance.addListener(_onSettingsChanged);
 
     _snapshot = _engine.snapshot();
 
@@ -75,8 +76,19 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
 
   @override
   void dispose() {
+    SettingsController.instance.removeListener(_onSettingsChanged);
     _controller.dispose();
     super.dispose();
+  }
+
+  /// Reflects settings changed from the in-pause settings screen without
+  /// losing the current run: rebuilds (controls/colors) and re-applies the
+  /// engine-level settings (difficulty, coin size).
+  void _onSettingsChanged() {
+    setState(() {
+      _settings = SettingsController.instance.settings;
+    });
+    _engine.updateSettings(_settings);
   }
 
   double _lastTime = 0;
@@ -118,6 +130,14 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     });
   }
 
+  void _onSmash() {
+    if (_snapshot.status != GameStatus.running) return;
+    if (_snapshot.smashCooldownSec > 0) return;
+
+    _engine.smash();
+    setState(() => _snapshot = _engine.snapshot());
+  }
+
   /// Taps start a jump from the ready card, or during a run when the
   /// "tap to jump" setting is enabled (buttons control scheme only).
   bool get _canTapToJump {
@@ -125,6 +145,12 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     if (_settings.controlScheme == ControlScheme.gestures) return false;
     return _settings.tapToJump && _snapshot.status == GameStatus.running;
   }
+
+  /// In gestures mode a single tap smashes (cooldown handled by the engine).
+  bool get _canTapToSmash =>
+      _settings.controlScheme == ControlScheme.gestures &&
+      _snapshot.status == GameStatus.running &&
+      !_paused;
 
   /// True when swipe gestures control jump/crawl (running and not paused).
   bool get _gesturesActive =>
@@ -210,7 +236,9 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                 Positioned.fill(
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onTap: _canTapToJump ? _onJump : null,
+                    onTap: _canTapToJump
+                        ? _onJump
+                        : (_canTapToSmash ? _onSmash : null),
                     onVerticalDragEnd: _gesturesActive ? _onVerticalSwipe : null,
                     child: CustomPaint(
                       painter: StickmanRunPainter(
@@ -234,7 +262,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                 _buildOverlay(),
                 _buildTopButtons(),
                 _buildPauseOverlay(),
-                _buildSmashButton(),
+                _buildSmashButton(width: width, height: height),
                 _buildJumpButton(),
                 _buildCrawlButton(),
               ],
@@ -359,6 +387,78 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     );
   }
 
+  Widget _buildSmashIndicator({required double width, required double height}) {
+    final isRunning = _snapshot.status == GameStatus.running;
+    final canSmash = isRunning && _snapshot.smashCooldownSec <= 0;
+    final ready = canSmash && !_paused;
+    final fill = (1 - _snapshot.smashCooldownSec / 1.2).clamp(0.0, 1.0);
+
+    // Position below the stickman on the ground (stable — doesn't follow jumps).
+    final stickmanX = _snapshot.stickman.x;
+    final groundY = height * 0.78;
+    const indicatorWidth = 86.0;
+    final left = (stickmanX - indicatorWidth / 2).clamp(4.0, width - indicatorWidth - 4.0);
+    final top = groundY + 8;
+
+    return Positioned(
+      left: left,
+      top: top,
+      child: IgnorePointer(
+        child: Container(
+          width: 86,
+          padding: const EdgeInsets.fromLTRB(10, 5, 10, 7),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.55),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: ready
+                  ? Colors.red.withOpacity(0.9)
+                  : Colors.white.withOpacity(0.15),
+              width: 1.5,
+            ),
+            boxShadow: ready
+                ? [
+                    BoxShadow(
+                      color: Colors.red.withOpacity(0.5),
+                      blurRadius: 16,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.sports_mma,
+                size: 18,
+                weight: 900,
+                color: ready
+                    ? Colors.redAccent
+                    : Colors.white.withOpacity(0.45),
+              ),
+              const SizedBox(height: 3),
+              SizedBox(
+                width: 60,
+                height: 4,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(2),
+                  child: LinearProgressIndicator(
+                    value: isRunning ? fill : 1,
+                    backgroundColor: Colors.white.withOpacity(0.1),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      ready ? Colors.redAccent : Colors.white.withOpacity(0.3),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildJumpButton() {
     if (_settings.controlScheme == ControlScheme.gestures) {
       return const SizedBox.shrink();
@@ -409,7 +509,10 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     );
   }
 
-  Widget _buildSmashButton() {
+  Widget _buildSmashButton({required double width, required double height}) {
+    if (_settings.controlScheme == ControlScheme.gestures) {
+      return _buildSmashIndicator(width: width, height: height);
+    }
     final isRunning = _snapshot.status == GameStatus.running;
     final canSmash = isRunning && _snapshot.smashCooldownSec <= 0;
     final activeRed = const Color.fromARGB(255, 220, 50, 50);

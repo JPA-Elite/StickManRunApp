@@ -67,7 +67,7 @@ class StickmanRunSnapshot {
 class StickmanRunEngine {
   final List<LevelConfig> levels;
   final Random _rng;
-  final GameSettings _settings;
+  GameSettings _settings;
 
   StickmanRunEngine({List<LevelConfig>? levels, int? seed, GameSettings? settings})
       : levels = levels ?? LevelConfig.all(),
@@ -247,6 +247,32 @@ class StickmanRunEngine {
       y: _groundY,
       vy: 0,
     );
+
+    _recomputeSpawnCadence();
+    _rollNextSpawnInterval();
+  }
+
+  /// Applies live setting changes (e.g. changed from the in-pause settings
+  /// screen) without resetting the current run. Difficulty multipliers are
+  /// re-derived from the pristine level tuning so they aren't double-applied.
+  void updateSettings(GameSettings settings) {
+    _settings = settings;
+
+    final difficulty = _settings.difficulty;
+    final base = levels[_level.levelIndex - 1];
+    final t = base.tuning;
+    _level = _level.copyWith(
+      tuning: t.copyWith(
+        speed: t.speed * difficulty.speedMultiplier,
+        obstacleSpawnEvery:
+            t.obstacleSpawnEvery * difficulty.spawnIntervalMultiplier,
+        coinChance: (t.coinChance * difficulty.coinMultiplier).clamp(0.0, 1.0),
+        powerUpChance:
+            (t.powerUpChance * difficulty.powerUpMultiplier).clamp(0.0, 1.0),
+      ),
+    );
+
+    _coinRadiusMultiplier = _settings.coinSize.radiusMultiplier;
 
     _recomputeSpawnCadence();
     _rollNextSpawnInterval();
