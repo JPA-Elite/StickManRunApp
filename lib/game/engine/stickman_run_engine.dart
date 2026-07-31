@@ -126,6 +126,8 @@ class StickmanRunEngine {
   double _targetDistanceMeters = 250;
 
   // Obstacles spawn cadence adapts to difficulty.
+  // Deterministic base cadence, then randomized per spawn so gaps vary.
+  double _baseSpawnEverySec = 1;
   double _nextSpawnEverySec = 1;
 
   double _timeSec = 0;
@@ -223,6 +225,7 @@ class StickmanRunEngine {
     );
 
     _recomputeSpawnCadence();
+    _rollNextSpawnInterval();
   }
 
   void startRunning() {
@@ -354,10 +357,16 @@ class StickmanRunEngine {
     final timeRamp = min(0.35, _levelTimeSec / 90.0 * 0.35);
     final coinRampSpawn = min(0.25, _coinsCollected / 35.0 * 0.25);
 
-    _nextSpawnEverySec = max(0.55, base * (1 - timeRamp - coinRampSpawn));
+    _baseSpawnEverySec = max(0.55, base * (1 - timeRamp - coinRampSpawn));
 
     // Prevent speed var from being unused (keeps mental model).
     if (speed < 0) return;
+  }
+
+  /// Rolls a random spawn interval so obstacle gaps vary: sometimes close
+  /// together, sometimes far apart (0.6x to 2.0x the base cadence).
+  void _rollNextSpawnInterval() {
+    _nextSpawnEverySec = _baseSpawnEverySec * (0.6 + _rng.nextDouble() * 1.4);
   }
 
   void _updatePowerUps(double dtSec) {
@@ -398,6 +407,7 @@ class StickmanRunEngine {
         _spawnTimerSec -= _nextSpawnEverySec;
         _spawnTick += 1;
         _spawnObstacleColumn();
+        _rollNextSpawnInterval();
       }
     }
 
@@ -435,7 +445,7 @@ class StickmanRunEngine {
     // the viewport from the right side (not appearing mid-screen).
     // Add random variation (±60px) so obstacle distances aren't identical.
     final baseX = (_spawnTick <= 1) ? (_width + 260) : (_width + 60);
-    final colX = baseX + (_rng.nextDouble() - 0.5) * 120;
+    final colX = baseX + (_rng.nextDouble() - 0.5) * 200;
 
     final stickmanBottom = _groundY;
     final r = _rng.nextDouble();
