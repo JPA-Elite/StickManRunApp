@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../settings/game_settings.dart';
+import '../settings/settings_controller.dart';
+
 /// All things the guide can describe: every obstacle type plus the
 /// collectibles (coins and power-ups).
 enum GuideKind {
@@ -153,6 +156,9 @@ class ObstacleGuideScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    const _SectionHeader('HOW TO PLAY'),
+                    const _HowToItems(),
+                    const SizedBox(height: 14),
                     const _SectionHeader('OBSTACLES'),
                     for (final item in _obstacleItems) _GuideRow(item: item),
                     const SizedBox(height: 14),
@@ -187,6 +193,110 @@ class _SectionHeader extends StatelessWidget {
           fontSize: 12,
           letterSpacing: 1.6,
         ),
+      ),
+    );
+  }
+}
+
+/// How-to-play rows. Jump/crawl instructions follow the active control
+/// scheme so players see exactly what to do.
+class _HowToItems extends StatelessWidget {
+  const _HowToItems();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = SettingsController.instance.settings.controlScheme;
+    final gestures = scheme == ControlScheme.gestures;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _HowToRow(
+          icon: Icons.arrow_upward,
+          title: 'JUMP',
+          definition: gestures
+              ? 'Swipe up on the screen to jump over obstacles.'
+              : 'Press the up button (bottom-right) to jump over obstacles.',
+        ),
+        _HowToRow(
+          icon: Icons.subdirectory_arrow_left,
+          title: 'CRAWL',
+          definition: gestures
+              ? 'Swipe down on the screen to crawl under high obstacles.'
+              : 'Press the crawl button to duck under high obstacles.',
+        ),
+        _HowToRow(
+          icon: Icons.sports_mma,
+          title: 'SMASH',
+          definition: 'Press the red smash button to destroy obstacles.',
+        ),
+        _HowToRow(
+          icon: Icons.star,
+          title: 'SCORE',
+          definition: 'Collect coins for +10 each and grab shield/magnet boosts.',
+        ),
+      ],
+    );
+  }
+}
+
+class _HowToRow extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String definition;
+
+  const _HowToRow({
+    required this.icon,
+    required this.title,
+    required this.definition,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 38,
+            height: 38,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.yellow.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.yellow, width: 1.5),
+              ),
+              child: Icon(icon, color: Colors.yellow, size: 20),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  definition,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    height: 1.25,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

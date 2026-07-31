@@ -62,6 +62,18 @@ class SettingsScreen extends StatelessWidget {
                           ),
                           const _RowDivider(),
                           _SettingRow(
+                            label: 'CONTROLS',
+                            control: _SegmentGroup<ControlScheme>(
+                              options: ControlScheme.values,
+                              selected:
+                                  settings.controlScheme ?? ControlScheme.buttons,
+                              labelOf: (s) => s.label,
+                              onSelected: SettingsController.instance
+                                  .setControlScheme,
+                            ),
+                          ),
+                          const _RowDivider(),
+                          _SettingRow(
                             label: 'TAP ANYWHERE TO JUMP',
                             control: _ArcadeSwitch(
                               value: settings.tapToJump,

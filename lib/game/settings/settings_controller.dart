@@ -15,6 +15,7 @@ class SettingsController extends ChangeNotifier {
   static const String _keyStickmanColor = 'game_stickman_color';
   static const String _keyCoinSize = 'game_coin_size';
   static const String _keyHighContrast = 'game_high_contrast';
+  static const String _keyControlScheme = 'game_control_scheme';
 
   GameSettings _settings = const GameSettings();
   GameSettings get settings => _settings;
@@ -30,6 +31,11 @@ class SettingsController extends ChangeNotifier {
       coinSize: CoinSize.values.asNameMap()[prefs.getString(_keyCoinSize)] ??
           CoinSize.medium,
       highContrast: prefs.getBool(_keyHighContrast) ?? false,
+      controlScheme: switch (prefs.getString(_keyControlScheme)) {
+        'gestures' => ControlScheme.gestures,
+        'buttons' => ControlScheme.buttons,
+        _ => ControlScheme.buttons,
+      },
     );
     notifyListeners();
   }
@@ -41,6 +47,7 @@ class SettingsController extends ChangeNotifier {
     await prefs.setInt(_keyStickmanColor, _settings.stickmanColor);
     await prefs.setString(_keyCoinSize, _settings.coinSize.name);
     await prefs.setBool(_keyHighContrast, _settings.highContrast);
+    await prefs.setString(_keyControlScheme, _settings.controlScheme?.name ?? 'buttons');
   }
 
   void setDifficulty(GameDifficulty value) {
@@ -74,6 +81,13 @@ class SettingsController extends ChangeNotifier {
   void setHighContrast(bool value) {
     if (_settings.highContrast == value) return;
     _settings = _settings.copyWith(highContrast: value);
+    _save();
+    notifyListeners();
+  }
+
+  void setControlScheme(ControlScheme value) {
+    if (_settings.controlScheme == value) return;
+    _settings = _settings.copyWith(controlScheme: value);
     _save();
     notifyListeners();
   }

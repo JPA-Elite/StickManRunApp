@@ -95,6 +95,21 @@ enum CoinSize {
   }
 }
 
+/// How jump and crawl are triggered during a run.
+enum ControlScheme {
+  buttons,
+  gestures;
+
+  String get label {
+    switch (this) {
+      case ControlScheme.buttons:
+        return 'BUTTONS';
+      case ControlScheme.gestures:
+        return 'GESTURES';
+    }
+  }
+}
+
 /// Immutable snapshot of all user-facing game settings.
 @immutable
 class GameSettings {
@@ -104,12 +119,18 @@ class GameSettings {
   final CoinSize coinSize;
   final bool highContrast;
 
+  /// Nullable only as a defensive guard: after a hot reload a live
+  /// [GameSettings] from before this field existed can have it
+  /// uninitialized. Consumers treat null as [ControlScheme.buttons].
+  final ControlScheme? controlScheme;
+
   const GameSettings({
     this.difficulty = GameDifficulty.normal,
     this.tapToJump = true,
     this.stickmanColor = 0xFFFFFFFF,
     this.coinSize = CoinSize.medium,
     this.highContrast = false,
+    this.controlScheme = ControlScheme.buttons,
   });
 
   GameSettings copyWith({
@@ -118,6 +139,7 @@ class GameSettings {
     int? stickmanColor,
     CoinSize? coinSize,
     bool? highContrast,
+    ControlScheme? controlScheme,
   }) {
     return GameSettings(
       difficulty: difficulty ?? this.difficulty,
@@ -125,6 +147,7 @@ class GameSettings {
       stickmanColor: stickmanColor ?? this.stickmanColor,
       coinSize: coinSize ?? this.coinSize,
       highContrast: highContrast ?? this.highContrast,
+      controlScheme: controlScheme ?? this.controlScheme,
     );
   }
 }

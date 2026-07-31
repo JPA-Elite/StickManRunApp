@@ -118,10 +118,34 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   }
 
   /// Taps start a jump from the ready card, or during a run when the
-  /// "tap to jump" setting is enabled.
+  /// "tap to jump" setting is enabled (buttons control scheme only).
   bool get _canTapToJump {
     if (_snapshot.status == GameStatus.ready) return true;
+    if (_settings.controlScheme == ControlScheme.gestures) return false;
     return _settings.tapToJump && _snapshot.status == GameStatus.running;
+  }
+
+  /// True when swipe gestures control jump/crawl (running and not paused).
+  bool get _gesturesActive =>
+      _settings.controlScheme == ControlScheme.gestures &&
+      _snapshot.status == GameStatus.running &&
+      !_paused;
+
+  /// Velocity (px/s) a swipe must exceed to count as jump or crawl.
+  static const double _swipeVelocityThreshold = 400;
+
+  void _onVerticalSwipe(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    if (velocity < -_swipeVelocityThreshold) {
+      _onJump();
+    } else if (velocity > _swipeVelocityThreshold) {
+      _onCrawl();
+    }
+  }
+
+  void _onCrawl() {
+    _engine.crawl();
+    setState(() => _snapshot = _engine.snapshot());
   }
 
   void _pause() {
@@ -186,6 +210,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: _canTapToJump ? _onJump : null,
+                    onVerticalDragEnd: _gesturesActive ? _onVerticalSwipe : null,
                     child: CustomPaint(
                       painter: StickmanRunPainter(
                         snapshot: _snapshot,
@@ -326,6 +351,9 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   }
 
   Widget _buildJumpButton() {
+    if (_settings.controlScheme == ControlScheme.gestures) {
+      return const SizedBox.shrink();
+    }
     final isRunning = _snapshot.status == GameStatus.running;
     return Positioned(
       right: 14,
@@ -346,6 +374,9 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   }
 
   Widget _buildCrawlButton() {
+    if (_settings.controlScheme == ControlScheme.gestures) {
+      return const SizedBox.shrink();
+    }
     final isRunning = _snapshot.status == GameStatus.running;
     return Positioned(
       right: 14,
@@ -354,12 +385,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
         width: 52,
         height: 52,
         child: ElevatedButton(
-          onPressed: isRunning
-              ? () {
-                  _engine.crawl();
-                  setState(() => _snapshot = _engine.snapshot());
-                }
-              : null,
+          onPressed: isRunning ? _onCrawl : null,
           style: _circleBtnStyle(
             isRunning: isRunning,
             activeColor: Colors.cyanAccent,
