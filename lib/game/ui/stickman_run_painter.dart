@@ -1085,9 +1085,80 @@ class StickmanRunPainter extends CustomPainter {
       case ObstacleType.cactus:
         return const Color.fromARGB(255, 18, 124, 32);
       case ObstacleType.stalagmite:
-        return const Color.fromARGB(255, 64, 10, 96);
+        return const Color.fromARGB(255, 206, 147, 216);
       case ObstacleType.rollingRock:
         return Colors.brown;
+      case ObstacleType.drone:
+      case ObstacleType.laser:
+      case ObstacleType.bat:
+      case ObstacleType.fireJet:
+      case ObstacleType.fireball:
+      case ObstacleType.pendulumMine:
+        return _flyingObstacleFill(type);
+    }
+  }
+
+  /// Flying/hanging obstacles get bright, level-aware accent colors so they
+  /// always stand out against each level's sky instead of blending in
+  /// (e.g. black bat/drone were invisible on the dark blue Night City sky).
+  Color _flyingObstacleFill(ObstacleType type) {
+    switch (level.levelIndex) {
+      case 1: // FOREST – dark green sky
+        switch (type) {
+          case ObstacleType.drone:
+            return Colors.cyanAccent;
+          case ObstacleType.bat:
+            return Colors.purpleAccent;
+          default:
+            return _defaultFlyingFill(type);
+        }
+      case 2: // DESERT – tan sky
+        switch (type) {
+          case ObstacleType.pendulumMine:
+            return Colors.grey.shade300;
+          default:
+            return _defaultFlyingFill(type);
+        }
+      case 3: // NIGHT CITY – dark blue sky
+        switch (type) {
+          case ObstacleType.drone:
+            return Colors.yellowAccent;
+          case ObstacleType.bat:
+            return Colors.orangeAccent;
+          default:
+            return _defaultFlyingFill(type);
+        }
+      case 4: // DARK CAVE – purple sky
+        switch (type) {
+          case ObstacleType.drone:
+            return Colors.cyanAccent;
+          case ObstacleType.bat:
+            return Colors.orangeAccent;
+          case ObstacleType.pendulumMine:
+            return Colors.grey.shade300;
+          default:
+            return _defaultFlyingFill(type);
+        }
+      case 5: // VOLCANO – dark red sky
+        switch (type) {
+          case ObstacleType.drone:
+            return Colors.yellowAccent;
+          case ObstacleType.laser:
+            return Colors.cyanAccent;
+          case ObstacleType.fireJet:
+            return Colors.amber;
+          case ObstacleType.fireball:
+            return Colors.yellowAccent;
+          default:
+            return _defaultFlyingFill(type);
+        }
+      default:
+        return _defaultFlyingFill(type);
+    }
+  }
+
+  Color _defaultFlyingFill(ObstacleType type) {
+    switch (type) {
       case ObstacleType.drone:
         return Colors.black87;
       case ObstacleType.laser:
@@ -1100,6 +1171,8 @@ class StickmanRunPainter extends CustomPainter {
         return Colors.deepOrangeAccent;
       case ObstacleType.pendulumMine:
         return Colors.grey;
+      default:
+        return Colors.black;
     }
   }
 
