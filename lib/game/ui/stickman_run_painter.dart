@@ -28,8 +28,12 @@ class StickmanRunPainter extends CustomPainter {
     _fillBackground(canvas);
 
     // Ground band.
-    final groundPaint = Paint()..color = _flutterColor(level.visuals.groundColor);
-    canvas.drawRect(Rect.fromLTWH(0, groundY, width, height - groundY), groundPaint);
+    final groundPaint = Paint()
+      ..color = _flutterColor(level.visuals.groundColor);
+    canvas.drawRect(
+      Rect.fromLTWH(0, groundY, width, height - groundY),
+      groundPaint,
+    );
 
     // “Highway” animation: single horizontal dashed line.
     final dashPaint = Paint()
@@ -271,13 +275,12 @@ class StickmanRunPainter extends CustomPainter {
 
   void _drawTree(
     Canvas canvas,
-    Offset baseTopLeft,
-    {
-      required Color leafFill,
-      required Color trunkFill,
-      required double scale,
-      required double outlineAlpha,
-    }) {
+    Offset baseTopLeft, {
+    required Color leafFill,
+    required Color trunkFill,
+    required double scale,
+    required double outlineAlpha,
+  }) {
     final outline = Paint()
       ..color = Colors.black.withOpacity(outlineAlpha)
       ..style = PaintingStyle.stroke
@@ -286,15 +289,26 @@ class StickmanRunPainter extends CustomPainter {
     final trunkW = 10 * scale;
     final trunkH = 30 * scale;
 
-    final trunkRect = Rect.fromLTWH(baseTopLeft.dx + 6 * scale, baseTopLeft.dy + trunkH, trunkW, trunkH * 0.9);
+    final trunkRect = Rect.fromLTWH(
+      baseTopLeft.dx + 6 * scale,
+      baseTopLeft.dy + trunkH,
+      trunkW,
+      trunkH * 0.9,
+    );
 
     // Leaves: triangle stack.
     final trunkPaint = Paint()..color = trunkFill;
     final leafPaint = Paint()..color = leafFill;
 
     final tip = Offset(baseTopLeft.dx + 16 * scale, baseTopLeft.dy);
-    final left = Offset(baseTopLeft.dx + 6 * scale, baseTopLeft.dy + 28 * scale);
-    final right = Offset(baseTopLeft.dx + 26 * scale, baseTopLeft.dy + 28 * scale);
+    final left = Offset(
+      baseTopLeft.dx + 6 * scale,
+      baseTopLeft.dy + 28 * scale,
+    );
+    final right = Offset(
+      baseTopLeft.dx + 26 * scale,
+      baseTopLeft.dy + 28 * scale,
+    );
 
     final path = Path()
       ..moveTo(tip.dx, tip.dy)
@@ -306,7 +320,10 @@ class StickmanRunPainter extends CustomPainter {
     canvas.drawPath(path, outline);
 
     final trunkOutline = outline;
-    final trunkR = RRect.fromRectAndRadius(trunkRect, Radius.circular(4 * scale));
+    final trunkR = RRect.fromRectAndRadius(
+      trunkRect,
+      Radius.circular(4 * scale),
+    );
     canvas.drawRRect(trunkR, trunkPaint);
     canvas.drawRRect(trunkR, trunkOutline);
   }
@@ -325,7 +342,10 @@ class StickmanRunPainter extends CustomPainter {
     final bodyPaint = Paint()..color = fill;
 
     // Roof = triangle.
-    final roofPeak = Offset(topLeft.dx + widthPx / 2, topLeft.dy - heightPx * 0.18);
+    final roofPeak = Offset(
+      topLeft.dx + widthPx / 2,
+      topLeft.dy - heightPx * 0.18,
+    );
     final roofLeft = Offset(topLeft.dx, topLeft.dy);
     final roofRight = Offset(topLeft.dx + widthPx, topLeft.dy);
 
@@ -359,22 +379,56 @@ class StickmanRunPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
-    final win1 = Rect.fromLTWH(topLeft.dx + widthPx * 0.18, topLeft.dy + heightPx * 0.36, winW, winH);
-    final win2 = Rect.fromLTWH(topLeft.dx + widthPx * 0.64, topLeft.dy + heightPx * 0.36, winW, winH);
-    final win3 = Rect.fromLTWH(topLeft.dx + widthPx * 0.18, topLeft.dy + heightPx * 0.62, winW, winH);
-    final win4 = Rect.fromLTWH(topLeft.dx + widthPx * 0.64, topLeft.dy + heightPx * 0.62, winW, winH);
+    final win1 = Rect.fromLTWH(
+      topLeft.dx + widthPx * 0.18,
+      topLeft.dy + heightPx * 0.36,
+      winW,
+      winH,
+    );
+    final win2 = Rect.fromLTWH(
+      topLeft.dx + widthPx * 0.64,
+      topLeft.dy + heightPx * 0.36,
+      winW,
+      winH,
+    );
+    final win3 = Rect.fromLTWH(
+      topLeft.dx + widthPx * 0.18,
+      topLeft.dy + heightPx * 0.62,
+      winW,
+      winH,
+    );
+    final win4 = Rect.fromLTWH(
+      topLeft.dx + widthPx * 0.64,
+      topLeft.dy + heightPx * 0.62,
+      winW,
+      winH,
+    );
 
     for (final r in [win1, win2, win3, win4]) {
       canvas.drawRRect(RRect.fromRectAndRadius(r, Radius.circular(3)), wPaint);
-      canvas.drawRRect(RRect.fromRectAndRadius(r, Radius.circular(3)), wOutline);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(r, Radius.circular(3)),
+        wOutline,
+      );
     }
 
     // Chimney.
     final chimW = widthPx * 0.12;
     final chimH = heightPx * 0.22;
-    final chimRect = Rect.fromLTWH(topLeft.dx + widthPx * 0.72, topLeft.dy - chimH * 0.02, chimW, chimH);
-    canvas.drawRRect(RRect.fromRectAndRadius(chimRect, Radius.circular(3)), Paint()..color = Colors.black.withOpacity(0.9));
-    canvas.drawRRect(RRect.fromRectAndRadius(chimRect, Radius.circular(3)), wOutline);
+    final chimRect = Rect.fromLTWH(
+      topLeft.dx + widthPx * 0.72,
+      topLeft.dy - chimH * 0.02,
+      chimW,
+      chimH,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(chimRect, Radius.circular(3)),
+      Paint()..color = Colors.black.withOpacity(0.9),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(chimRect, Radius.circular(3)),
+      wOutline,
+    );
   }
 
   void _drawLevelLabel(Canvas canvas) {
@@ -411,10 +465,7 @@ class StickmanRunPainter extends CustomPainter {
     canvas.drawRRect(rect, fill);
     canvas.drawRRect(rect, paint);
 
-    textPainter.paint(
-      canvas,
-      Offset(rect.left + pad, rect.top + pad),
-    );
+    textPainter.paint(canvas, Offset(rect.left + pad, rect.top + pad));
   }
 
   void _drawStickman(Canvas canvas, Stickman stickman) {
@@ -439,14 +490,14 @@ class StickmanRunPainter extends CustomPainter {
     final fillPaint = Paint()..color = Colors.white;
 
     // Head.
-    canvas.drawCircle(
-      Offset(cx, headCenterY),
-      effectiveH * 0.09,
-      fillPaint,
-    );
+    canvas.drawCircle(Offset(cx, headCenterY), effectiveH * 0.09, fillPaint);
 
     // Body.
-    canvas.drawLine(Offset(cx, torsoTop), Offset(cx, bottomY - effectiveH * 0.18), outline);
+    canvas.drawLine(
+      Offset(cx, torsoTop),
+      Offset(cx, bottomY - effectiveH * 0.18),
+      outline,
+    );
 
     // Running animation: swing arms + legs with a more “natural” gait.
     final isRunning = snapshot.status == GameStatus.running;
@@ -504,12 +555,24 @@ class StickmanRunPainter extends CustomPainter {
 
     // Connect legs to the torso center.
     final leftHip = Offset(cx, hipY);
-    final leftKnee = Offset(leftHip.dx - leftForwardLeg * stepOut * 0.35, leftKneeY);
-    final leftFoot = Offset(leftKnee.dx - leftForwardLeg * stepOut * 0.62, bottomY);
+    final leftKnee = Offset(
+      leftHip.dx - leftForwardLeg * stepOut * 0.35,
+      leftKneeY,
+    );
+    final leftFoot = Offset(
+      leftKnee.dx - leftForwardLeg * stepOut * 0.62,
+      bottomY,
+    );
 
     final rightHip = Offset(cx, hipY);
-    final rightKnee = Offset(rightHip.dx - rightForwardLeg * stepOut * 0.35, rightKneeY);
-    final rightFoot = Offset(rightKnee.dx - rightForwardLeg * stepOut * 0.62, bottomY);
+    final rightKnee = Offset(
+      rightHip.dx - rightForwardLeg * stepOut * 0.35,
+      rightKneeY,
+    );
+    final rightFoot = Offset(
+      rightKnee.dx - rightForwardLeg * stepOut * 0.62,
+      bottomY,
+    );
 
     canvas.drawLine(leftHip, leftKnee, outline);
     canvas.drawLine(leftKnee, leftFoot, outline);
@@ -614,7 +677,6 @@ class StickmanRunPainter extends CustomPainter {
 
   Color _flutterColor(int argb) => Color(argb);
 
-
   void _drawSpike(Canvas canvas, Obstacle o, Paint fill, Paint outline) {
     final x1 = o.x;
     final y1 = o.y;
@@ -716,7 +778,11 @@ class StickmanRunPainter extends CustomPainter {
       ..color = Colors.black
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3;
-    canvas.drawLine(Offset((x1 + x2) / 2, y1 + 8), Offset((x1 + x2) / 2, y2 - 10), crack);
+    canvas.drawLine(
+      Offset((x1 + x2) / 2, y1 + 8),
+      Offset((x1 + x2) / 2, y2 - 10),
+      crack,
+    );
   }
 
   void _drawDrone(Canvas canvas, Obstacle o, Paint fill, Paint outline) {
@@ -735,8 +801,14 @@ class StickmanRunPainter extends CustomPainter {
 
     final eyeY = y1 + (o.height * 0.42);
     final eyeW = o.width * 0.18;
-    canvas.drawRect(Rect.fromLTWH(x1 + o.width * 0.28, eyeY, eyeW, 6), eyePaint);
-    canvas.drawRect(Rect.fromLTWH(x1 + o.width * 0.56, eyeY, eyeW, 6), eyePaint);
+    canvas.drawRect(
+      Rect.fromLTWH(x1 + o.width * 0.28, eyeY, eyeW, 6),
+      eyePaint,
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(x1 + o.width * 0.56, eyeY, eyeW, 6),
+      eyePaint,
+    );
   }
 
   void _drawBat(Canvas canvas, Obstacle o, Paint fill, Paint outline) {
@@ -749,7 +821,12 @@ class StickmanRunPainter extends CustomPainter {
     final midX = (x1 + x2) / 2;
     final path = Path()
       ..moveTo(x1, y2)
-      ..quadraticBezierTo(x1 + o.width * 0.22, y1 + o.height * 0.35, midX, y1 + 2)
+      ..quadraticBezierTo(
+        x1 + o.width * 0.22,
+        y1 + o.height * 0.35,
+        midX,
+        y1 + 2,
+      )
       ..quadraticBezierTo(x1 + o.width * 0.78, y1 + o.height * 0.35, x2, y2)
       ..close();
 
@@ -839,6 +916,31 @@ class StickmanRunPainter extends CustomPainter {
       false,
       shine,
     );
+
+    // Sparkle glint: a flickering 4-point twinkle over the coin.
+    final twinkle = (sin(snapshot.timeSec * 6.0 + phase) + 1) / 2; // 0..1
+    final flare = 0.5 + twinkle * 0.7; // 0.5..1.2
+    final sparklePaint = Paint()
+      ..color = Colors.white.withOpacity(0.35 + twinkle * 0.6)
+      ..style = PaintingStyle.fill;
+
+    final cx = c.x;
+    final cy = c.y + bob;
+    final fl = r * 1.8 * flare;
+    final sw = r * 0.28;
+
+    canvas.save();
+    canvas.translate(cx, cy);
+    canvas.rotate(phase + snapshot.timeSec * 2.0);
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(0, 0), width: fl * 2, height: sw),
+      sparklePaint,
+    );
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(0, 0), width: sw, height: fl * 2),
+      sparklePaint,
+    );
+    canvas.restore();
   }
 
   void _drawPowerUp(Canvas canvas, PowerUp p) {
@@ -876,8 +978,16 @@ class StickmanRunPainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 5;
 
-      canvas.drawLine(Offset(cx, cy - s * 0.15), Offset(cx + s * 0.18, cy + s * 0.2), bolt);
-      canvas.drawLine(Offset(cx - s * 0.02, cy - s * 0.05), Offset(cx + s * 0.22, cy - s * 0.05), bolt);
+      canvas.drawLine(
+        Offset(cx, cy - s * 0.15),
+        Offset(cx + s * 0.18, cy + s * 0.2),
+        bolt,
+      );
+      canvas.drawLine(
+        Offset(cx - s * 0.02, cy - s * 0.05),
+        Offset(cx + s * 0.22, cy - s * 0.05),
+        bolt,
+      );
       return;
     }
 
@@ -897,8 +1007,16 @@ class StickmanRunPainter extends CustomPainter {
       ..color = Colors.white
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4;
-    canvas.drawLine(Offset(cx, cy - half * 0.65), Offset(cx, cy + half * 0.65), bar);
-    canvas.drawLine(Offset(cx - half * 0.35, cy), Offset(cx + half * 0.35, cy), bar);
+    canvas.drawLine(
+      Offset(cx, cy - half * 0.65),
+      Offset(cx, cy + half * 0.65),
+      bar,
+    );
+    canvas.drawLine(
+      Offset(cx - half * 0.35, cy),
+      Offset(cx + half * 0.35, cy),
+      bar,
+    );
   }
 
   void _drawHud(Canvas canvas, {required double groundY}) {
@@ -907,8 +1025,7 @@ class StickmanRunPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3;
 
-    final badgeFill = Paint()
-      ..color = Colors.white.withOpacity(0.18);
+    final badgeFill = Paint()..color = Colors.white.withOpacity(0.18);
 
     double y = 18;
     double x = width - 182;
@@ -955,7 +1072,10 @@ class StickmanRunPainter extends CustomPainter {
     required Paint outline,
     required Color color,
   }) {
-    final rrect = RRect.fromRectAndRadius(Rect.fromLTWH(x, y, w, h), const Radius.circular(12));
+    final rrect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(x, y, w, h),
+      const Radius.circular(12),
+    );
     canvas.drawRRect(rrect, badgeFill);
     canvas.drawRRect(rrect, outline);
 
@@ -989,7 +1109,10 @@ class StickmanRunPainter extends CustomPainter {
     final titleY = y + 8;
     final valueCenterY = y + h * 0.62;
     titlePainter.paint(canvas, Offset(x + 12, titleY));
-    valuePainter.paint(canvas, Offset(x + 12, valueCenterY - valuePainter.height / 2));
+    valuePainter.paint(
+      canvas,
+      Offset(x + 12, valueCenterY - valuePainter.height / 2),
+    );
   }
 
   void _drawSmashShield(Canvas canvas, Stickman stickman) {
@@ -1042,11 +1165,15 @@ class StickmanRunPainter extends CustomPainter {
       final aEnd = baseAngle + 0.5 + sin(t * 0.7 + i * 1.3) * 0.15;
 
       canvas.drawArc(
-        Rect.fromCircle(center: Offset(shieldCx, shieldCy), radius: arcR + i * 12),
+        Rect.fromCircle(
+          center: Offset(shieldCx, shieldCy),
+          radius: arcR + i * 12,
+        ),
         aStart,
         aEnd,
         false,
-        swooshPaint..color = Colors.white.withOpacity(0.35 + 0.15 * (1 - i * 0.3)),
+        swooshPaint
+          ..color = Colors.white.withOpacity(0.35 + 0.15 * (1 - i * 0.3)),
       );
     }
 

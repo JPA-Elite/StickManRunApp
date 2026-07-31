@@ -574,7 +574,7 @@ class StickmanRunEngine {
     final baseY = bottomY - (80 + _rng.nextDouble() * 110);
 
     for (var i = 0; i < count; i++) {
-      final radius = 9 + _rng.nextDouble() * 3;
+      final radius = 5.5 + _rng.nextDouble() * 2.5;
       final y = baseY - i * (22 + _rng.nextDouble() * 18);
       _coins.add(
         Coin(
