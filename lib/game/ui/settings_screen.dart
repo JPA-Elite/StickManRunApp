@@ -236,63 +236,40 @@ class SettingsScreen extends StatelessWidget {
   }
 
   void _showAbout(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF111318),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Colors.yellow, width: 2),
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => GameInfoScreen(
+          title: 'ABOUT',
+          body: _aboutBody,
         ),
-        title: const Text(
-          'STICKMAN RUN',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Colors.yellow,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1,
-          ),
-        ),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Version 1.0.0',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-            ),
-            SizedBox(height: 10),
-            Text(
-              'Jump obstacles, collect coins and survive every level!',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white70),
-            ),
-          ],
-        ),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text(
-              'OK',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
-            ),
-          ),
-        ],
       ),
-    );
-  }
-}
+     );
+   }
+ }
 
-const String _privacyBody =
-    'Stickman Run does not collect, store or share any personal data. All '
-    'game progress and settings are stored locally on your device only.\n\n'
-    'No analytics, no ads, no third-party trackers are included in this game.';
+  const String _aboutBody =
+      'Stickman Run is a fast-paced arcade runner where you guide a '
+      'stick figure through increasingly challenging levels packed with '
+      'obstacles, coins, and power-ups.\n\n'
+      '▸ Jump over ground obstacles by tapping the JUMP button.\n'
+      '▸ Crawl under high obstacles by tapping the CRAWL button.\n'
+      '▸ Smash obstacles with the SMASH button when they are close.\n'
+      '▸ Collect coins for points and grab shield/magnet boosts.\n'
+      '▸ Survive as long as you can — the difficulty scales up over time.\n\n'
+      'Controls:\n'
+      '▸ BUTTONS mode — use the on-screen JUMP, CRAWL, and SMASH buttons.\n'
+      '▸ GESTURES mode — swipe up to jump, swipe down to crawl, tap to smash.';
 
-const String _termsBody =
-    'By playing Stickman Run you agree to enjoy it responsibly. The game is '
-    'provided as-is for entertainment purposes only.\n\n'
-    'All game assets, code and content belong to the game developers. '
-    'You may not resell or redistribute the game without permission.';
+  const String _privacyBody =
+      'Stickman Run does not collect, store or share any personal data. All '
+      'game progress and settings are stored locally on your device only.\n\n'
+      'No analytics, no ads, no third-party trackers are included in this game.';
+
+  const String _termsBody =
+      'By playing Stickman Run you agree to enjoy it responsibly. The game is '
+      'provided as-is for entertainment purposes only.\n\n'
+      'All game assets, code and content belong to the game developers. '
+      'You may not resell or redistribute the game without permission.';
 
 /// Reusable lightweight full-screen info page for Privacy/Terms.
 class GameInfoScreen extends StatelessWidget {
