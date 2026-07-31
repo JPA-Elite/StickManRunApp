@@ -107,6 +107,12 @@ class StickmanRunPainter extends CustomPainter {
       _drawPowerUp(canvas, p);
     }
 
+    // Smash debris particles.
+    _drawSmashDebris(canvas);
+
+    // Floating score popups.
+    _drawSmashScorePopups(canvas);
+
     // Stickman.
     _drawStickman(canvas, snapshot.stickman);
 
@@ -1389,6 +1395,75 @@ class StickmanRunPainter extends CustomPainter {
         return Colors.yellow;
       case PowerUpType.magnet:
         return Colors.cyanAccent;
+    }
+  }
+
+  /// Draws smash debris particles — small colored fragments that fly outward
+  /// and fade out when an obstacle is destroyed.
+  void _drawSmashDebris(Canvas canvas) {
+    if (snapshot.smashDebris.isEmpty) return;
+
+    for (final d in snapshot.smashDebris) {
+      final alpha = (d.remainingSec / 0.5).clamp(0.0, 1.0);
+      if (alpha <= 0.01) continue;
+
+      final baseColor = _obstacleFill(d.obstacleType);
+      final color = baseColor.withOpacity(alpha);
+
+      final paint = Paint()
+        ..color = color
+        ..style = PaintingStyle.fill;
+
+      canvas.save();
+      canvas.translate(d.x, d.y);
+      // Use position-based seed so rotation stays stable for each particle.
+      canvas.rotate(((d.x * 1000 + d.y * 1000).toInt() % 628) / 100.0);
+      canvas.drawRect(
+        Rect.fromCenter(center: Offset.zero, width: d.size, height: d.size * 0.6),
+        paint,
+      );
+      canvas.restore();
+    }
+  }
+
+  /// Draws floating "+N" score popups that rise and fade when an obstacle
+  /// is smashed.
+  void _drawSmashScorePopups(Canvas canvas) {
+    if (snapshot.smashScorePopups.isEmpty) return;
+
+    for (final p in snapshot.smashScorePopups) {
+      final t = 1 - (p.remainingSec / 0.8).clamp(0.0, 1.0); // 0 -> 1 over life
+      final alpha = (1 - t).clamp(0.0, 1.0);
+      if (alpha <= 0.01) continue;
+
+      // Pop-in scale: grows from 0.6 -> 1.0 in the first 25% of life.
+      final scale = t < 0.25 ? (0.6 + (t / 0.25) * 0.4) : 1.0;
+
+      final text = '+${p.score}';
+      final tp = TextPainter(
+        text: TextSpan(
+          text: text,
+          style: TextStyle(
+            fontSize: 22 * scale,
+            fontWeight: FontWeight.w900,
+            color: Colors.yellow.withOpacity(alpha),
+            letterSpacing: 0.5,
+            shadows: [
+              Shadow(
+                color: Colors.black.withOpacity(alpha * 0.8),
+                offset: const Offset(1.5, 1.5),
+                blurRadius: 0,
+              ),
+            ],
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      canvas.save();
+      canvas.translate(p.x - tp.width / 2, p.y - tp.height / 2);
+      tp.paint(canvas, Offset.zero);
+      canvas.restore();
     }
   }
 

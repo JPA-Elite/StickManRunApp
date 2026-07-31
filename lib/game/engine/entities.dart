@@ -172,6 +172,71 @@ class PowerUp {
 }
 
 @immutable
+class SmashDebris {
+  final double x;
+  final double y;
+  final double vx;
+  final double vy;
+  final double remainingSec;
+  final double size;
+  final ObstacleType obstacleType;
+
+  const SmashDebris({
+    required this.x,
+    required this.y,
+    required this.vx,
+    required this.vy,
+    required this.remainingSec,
+    required this.size,
+    required this.obstacleType,
+  });
+
+  SmashDebris copyWith({
+    double? x,
+    double? y,
+    double? vy,
+    double? remainingSec,
+  }) {
+    return SmashDebris(
+      x: x ?? this.x,
+      y: y ?? this.y,
+      vx: vx,
+      vy: vy ?? this.vy,
+      remainingSec: remainingSec ?? this.remainingSec,
+      size: size,
+      obstacleType: obstacleType,
+    );
+  }
+}
+
+@immutable
+class SmashScorePopup {
+  final double x;
+  final double y;
+  final double remainingSec;
+  final int score;
+
+  const SmashScorePopup({
+    required this.x,
+    required this.y,
+    required this.remainingSec,
+    required this.score,
+  });
+
+  SmashScorePopup copyWith({
+    double? y,
+    double? remainingSec,
+  }) {
+    return SmashScorePopup(
+      x: x,
+      y: y ?? this.y,
+      remainingSec: remainingSec ?? this.remainingSec,
+      score: score,
+    );
+  }
+}
+
+@immutable
 class Stickman {
   final double x; // fixed horizontal position (center)
   final double y; // world-space y coordinate of stickman's bottom

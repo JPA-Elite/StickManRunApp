@@ -48,6 +48,8 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     obstacles: [],
     coinsOnTrack: [],
     powerUps: [],
+    smashDebris: [],
+    smashScorePopups: [],
     timeSec: 0,
   );
 

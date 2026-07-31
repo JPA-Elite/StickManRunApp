@@ -38,6 +38,8 @@ class StickmanRunSnapshot {
   final List<Obstacle> obstacles;
   final List<Coin> coinsOnTrack;
   final List<PowerUp> powerUps;
+  final List<SmashDebris> smashDebris;
+  final List<SmashScorePopup> smashScorePopups;
 
   final double timeSec;
 
@@ -60,6 +62,8 @@ class StickmanRunSnapshot {
     required this.obstacles,
     required this.coinsOnTrack,
     required this.powerUps,
+    required this.smashDebris,
+    required this.smashScorePopups,
     required this.timeSec,
   });
 }
@@ -88,6 +92,8 @@ class StickmanRunEngine {
   final List<Obstacle> _obstacles = [];
   final List<Coin> _coins = [];
   final List<PowerUp> _powerUps = [];
+  final List<SmashDebris> _smashDebris = [];
+  final List<SmashScorePopup> _smashScorePopups = [];
 
   GameStatus _status = GameStatus.ready;
 
@@ -159,6 +165,8 @@ class StickmanRunEngine {
       obstacles: List.unmodifiable(_obstacles),
       coinsOnTrack: List.unmodifiable(_coins),
       powerUps: List.unmodifiable(_powerUps),
+      smashDebris: List.unmodifiable(_smashDebris),
+      smashScorePopups: List.unmodifiable(_smashScorePopups),
       timeSec: _timeSec,
     );
   }
@@ -221,6 +229,8 @@ class StickmanRunEngine {
     _obstacles.clear();
     _coins.clear();
     _powerUps.clear();
+    _smashDebris.clear();
+    _smashScorePopups.clear();
 
     _status = GameStatus.ready;
     _score = 0;
@@ -353,12 +363,93 @@ class StickmanRunEngine {
     final smashRange = 0.97 * w + 1.6 * s;
 
     // Destroy obstacles within smash range (in front of stickman).
+    double? firstHitX;
+    double? firstHitY;
+    int hitCount = 0;
     _obstacles.removeWhere((o) {
       final dist = o.x - _stickman.x;
-      return dist >= 0 && dist <= smashRange && o.y + o.height > _groundY - _stickmanHeightPx() * 1.6;
+      final hit = dist >= 0 && dist <= smashRange && o.y + o.height > _groundY - _stickmanHeightPx() * 1.6;
+      if (hit) {
+        _spawnSmashDebris(o);
+        if (firstHitX == null) {
+          firstHitX = o.x + o.width / 2;
+          firstHitY = o.y + o.height / 2;
+        }
+        hitCount++;
+      }
+      return hit;
     });
 
-    _score += 5;
+    // Only award points and show a popup when an obstacle was actually defeated.
+    if (hitCount > 0) {
+      _score += 5 * hitCount;
+      _smashScorePopups.add(
+        SmashScorePopup(
+          x: firstHitX!,
+          y: firstHitY!,
+          remainingSec: 0.8,
+          score: 5 * hitCount,
+        ),
+      );
+    }
+  }
+
+  /// Spawns particle debris at the obstacle's center for the shatter effect.
+  void _spawnSmashDebris(Obstacle o) {
+    const debrisCount = 10;
+    final cx = o.x + o.width / 2;
+    final cy = o.y + o.height / 2;
+
+    for (int i = 0; i < debrisCount; i++) {
+      final angle = _rng.nextDouble() * 2 * pi;
+      final speed = 180 + _rng.nextDouble() * 420;
+      _smashDebris.add(
+        SmashDebris(
+          x: cx,
+          y: cy,
+          vx: cos(angle) * speed,
+          vy: sin(angle) * speed - 200, // bias upward
+          remainingSec: 0.3 + _rng.nextDouble() * 0.2,
+          size: 3.0 + _rng.nextDouble() * 7.0,
+          obstacleType: o.type,
+        ),
+      );
+    }
+  }
+
+  /// Updates smash debris positions, lifetimes, and removes expired particles.
+  void _updateSmashDebris(double dtSec) {
+    for (int i = _smashDebris.length - 1; i >= 0; i--) {
+      final d = _smashDebris[i];
+      final newRemaining = d.remainingSec - dtSec;
+      if (newRemaining <= 0) {
+        _smashDebris.removeAt(i);
+        continue;
+      }
+      _smashDebris[i] = d.copyWith(
+        x: d.x + d.vx * dtSec,
+        y: d.y + d.vy * dtSec,
+        vy: d.vy + 800 * dtSec, // gravity
+        remainingSec: newRemaining,
+      );
+    }
+  }
+
+  /// Updates smash score popups (float upward, fade, and removes expired ones).
+  void _updateSmashScorePopups(double dtSec) {
+    for (int i = _smashScorePopups.length - 1; i >= 0; i--) {
+      final p = _smashScorePopups[i];
+      final newRemaining = p.remainingSec - dtSec;
+      if (newRemaining <= 0) {
+        _smashScorePopups.removeAt(i);
+        continue;
+      }
+      // Float upward at ~45 px/s.
+      _smashScorePopups[i] = p.copyWith(
+        y: p.y - 45 * dtSec,
+        remainingSec: newRemaining,
+      );
+    }
   }
 
   void tick(double dtSec) {
@@ -378,6 +469,10 @@ class StickmanRunEngine {
     _smashCooldownSecRemaining = max(0, _smashCooldownSecRemaining - dtSec);
 
     _initialObstacleDelaySec = max(0, _initialObstacleDelaySec - dtSec);
+
+    // Update smash debris particles.
+    _updateSmashDebris(dtSec);
+    _updateSmashScorePopups(dtSec);
 
     _recomputeSpawnCadence();
 
