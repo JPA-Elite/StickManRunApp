@@ -9,16 +9,14 @@ import 'stickman_run_painter.dart';
 class StickmanRunScreen extends StatefulWidget {
   final int initialLevel;
 
-  const StickmanRunScreen({
-    super.key,
-    required this.initialLevel,
-  });
+  const StickmanRunScreen({super.key, required this.initialLevel});
 
   @override
   State<StickmanRunScreen> createState() => _StickmanRunScreenState();
 }
 
-class _StickmanRunScreenState extends State<StickmanRunScreen> with SingleTickerProviderStateMixin {
+class _StickmanRunScreenState extends State<StickmanRunScreen>
+    with SingleTickerProviderStateMixin {
   late final StickmanRunEngine _engine;
   late final AnimationController _controller;
   double _buttonBottom = 16;
@@ -122,15 +120,19 @@ class _StickmanRunScreenState extends State<StickmanRunScreen> with SingleTicker
         return Scaffold(
           backgroundColor: Colors.black,
           body: SizedBox.expand(
-          child: Stack(
-            children: [
+            child: Stack(
+              children: [
                 Positioned.fill(
                   child: CustomPaint(
                     painter: StickmanRunPainter(
                       snapshot: _snapshot,
-                      level: _engine.snapshot().levelIndex == _snapshot.levelIndex
+                      level:
+                          _engine.snapshot().levelIndex == _snapshot.levelIndex
                           ? _engine.levels[_levelIndex - 1]
-                          : _engine.levels[(_snapshot.levelIndex - 1).clamp(0, _engine.levels.length - 1)],
+                          : _engine.levels[(_snapshot.levelIndex - 1).clamp(
+                              0,
+                              _engine.levels.length - 1,
+                            )],
                       width: width,
                       height: height,
                     ),
@@ -187,7 +189,11 @@ class _StickmanRunScreenState extends State<StickmanRunScreen> with SingleTicker
             isRunning: isRunning,
             activeColor: Colors.cyanAccent,
           ),
-          child: const Icon(Icons.subdirectory_arrow_left, size: 26, weight: 900),
+          child: const Icon(
+            Icons.subdirectory_arrow_left,
+            size: 26,
+            weight: 900,
+          ),
         ),
       ),
     );
@@ -241,10 +247,12 @@ class _StickmanRunScreenState extends State<StickmanRunScreen> with SingleTicker
                     : null,
               ),
               child: ElevatedButton(
-                onPressed: canSmash ? () {
-                  _engine.smash();
-                  setState(() => _snapshot = _engine.snapshot());
-                } : null,
+                onPressed: canSmash
+                    ? () {
+                        _engine.smash();
+                        setState(() => _snapshot = _engine.snapshot());
+                      }
+                    : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: canSmash
                       ? activeRed
@@ -268,7 +276,9 @@ class _StickmanRunScreenState extends State<StickmanRunScreen> with SingleTicker
                   Icons.sports_kabaddi,
                   size: 30,
                   weight: 900,
-                  color: canSmash ? Colors.white : Colors.white.withOpacity(0.3),
+                  color: canSmash
+                      ? Colors.white
+                      : Colors.white.withOpacity(0.3),
                 ),
               ),
             ),
@@ -305,156 +315,210 @@ class _StickmanRunScreenState extends State<StickmanRunScreen> with SingleTicker
     final title = isReady
         ? 'STICKMAN RUN'
         : isOver
-            ? 'GAME OVER'
-            : 'LEVEL COMPLETE';
+        ? 'GAME OVER'
+        : 'LEVEL COMPLETE';
 
     final subtitle = isReady
         ? 'Tap anywhere to JUMP • Survive & collect coins'
         : isOver
-            ? 'Score: ${_snapshot.score} • Coins: ${_snapshot.coins}'
-            : 'Nice! Score: ${_snapshot.score} • Coins: ${_snapshot.coins}';
+        ? 'Score: ${_snapshot.score} • Coins: ${_snapshot.coins}'
+        : 'Nice! Score: ${_snapshot.score} • Coins: ${_snapshot.coins}';
 
-    return Positioned(
-      left: 0,
-      right: 0,
-      top: 80,
-      child: Center(
-        child: SizedBox(
-          width: min(420.0, MediaQuery.of(context).size.width - 32),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              // Back button positioned top-left of the card.
-              Positioned(
-                top: 0,
-                child: GestureDetector(
-                  onTap: () => Navigator.of(context).pop(),
-                  child: Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                    child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
-                  ),
-                ),
-              ),
-              // The main overlay card.
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.5),
-                  border: Border.all(color: Colors.white.withOpacity(0.9), width: 3),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
+    return Positioned.fill(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Center(
+                child: SizedBox(
+                  width: min(420.0, MediaQuery.of(context).size.width - 32),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    clipBehavior: Clip.none,
                     children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          letterSpacing: 1,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        subtitle,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 14),
-                      if (!isReady)
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.yellow,
-                            foregroundColor: Colors.black,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                          ),
-                          onPressed: () {
-                            _engine.start(levelIndex: _levelIndex);
-                            _engine.startRunning();
-                            setState(() {
-                              _snapshot = _engine.snapshot();
-                            });
-                          },
-                          child: const Text(
-                            'RETRY LEVEL',
-                            style: TextStyle(fontWeight: FontWeight.w900),
-                          ),
-                        ),
-                      if (isReady)
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white.withOpacity(0.9),
-                            foregroundColor: Colors.black,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                          ),
-                          onPressed: () {
-                            _engine.startRunning();
-                            _engine.jump();
-                            _engine.tick(1 / 60.0);
-                            setState(() {
-                              _snapshot = _engine.snapshot();
-                            });
-                          },
-                          child: const Text(
-                            'START RUN',
-                            style: TextStyle(fontWeight: FontWeight.w900),
-                          ),
-                        ),
-                      // EXIT button.
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: ElevatedButton.icon(
-                          icon: const Icon(Icons.exit_to_app, color: Colors.black),
-                          onPressed: () => Navigator.of(context).pop(),
-                          label: const Text('EXIT', style: TextStyle(fontWeight: FontWeight.w900)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color.fromARGB(255, 230, 70, 70),
-                            foregroundColor: Colors.black,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              side: const BorderSide(color: Colors.white, width: 2),
+                      // Back button positioned top-left of the card.
+                      Positioned(
+                        top: 0,
+                        child: GestureDetector(
+                          onTap: () => Navigator.of(context).pop(),
+                          child: Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.15),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
                             ),
-                            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
-                            elevation: 6,
-                            shadowColor: Colors.redAccent.withOpacity(0.5),
+                            child: const Icon(
+                              Icons.arrow_back,
+                              color: Colors.white,
+                              size: 20,
+                            ),
                           ),
                         ),
                       ),
-                      if (isComplete)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 10),
-                          child: Text(
-                            'Tap to start the next run (same level for now)',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.white.withOpacity(0.85),
-                              fontWeight: FontWeight.w700,
-                            ),
-                            textAlign: TextAlign.center,
+                      // The main overlay card.
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.5),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.9),
+                            width: 3,
+                          ),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                title,
+                                style: const TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                  letterSpacing: 1,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                subtitle,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 14),
+                              if (!isReady)
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.yellow,
+                                    foregroundColor: Colors.black,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                  onPressed: () {
+                                    _engine.start(levelIndex: _levelIndex);
+                                    _engine.startRunning();
+                                    setState(() {
+                                      _snapshot = _engine.snapshot();
+                                    });
+                                  },
+                                  child: const Text(
+                                    'RETRY LEVEL',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                              if (isReady)
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.white.withOpacity(
+                                      0.9,
+                                    ),
+                                    foregroundColor: Colors.black,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                  onPressed: () {
+                                    _engine.startRunning();
+                                    _engine.jump();
+                                    _engine.tick(1 / 60.0);
+                                    setState(() {
+                                      _snapshot = _engine.snapshot();
+                                    });
+                                  },
+                                  child: const Text(
+                                    'START RUN',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                              // EXIT button.
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: ElevatedButton.icon(
+                                  icon: const Icon(
+                                    Icons.exit_to_app,
+                                    color: Colors.black,
+                                  ),
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  label: const Text(
+                                    'EXIT',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color.fromARGB(
+                                      255,
+                                      230,
+                                      70,
+                                      70,
+                                    ),
+                                    foregroundColor: Colors.black,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                      side: const BorderSide(
+                                        color: Colors.white,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 22,
+                                      vertical: 10,
+                                    ),
+                                    elevation: 6,
+                                    shadowColor: Colors.redAccent.withOpacity(
+                                      0.5,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              if (isComplete)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 10),
+                                  child: Text(
+                                    'Tap to start the next run (same level for now)',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.white.withOpacity(0.85),
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
+                      ),
                     ],
                   ),
                 ),
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
