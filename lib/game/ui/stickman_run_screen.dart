@@ -279,13 +279,19 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                   shadowColor: Colors.redAccent.withOpacity(0.6),
                   padding: EdgeInsets.zero,
                 ),
-                child: Icon(
-                  Icons.sports_kabaddi,
-                  size: 30,
-                  weight: 900,
-                  color: canSmash
-                      ? Colors.white
-                      : Colors.white.withOpacity(0.3),
+                child: Transform(
+                  alignment: Alignment.center,
+                  transform: Matrix4.identity()
+                    ..rotateZ(pi / 4)
+                    ..scale(-1.0, 1.0, 1.0),
+                  child: Icon(
+                    Icons.sports_mma,
+                    size: 30,
+                    weight: 900,
+                    color: canSmash
+                        ? Colors.white
+                        : Colors.white.withOpacity(0.3),
+                  ),
                 ),
               ),
             ),
@@ -342,7 +348,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                 onTap: isReady ? _onJump : null,
                 child: Center(
                   child: SizedBox(
-                    width: min(420.0, MediaQuery.of(context).size.width - 32),
+                    width: min(340.0, MediaQuery.of(context).size.width - 32),
                     child: Stack(
                       alignment: Alignment.center,
                       clipBehavior: Clip.none,
@@ -351,6 +357,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                         GestureDetector(
                           onTap: isReady ? _onJump : null,
                           child: Container(
+                            width: double.infinity,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 16,
                               vertical: 14,
@@ -391,7 +398,8 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                                   if (!isReady)
                                     ElevatedButton(
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.yellow,
+                                        backgroundColor: Colors.white
+                                            .withOpacity(0.9),
                                         foregroundColor: Colors.black,
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(
