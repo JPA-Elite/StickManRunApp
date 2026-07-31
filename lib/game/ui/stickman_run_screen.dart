@@ -123,18 +123,25 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
             child: Stack(
               children: [
                 Positioned.fill(
-                  child: CustomPaint(
-                    painter: StickmanRunPainter(
-                      snapshot: _snapshot,
-                      level:
-                          _engine.snapshot().levelIndex == _snapshot.levelIndex
-                          ? _engine.levels[_levelIndex - 1]
-                          : _engine.levels[(_snapshot.levelIndex - 1).clamp(
-                              0,
-                              _engine.levels.length - 1,
-                            )],
-                      width: width,
-                      height: height,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _snapshot.status == GameStatus.ready
+                        ? _onJump
+                        : null,
+                    child: CustomPaint(
+                      painter: StickmanRunPainter(
+                        snapshot: _snapshot,
+                        level:
+                            _engine.snapshot().levelIndex ==
+                                _snapshot.levelIndex
+                            ? _engine.levels[_levelIndex - 1]
+                            : _engine.levels[(_snapshot.levelIndex - 1).clamp(
+                                0,
+                                _engine.levels.length - 1,
+                              )],
+                        width: width,
+                        height: height,
+                      ),
                     ),
                   ),
                 ),
@@ -330,168 +337,180 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
           return SingleChildScrollView(
             child: ConstrainedBox(
               constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: Center(
-                child: SizedBox(
-                  width: min(420.0, MediaQuery.of(context).size.width - 32),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    clipBehavior: Clip.none,
-                    children: [
-                      // The main overlay card.
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.5),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.9),
-                            width: 3,
-                          ),
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: SingleChildScrollView(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                title,
-                                style: const TextStyle(
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.white,
-                                  letterSpacing: 1,
-                                ),
-                                textAlign: TextAlign.center,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: isReady ? _onJump : null,
+                child: Center(
+                  child: SizedBox(
+                    width: min(420.0, MediaQuery.of(context).size.width - 32),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      clipBehavior: Clip.none,
+                      children: [
+                        // The main overlay card.
+                        GestureDetector(
+                          onTap: isReady ? _onJump : null,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.5),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.9),
+                                width: 3,
                               ),
-                              const SizedBox(height: 10),
-                              Text(
-                                subtitle,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 14),
-                              if (!isReady)
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.yellow,
-                                    foregroundColor: Colors.black,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 20,
-                                      vertical: 12,
-                                    ),
-                                  ),
-                                  onPressed: () {
-                                    _engine.start(levelIndex: _levelIndex);
-                                    _engine.startRunning();
-                                    setState(() {
-                                      _snapshot = _engine.snapshot();
-                                    });
-                                  },
-                                  child: const Text(
-                                    'RETRY LEVEL',
-                                    style: TextStyle(
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            child: SingleChildScrollView(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    title,
+                                    style: const TextStyle(
+                                      fontSize: 32,
                                       fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                ),
-                              if (isReady)
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.white.withOpacity(
-                                      0.9,
-                                    ),
-                                    foregroundColor: Colors.black,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 20,
-                                      vertical: 12,
-                                    ),
-                                  ),
-                                  onPressed: () {
-                                    _engine.startRunning();
-                                    _engine.jump();
-                                    _engine.tick(1 / 60.0);
-                                    setState(() {
-                                      _snapshot = _engine.snapshot();
-                                    });
-                                  },
-                                  child: const Text(
-                                    'START RUN',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                ),
-                              // EXIT button.
-                              Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: ElevatedButton.icon(
-                                  icon: const Icon(
-                                    Icons.exit_to_app,
-                                    color: Colors.black,
-                                  ),
-                                  onPressed: () => Navigator.of(context).pop(),
-                                  label: const Text(
-                                    'EXIT',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color.fromARGB(
-                                      255,
-                                      230,
-                                      70,
-                                      70,
-                                    ),
-                                    foregroundColor: Colors.black,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                      side: const BorderSide(
-                                        color: Colors.white,
-                                        width: 2,
-                                      ),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 22,
-                                      vertical: 10,
-                                    ),
-                                    elevation: 6,
-                                    shadowColor: Colors.redAccent.withOpacity(
-                                      0.5,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              if (isComplete)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 10),
-                                  child: Text(
-                                    'Tap to start the next run (same level for now)',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.white.withOpacity(0.85),
-                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                      letterSpacing: 1,
                                     ),
                                     textAlign: TextAlign.center,
                                   ),
-                                ),
-                            ],
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    subtitle,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 14),
+                                  if (!isReady)
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.yellow,
+                                        foregroundColor: Colors.black,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 20,
+                                          vertical: 12,
+                                        ),
+                                      ),
+                                      onPressed: () {
+                                        _engine.start(levelIndex: _levelIndex);
+                                        _engine.startRunning();
+                                        setState(() {
+                                          _snapshot = _engine.snapshot();
+                                        });
+                                      },
+                                      child: const Text(
+                                        'RETRY LEVEL',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                    ),
+                                  if (isReady)
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.white
+                                            .withOpacity(0.9),
+                                        foregroundColor: Colors.black,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 20,
+                                          vertical: 12,
+                                        ),
+                                      ),
+                                      onPressed: () {
+                                        _engine.startRunning();
+                                        _engine.jump();
+                                        _engine.tick(1 / 60.0);
+                                        setState(() {
+                                          _snapshot = _engine.snapshot();
+                                        });
+                                      },
+                                      child: const Text(
+                                        'START RUN',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                    ),
+                                  // EXIT button.
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 6),
+                                    child: ElevatedButton.icon(
+                                      icon: const Icon(
+                                        Icons.exit_to_app,
+                                        color: Colors.black,
+                                      ),
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(),
+                                      label: const Text(
+                                        'EXIT',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color.fromARGB(
+                                          255,
+                                          230,
+                                          70,
+                                          70,
+                                        ),
+                                        foregroundColor: Colors.black,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                          side: const BorderSide(
+                                            color: Colors.white,
+                                            width: 2,
+                                          ),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 22,
+                                          vertical: 10,
+                                        ),
+                                        elevation: 6,
+                                        shadowColor: Colors.redAccent
+                                            .withOpacity(0.5),
+                                      ),
+                                    ),
+                                  ),
+                                  if (isComplete)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 10),
+                                      child: Text(
+                                        'Tap to start the next run (same level for now)',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.white.withOpacity(0.85),
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
