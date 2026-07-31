@@ -337,27 +337,6 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                     alignment: Alignment.center,
                     clipBehavior: Clip.none,
                     children: [
-                      // Back button positioned top-left of the card.
-                      Positioned(
-                        top: 0,
-                        child: GestureDetector(
-                          onTap: () => Navigator.of(context).pop(),
-                          child: Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.15),
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
-                            ),
-                            child: const Icon(
-                              Icons.arrow_back,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                          ),
-                        ),
-                      ),
                       // The main overlay card.
                       Container(
                         padding: const EdgeInsets.symmetric(
