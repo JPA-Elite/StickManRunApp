@@ -196,46 +196,80 @@ class _StickmanRunScreenState extends State<StickmanRunScreen> with SingleTicker
   Widget _buildSmashButton() {
     final isRunning = _snapshot.status == GameStatus.running;
     final canSmash = isRunning && _snapshot.smashCooldownSec <= 0;
+    final activeRed = const Color.fromARGB(255, 220, 50, 50);
+    final glowRed = const Color.fromARGB(180, 255, 80, 80);
 
     return Positioned(
-      left: 14,
+      left: 10,
       bottom: _buttonBottom,
       child: SizedBox(
-        width: 56,
-        height: 64,
+        width: 64,
+        height: 72,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Cooldown bar — thick, rounded, with glow when ready.
             SizedBox(
-              width: 56,
-              height: 5,
+              width: 58,
+              height: 6,
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(2.5),
+                borderRadius: BorderRadius.circular(3),
                 child: LinearProgressIndicator(
                   value: isRunning ? (1 - _snapshot.smashCooldownSec / 1.2) : 1,
-                  backgroundColor: Colors.white.withOpacity(0.2),
+                  backgroundColor: Colors.white.withOpacity(0.08),
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    canSmash ? const Color.fromARGB(255, 255, 80, 80) : Colors.grey,
+                    canSmash ? glowRed : Colors.grey.withOpacity(0.5),
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 3),
-            SizedBox(
-              width: 52,
-              height: 52,
-              child: ElevatedButton(
-                onPressed: canSmash
-                    ? () {
-                        _engine.smash();
-                        setState(() => _snapshot = _engine.snapshot());
-                      }
+            const SizedBox(height: 4),
+            // Glowing outer ring.
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: canSmash
+                    ? [
+                        BoxShadow(
+                          color: Colors.red.withOpacity(0.5),
+                          blurRadius: 18,
+                          spreadRadius: 2,
+                        ),
+                      ]
                     : null,
-                style: _circleBtnStyle(
-                  isRunning: isRunning,
-                  activeColor: const Color.fromARGB(255, 255, 80, 80),
+              ),
+              child: ElevatedButton(
+                onPressed: canSmash ? () {
+                  _engine.smash();
+                  setState(() => _snapshot = _engine.snapshot());
+                } : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: canSmash
+                      ? activeRed
+                      : activeRed.withOpacity(0.15),
+                  foregroundColor: Colors.white,
+                  disabledForegroundColor: Colors.white.withOpacity(0.3),
+                  disabledBackgroundColor: activeRed.withOpacity(0.08),
+                  shape: CircleBorder(
+                    side: BorderSide(
+                      color: canSmash
+                          ? Colors.white.withOpacity(0.7)
+                          : Colors.white.withOpacity(0.1),
+                      width: 3,
+                    ),
+                  ),
+                  elevation: canSmash ? 12 : 2,
+                  shadowColor: Colors.redAccent.withOpacity(0.6),
+                  padding: EdgeInsets.zero,
                 ),
-                child: const Icon(Icons.sports_mma, size: 26, weight: 900),
+                child: Icon(
+                  Icons.sports_kabaddi,
+                  size: 30,
+                  weight: 900,
+                  color: canSmash ? Colors.white : Colors.white.withOpacity(0.3),
+                ),
               ),
             ),
           ],
@@ -285,117 +319,140 @@ class _StickmanRunScreenState extends State<StickmanRunScreen> with SingleTicker
       right: 0,
       top: 80,
       child: Center(
-        child: Container(
+        child: SizedBox(
           width: min(420.0, MediaQuery.of(context).size.width - 32),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.5),
-            border: Border.all(color: Colors.white.withOpacity(0.9), width: 3),
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                    letterSpacing: 1,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 14),
-                if (!isReady)
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.yellow,
-                      foregroundColor: Colors.black,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // Back button positioned top-left of the card.
+              Positioned(
+                top: 0,
+                child: GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
                     ),
-                    onPressed: () {
-                      _engine.start(levelIndex: _levelIndex);
-                      _engine.startRunning();
-                      setState(() {
-                        _snapshot = _engine.snapshot();
-                      });
-                    },
-                    child: const Text(
-                      'RETRY LEVEL',
-                      style: TextStyle(fontWeight: FontWeight.w900),
-                    ),
-                  ),
-                if (isReady)
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white.withOpacity(0.9),
-                      foregroundColor: Colors.black,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    ),
-                    onPressed: () {
-                      _engine.startRunning();
-                      _engine.jump();
-
-                      // Force one immediate simulation step so obstacles start appearing immediately.
-                      _engine.tick(1 / 60.0);
-
-                      setState(() {
-                        _snapshot = _engine.snapshot();
-                      });
-                    },
-                    child: const Text(
-                      'START RUN',
-                      style: TextStyle(fontWeight: FontWeight.w900),
-                    ),
-                  ),
-                // EXIT (always visible in the center overlay when game is not running).
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
-                      foregroundColor: Colors.black,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    ),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text(
-                      'EXIT',
-                      style: TextStyle(fontWeight: FontWeight.w900),
-                    ),
+                    child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
                   ),
                 ),
-                if (isComplete)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: Text(
-                      'Tap to start the next run (same level for now)',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.white.withOpacity(0.85),
-                        fontWeight: FontWeight.w700,
+              ),
+              // The main overlay card.
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.5),
+                  border: Border.all(color: Colors.white.withOpacity(0.9), width: 3),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          letterSpacing: 1,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                      textAlign: TextAlign.center,
-                    ),
+                      const SizedBox(height: 10),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 14),
+                      if (!isReady)
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.yellow,
+                            foregroundColor: Colors.black,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          ),
+                          onPressed: () {
+                            _engine.start(levelIndex: _levelIndex);
+                            _engine.startRunning();
+                            setState(() {
+                              _snapshot = _engine.snapshot();
+                            });
+                          },
+                          child: const Text(
+                            'RETRY LEVEL',
+                            style: TextStyle(fontWeight: FontWeight.w900),
+                          ),
+                        ),
+                      if (isReady)
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white.withOpacity(0.9),
+                            foregroundColor: Colors.black,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          ),
+                          onPressed: () {
+                            _engine.startRunning();
+                            _engine.jump();
+                            _engine.tick(1 / 60.0);
+                            setState(() {
+                              _snapshot = _engine.snapshot();
+                            });
+                          },
+                          child: const Text(
+                            'START RUN',
+                            style: TextStyle(fontWeight: FontWeight.w900),
+                          ),
+                        ),
+                      // EXIT button.
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.exit_to_app, color: Colors.black),
+                          onPressed: () => Navigator.of(context).pop(),
+                          label: const Text('EXIT', style: TextStyle(fontWeight: FontWeight.w900)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color.fromARGB(255, 230, 70, 70),
+                            foregroundColor: Colors.black,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              side: const BorderSide(color: Colors.white, width: 2),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
+                            elevation: 6,
+                            shadowColor: Colors.redAccent.withOpacity(0.5),
+                          ),
+                        ),
+                      ),
+                      if (isComplete)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 10),
+                          child: Text(
+                            'Tap to start the next run (same level for now)',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white.withOpacity(0.85),
+                              fontWeight: FontWeight.w700,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                    ],
                   ),
-              ],
-            ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
