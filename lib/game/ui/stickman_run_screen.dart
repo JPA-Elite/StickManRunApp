@@ -354,7 +354,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     }
     final isRunning = _snapshot.status == GameStatus.running;
     return Positioned(
-      right: 14,
+      right: 30,
       bottom: _buttonBottom + _jumpSpacing,
       child: SizedBox(
         width: 52,
@@ -377,7 +377,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     }
     final isRunning = _snapshot.status == GameStatus.running;
     return Positioned(
-      right: 14,
+      right: 30,
       bottom: _buttonBottom,
       child: SizedBox(
         width: 52,
@@ -405,7 +405,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     final glowRed = const Color.fromARGB(180, 255, 80, 80);
 
     return Positioned(
-      left: 10,
+      left: 30,
       bottom: _buttonBottom,
       child: SizedBox(
         width: 64,
