@@ -395,20 +395,29 @@ class StickmanRunEngine {
   }
 
   /// Spawns particle debris at the obstacle's center for the shatter effect.
+  /// Debris flies outward in the direction from the stickman toward the obstacle.
   void _spawnSmashDebris(Obstacle o) {
     const debrisCount = 10;
     final cx = o.x + o.width / 2;
     final cy = o.y + o.height / 2;
 
+    // Direction from stickman center to obstacle center.
+    final stickmanCenterY = _stickman.y - _stickmanHeightPx() * 0.4;
+    final dx = cx - _stickman.x;
+    final dy = cy - stickmanCenterY;
+    final baseAngle = atan2(dy, dx);
+
     for (int i = 0; i < debrisCount; i++) {
-      final angle = _rng.nextDouble() * 2 * pi;
+      // Spread debris ±72° around the stickman→obstacle direction.
+      final spread = (_rng.nextDouble() - 0.5) * pi * 0.8;
+      final angle = baseAngle + spread;
       final speed = 180 + _rng.nextDouble() * 420;
       _smashDebris.add(
         SmashDebris(
           x: cx,
           y: cy,
           vx: cos(angle) * speed,
-          vy: sin(angle) * speed - 200, // bias upward
+          vy: sin(angle) * speed,
           remainingSec: 0.3 + _rng.nextDouble() * 0.2,
           size: 3.0 + _rng.nextDouble() * 7.0,
           obstacleType: o.type,
