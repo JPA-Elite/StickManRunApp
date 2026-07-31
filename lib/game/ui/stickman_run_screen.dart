@@ -37,6 +37,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     crawlingActive: false,
     crawlRemainingSec: 0,
     smashActive: false,
+    smashRemainingSec: 0,
     smashCooldownSec: 0,
     stickman: Stickman(x: 0, y: 0, vy: 0),
     obstacles: [],

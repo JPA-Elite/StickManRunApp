@@ -14,7 +14,7 @@ class StickmanRunPainter extends CustomPainter {
   final Color stickmanColor;
   final bool highContrast;
 
-  const StickmanRunPainter({
+  StickmanRunPainter({
     super.repaint,
     required this.snapshot,
     required this.level,
@@ -24,8 +24,29 @@ class StickmanRunPainter extends CustomPainter {
     this.highContrast = false,
   });
 
+  /// Duration of the smash punch window (matches the engine's smash duration).
+  static const double _smashWindowSec = 0.18;
+
+  /// Latest punching fist position + strength, used by the streak trail.
+  Offset? _punchFist;
+  double _punchStrength = 0;
+
   @override
   void paint(Canvas canvas, Size size) {
+    // Cinematic screen shake around the punch impact.
+    if (snapshot.smashActive && snapshot.smashRemainingSec > 0) {
+      final p = (1 - snapshot.smashRemainingSec / _smashWindowSec)
+          .clamp(0.0, 1.0);
+      final impact = (1 - (p - 0.35).abs() / 0.35).clamp(0.0, 1.0);
+      if (impact > 0.05) {
+        final t = snapshot.timeSec * 130.0;
+        canvas.translate(
+          sin(t) * impact * 6.0,
+          cos(t * 0.8) * impact * 3.5,
+        );
+      }
+    }
+
     final groundY = height * 0.78;
 
     // Background.
@@ -89,9 +110,9 @@ class StickmanRunPainter extends CustomPainter {
     // Stickman.
     _drawStickman(canvas, snapshot.stickman);
 
-    // Shield-swoosh effect when smash is active (Captain America style).
+    // Speed-streak trail behind the punching fist.
     if (snapshot.smashActive) {
-      _drawSmashShield(canvas, snapshot.stickman);
+      _drawPunchStreaks(canvas);
     }
 
     // HUD ornaments (top-right).
@@ -493,17 +514,7 @@ class StickmanRunPainter extends CustomPainter {
 
     final fillPaint = Paint()..color = stickmanColor;
 
-    // Head.
-    canvas.drawCircle(Offset(cx, headCenterY), effectiveH * 0.09, fillPaint);
-
-    // Body.
-    canvas.drawLine(
-      Offset(cx, torsoTop),
-      Offset(cx, bottomY - effectiveH * 0.18),
-      outline,
-    );
-
-    // Running animation: swing arms + legs with a more “natural” gait.
+    // Running animation: swing legs with a more “natural” gait.
     final isRunning = snapshot.status == GameStatus.running;
     final crawlFactor = snapshot.crawlingActive ? 0.22 : 1.0;
 
@@ -514,35 +525,100 @@ class StickmanRunPainter extends CustomPainter {
     final swing = isRunning ? sin(phase) : 0.0;
     final pulse = (1 + cos(phase)) * 0.5; // 0..1
 
-    final armSwing = swing * crawlFactor * inAirFactor;
     final legSwing = -swing * crawlFactor * inAirFactor;
 
-    // --- Arms (2 segments) ---
+    // --- Smash punch animation ---
+    // Progress across the 0.18s smash window (0 = start, 1 = done).
+    final smashActive = snapshot.smashActive;
+    final smashProgress = smashActive
+        ? (1 - snapshot.smashRemainingSec / _smashWindowSec).clamp(0.0, 1.0)
+        : 0.0;
+    // Triangle wave: fist extends fast (0→1 by ~35% of the window), holds
+    // briefly, then recoils. This reads as a sharp, punchy strike.
+    final punchExtend = smashActive
+        ? (smashProgress < 0.35
+            ? smashProgress / 0.35
+            : ((1 - smashProgress) / 0.65).clamp(0.0, 1.0))
+        : 0.0;
+
+    // Body leans into the punch.
+    final lean = punchExtend * w * 0.10;
+    final bodyCx = cx + lean;
+
+    // Head.
+    canvas.drawCircle(Offset(bodyCx, headCenterY), effectiveH * 0.09, fillPaint);
+
+    // Body.
+    canvas.drawLine(
+      Offset(bodyCx, torsoTop),
+      Offset(bodyCx, bottomY - effectiveH * 0.18),
+      outline,
+    );
+
+    // --- Arms (2 segments) — boxing guard: both fists up & forward,
+    // elbows bent and tucked. Sized relative to the smaller of width/height
+    // so the arms stay balanced with the body.
     final shoulderY = torsoTop;
-    final elbowY = shoulderY + effectiveH * (0.06 + 0.04 * pulse);
+    final s = min(w, effectiveH) * 0.5;
 
-    final armUpper = w * (0.38 + 0.10 * pulse);
-    final armLower = w * (0.48 - 0.06 * pulse);
+    // Small forward bob so the guard feels alive while running.
+    final guardBob = isRunning ? sin(phase) * s * 0.02 : 0.0;
 
-    // Connect arms to the torso center.
-    final leftShoulder = Offset(cx, shoulderY);
-    final rightShoulder = Offset(cx, shoulderY);
+    if (smashActive) {
+      // Cinematic cross punch: rear fist chambers, lead fist drives forward.
+      final reach = w * (0.32 + punchExtend * 0.55);
+      final raise = s * (0.04 - punchExtend * 0.10);
 
-    final leftForward = armSwing >= 0 ? 1.0 : -1.0;
-    final rightForward = -leftForward;
+      final leadElbow = Offset(bodyCx + w * 0.02, shoulderY + s * 0.24);
+      final leadFist = Offset(bodyCx + reach, shoulderY + s * 0.04 + raise);
+      final rearElbow = Offset(bodyCx - w * 0.06, shoulderY + s * 0.28);
+      final rearFist = Offset(bodyCx + w * 0.12, shoulderY + s * 0.16);
 
-    final leftElbow = Offset(leftShoulder.dx - armUpper * armSwing, elbowY);
-    final rightElbow = Offset(rightShoulder.dx + armUpper * armSwing, elbowY);
+      canvas.drawLine(Offset(bodyCx, shoulderY), leadElbow, outline);
+      canvas.drawLine(leadElbow, leadFist, outline);
+      canvas.drawLine(Offset(bodyCx, shoulderY), rearElbow, outline);
+      canvas.drawLine(rearElbow, rearFist, outline);
 
-    final handY = shoulderY + effectiveH * (0.03 + 0.01 * pulse);
+      // Glove: filled circle at the striking fist.
+      canvas.drawCircle(
+        leadFist,
+        s * (0.10 + punchExtend * 0.04),
+        fillPaint,
+      );
 
-    final leftHand = Offset(leftElbow.dx - armLower * leftForward, handY);
-    final rightHand = Offset(rightElbow.dx + armLower * rightForward, handY);
+      // Impact burst when the fist is fully extended.
+      if (punchExtend > 0.55) {
+        _drawImpactBurst(
+          canvas,
+          center: leadFist,
+          size: s * (0.7 + punchExtend * 0.9),
+          strength: (punchExtend - 0.55) / 0.45,
+        );
+      }
 
-    canvas.drawLine(leftShoulder, leftElbow, outline);
-    canvas.drawLine(leftElbow, leftHand, outline);
-    canvas.drawLine(rightShoulder, rightElbow, outline);
-    canvas.drawLine(rightElbow, rightHand, outline);
+      // Expose fist position so the streak trail can follow it.
+      _punchFist = leadFist;
+      _punchStrength = punchExtend;
+    } else {
+      final rearElbow = Offset(cx - w * 0.03, shoulderY + s * 0.26);
+      final leadElbow = Offset(cx + w * 0.08, shoulderY + s * 0.20);
+      final rearFist = Offset(
+        cx + w * 0.18,
+        shoulderY + s * 0.12 + guardBob,
+      );
+      final leadFist = Offset(
+        cx + w * 0.32,
+        shoulderY + s * 0.04 - guardBob,
+      );
+
+      canvas.drawLine(Offset(cx, shoulderY), rearElbow, outline);
+      canvas.drawLine(rearElbow, rearFist, outline);
+      canvas.drawLine(Offset(cx, shoulderY), leadElbow, outline);
+      canvas.drawLine(leadElbow, leadFist, outline);
+
+      _punchFist = null;
+      _punchStrength = 0;
+    }
 
     // --- Legs (2 segments) ---
     final hipY = bottomY - effectiveH * 0.18;
@@ -602,7 +678,64 @@ class StickmanRunPainter extends CustomPainter {
         ..color = Colors.yellow
         ..style = PaintingStyle.stroke
         ..strokeWidth = 5;
-      canvas.drawCircle(Offset(cx, headCenterY), effectiveH * 0.22, haloPaint);
+      canvas.drawCircle(Offset(bodyCx, headCenterY), effectiveH * 0.22, haloPaint);
+    }
+  }
+
+  /// Impact starburst drawn at the striking fist.
+  void _drawImpactBurst(
+    Canvas canvas, {
+    required Offset center,
+    required double size,
+    required double strength,
+  }) {
+    final rayPaint = Paint()
+      ..color = Colors.yellow.withOpacity(0.35 + strength * 0.6)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+
+    const rays = 8;
+    for (int i = 0; i < rays; i++) {
+      final a = -pi / 2 + i * (2 * pi / rays) + 0.35;
+      canvas.drawLine(
+        center,
+        Offset(
+          center.dx + cos(a) * size,
+          center.dy + sin(a) * size,
+        ),
+        rayPaint,
+      );
+    }
+
+    canvas.drawCircle(
+      center,
+      size * 0.22,
+      Paint()
+        ..color = Colors.white.withOpacity(0.4 + strength * 0.6)
+        ..style = PaintingStyle.fill,
+    );
+  }
+
+  /// Horizontal speed streaks trailing behind the punching fist.
+  void _drawPunchStreaks(Canvas canvas) {
+    final fist = _punchFist;
+    if (fist == null || _punchStrength <= 0) return;
+
+    final paint = Paint()
+      ..color = Colors.white.withOpacity(0.35 + _punchStrength * 0.5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+
+    for (int i = 0; i < 3; i++) {
+      final y = fist.dy + (i - 1) * 9.0;
+      final len = 18 + i * 8.0;
+      canvas.drawLine(
+        Offset(fist.dx - len, y),
+        Offset(fist.dx - 3, y),
+        paint,
+      );
     }
   }
 
@@ -1121,93 +1254,6 @@ class StickmanRunPainter extends CustomPainter {
       canvas,
       Offset(x + 12, valueCenterY - valuePainter.height / 2),
     );
-  }
-
-  void _drawSmashShield(Canvas canvas, Stickman stickman) {
-    final cx = stickman.x;
-    final w = _stickmanWidthPx();
-    final h = _stickmanHeightPx();
-    final effectiveH = snapshot.crawlingActive ? h * 0.58 : h;
-    final bottomY = stickman.y;
-
-    // Shield center: in front of the stickman's torso (right side).
-    final shieldCx = cx + w * 0.52;
-    final shieldCy = bottomY - effectiveH * 0.52;
-    final r = w * 0.46;
-
-    // Metallic shield fill (blue/red/silver rings).
-    final ring1 = Paint()..color = const Color.fromARGB(170, 60, 120, 255);
-    final ring2 = Paint()..color = const Color.fromARGB(170, 220, 60, 60);
-    final ring3 = Paint()..color = const Color.fromARGB(170, 200, 200, 210);
-    final outline = Paint()
-      ..color = Colors.black.withOpacity(0.8)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-
-    // Draw 3 concentric rings.
-    canvas.drawCircle(Offset(shieldCx, shieldCy), r, ring1);
-    canvas.drawCircle(Offset(shieldCx, shieldCy), r, outline);
-    canvas.drawCircle(Offset(shieldCx, shieldCy), r * 0.72, ring2);
-    canvas.drawCircle(Offset(shieldCx, shieldCy), r * 0.72, outline);
-    canvas.drawCircle(Offset(shieldCx, shieldCy), r * 0.42, ring3);
-    canvas.drawCircle(Offset(shieldCx, shieldCy), r * 0.42, outline);
-
-    // Center star (small).
-    final starPaint = Paint()..color = Colors.white;
-    canvas.drawCircle(Offset(shieldCx, shieldCy), r * 0.18, starPaint);
-
-    // Swoosh lines extending outward to give a “thrown shield” effect.
-    final swooshPaint = Paint()
-      ..color = Colors.white.withOpacity(0.55)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
-
-    final t = snapshot.timeSec * 24.0; // rapid animation phase
-    final arcR = r * 1.35;
-
-    // 3 swoosh arcs at different angles.
-    for (int i = 0; i < 3; i++) {
-      final baseAngle = -0.5 + i * 0.35 + sin(t + i * 2.1) * 0.2;
-      final aStart = baseAngle;
-      final aEnd = baseAngle + 0.5 + sin(t * 0.7 + i * 1.3) * 0.15;
-
-      canvas.drawArc(
-        Rect.fromCircle(
-          center: Offset(shieldCx, shieldCy),
-          radius: arcR + i * 12,
-        ),
-        aStart,
-        aEnd,
-        false,
-        swooshPaint
-          ..color = Colors.white.withOpacity(0.35 + 0.15 * (1 - i * 0.3)),
-      );
-    }
-
-    // Quick outward “thrust” lines.
-    final thrustPaint = Paint()
-      ..color = Colors.white.withOpacity(0.6)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round;
-
-    final thrustPhase = sin(t * 1.5);
-    for (int i = 0; i < 3; i++) {
-      final angle = -0.4 + i * 0.35 + thrustPhase * 0.1;
-      final len = 14 + i * 6;
-      canvas.drawLine(
-        Offset(
-          shieldCx + (r + 4) * cos(angle),
-          shieldCy + (r + 4) * sin(angle),
-        ),
-        Offset(
-          shieldCx + (r + 4 + len) * cos(angle),
-          shieldCy + (r + 4 + len) * sin(angle),
-        ),
-        thrustPaint,
-      );
-    }
   }
 
   double _stickmanWidthPx() => max(32.0, width * 0.12);

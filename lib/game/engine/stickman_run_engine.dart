@@ -31,6 +31,7 @@ class StickmanRunSnapshot {
   final double crawlRemainingSec;
 
   final bool smashActive;
+  final double smashRemainingSec;
   final double smashCooldownSec;
 
   final Stickman stickman;
@@ -53,6 +54,7 @@ class StickmanRunSnapshot {
     required this.crawlingActive,
     required this.crawlRemainingSec,
     required this.smashActive,
+    required this.smashRemainingSec,
     required this.smashCooldownSec,
     required this.stickman,
     required this.obstacles,
@@ -106,7 +108,6 @@ class StickmanRunEngine {
   double _smashCooldownSecRemaining = 0;
   static const double _smashDurationSec = 0.18;
   static const double _smashCooldownTimeSec = 1.2;
-  static const double _smashRangePx = 130;
 
   // Prevent “instant death” from the very first spawn right after START RUN.
   // (First obstacle column can overlap slightly due to resize/layout rounding.)
@@ -152,6 +153,7 @@ class StickmanRunEngine {
       crawlingActive: _crawlRemainingSec > 0,
       crawlRemainingSec: _crawlRemainingSec,
       smashActive: _smashActiveSec > 0,
+      smashRemainingSec: _smashActiveSec,
       smashCooldownSec: _smashCooldownSecRemaining,
       stickman: _stickman,
       obstacles: List.unmodifiable(_obstacles),
@@ -317,10 +319,17 @@ class StickmanRunEngine {
     _smashActiveSec = _smashDurationSec;
     _smashCooldownSecRemaining = _smashCooldownTimeSec;
 
+    // The attack range matches the farthest extent of the punch animation's
+    // impact spark: body lean + fully extended fist + burst radius.
+    final w = _stickmanWidthPx();
+    final h = _stickmanHeightPx();
+    final s = min(w, h) * 0.5;
+    final smashRange = 0.97 * w + 1.6 * s;
+
     // Destroy obstacles within smash range (in front of stickman).
     _obstacles.removeWhere((o) {
       final dist = o.x - _stickman.x;
-      return dist >= 0 && dist <= _smashRangePx && o.y + o.height > _groundY - _stickmanHeightPx() * 1.6;
+      return dist >= 0 && dist <= smashRange && o.y + o.height > _groundY - _stickmanHeightPx() * 1.6;
     });
 
     _score += 5;
