@@ -253,25 +253,23 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
       top: 0,
       left: 0,
       right: 0,
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.only(top: 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _TopCircleButton(
-                icon: Icons.pause_rounded,
-                tooltip: 'Pause',
-                onTap: _pause,
-              ),
-              const SizedBox(width: 12),
-              _TopCircleButton(
-                icon: Icons.help_outline,
-                tooltip: 'Obstacle guide',
-                onTap: _openGuide,
-              ),
-            ],
-          ),
+      child: Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _TopCircleButton(
+              icon: Icons.pause_rounded,
+              tooltip: 'Pause',
+              onTap: _pause,
+            ),
+            const SizedBox(width: 12),
+            _TopCircleButton(
+              icon: Icons.help_outline,
+              tooltip: 'Obstacle guide',
+              onTap: _openGuide,
+            ),
+          ],
         ),
       ),
     );
