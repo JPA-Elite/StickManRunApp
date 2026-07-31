@@ -113,7 +113,7 @@ class StickmanRunEngine {
   double _smashActiveSec = 0;
   double _smashCooldownSecRemaining = 0;
   static const double _smashDurationSec = 0.18;
-  static const double _smashCooldownTimeSec = 1.2;
+  static const double _smashCooldownTimeSec = 0.5;
 
   // Prevent “instant death” from the very first spawn right after START RUN.
   // (First obstacle column can overlap slightly due to resize/layout rounding.)
