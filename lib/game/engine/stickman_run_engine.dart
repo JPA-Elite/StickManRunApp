@@ -831,6 +831,7 @@ class StickmanRunEngine {
     }
 
     // Obstacle collisions.
+    final destroyedByShield = <Obstacle>[];
     for (final o in _obstacles) {
       // If we're moving upward, make collision non-lethal so late taps don't
       // instantly kill before the jump is visually confirmed.
@@ -843,15 +844,28 @@ class StickmanRunEngine {
       if (!or.intersects(sr)) continue;
 
       if (_shieldRemainingSec > 0) {
-        // Consume shield and bounce back a bit.
-        _shieldRemainingSec = 0;
-        _score = max(0, _score - 10);
-        _stickman = _stickman.copyWith(vy: _level.tuning.jumpVelocity * 0.55);
-        return;
+        destroyedByShield.add(o);
+        continue;
       }
 
       _status = GameStatus.gameOver;
       return;
+    }
+
+    if (destroyedByShield.isNotEmpty) {
+      for (final o in destroyedByShield) {
+        _spawnSmashDebris(o);
+        _score += 5;
+        _smashScorePopups.add(
+          SmashScorePopup(
+            x: o.x + o.width / 2,
+            y: o.y + o.height / 2,
+            remainingSec: 0.8,
+            score: 5,
+          ),
+        );
+      }
+      _obstacles.removeWhere(destroyedByShield.contains);
     }
   }
 

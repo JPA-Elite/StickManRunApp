@@ -672,6 +672,50 @@ class StickmanRunPainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 5;
       canvas.drawCircle(Offset(bodyCx, headCenterY), effectiveH * 0.22, haloPaint);
+
+      // Shield countdown timer above the head.
+      if (snapshot.shieldRemainingSec > 0) {
+        final secs = snapshot.shieldRemainingSec.ceil();
+        final textPainter = TextPainter(
+          text: TextSpan(
+            text: '$secs',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+              height: 1.0,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+
+        final badgeRadius = 11.0;
+        final badgeCenter = Offset(
+          bodyCx,
+          headCenterY - effectiveH * 0.09 - badgeRadius - 5,
+        );
+
+        canvas.drawCircle(
+          badgeCenter,
+          badgeRadius,
+          Paint()..color = const Color(0xE6141B2E),
+        );
+        canvas.drawCircle(
+          badgeCenter,
+          badgeRadius,
+          Paint()
+            ..color = Colors.yellow
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2,
+        );
+        textPainter.paint(
+          canvas,
+          Offset(
+            badgeCenter.dx - textPainter.width / 2,
+            badgeCenter.dy - textPainter.height / 2,
+          ),
+        );
+      }
     }
   }
 
