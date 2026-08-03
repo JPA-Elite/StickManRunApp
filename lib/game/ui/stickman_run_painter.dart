@@ -665,19 +665,6 @@ class StickmanRunPainter extends CustomPainter {
     canvas.drawLine(rightHip, rightKnee, outline);
     canvas.drawLine(rightKnee, rightFoot, outline);
 
-    // “Jump” hint: if moving up, draw a small dash.
-    if (snapshot.status == GameStatus.running && stickman.vy < -50) {
-      final dashPaint = Paint()
-        ..color = Colors.white
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 5;
-      canvas.drawLine(
-        Offset(cx - w * 0.25, bottomY - effectiveH * 0.3),
-        Offset(cx + w * 0.25, bottomY - effectiveH * 0.3),
-        dashPaint,
-      );
-    }
-
     // If shield active, draw halo.
     if (snapshot.shieldActive) {
       final haloPaint = Paint()
