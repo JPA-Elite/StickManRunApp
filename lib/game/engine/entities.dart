@@ -16,6 +16,8 @@ enum ObstacleType {
 enum PowerUpType {
   shield,
   magnet,
+  heal25,
+  heal50,
 }
 
 @immutable

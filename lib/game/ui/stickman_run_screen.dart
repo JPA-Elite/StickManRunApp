@@ -39,6 +39,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     lifePercent: 100,
     damageFlashSec: 0,
     damageGraceSec: 0,
+    healFlashSec: 0,
     shieldActive: false,
     shieldRemainingSec: 0,
     magnetActive: false,

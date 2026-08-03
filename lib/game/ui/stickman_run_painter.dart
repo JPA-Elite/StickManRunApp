@@ -164,6 +164,15 @@ class StickmanRunPainter extends CustomPainter {
         Paint()..color = Colors.red.withValues(alpha: alpha * 0.18),
       );
     }
+
+    // Green flash overlay while collecting a heal power-up.
+    if (snapshot.healFlashSec > 0) {
+      final alpha = (snapshot.healFlashSec / 0.45).clamp(0.0, 1.0);
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, width, height),
+        Paint()..color = Colors.greenAccent.withValues(alpha: alpha * 0.16),
+      );
+    }
   }
 
   void _fillBackground(Canvas canvas) {
@@ -1237,6 +1246,27 @@ class StickmanRunPainter extends CustomPainter {
     final cy = p.y;
     final s = p.size;
 
+    if (p.type == PowerUpType.heal25 || p.type == PowerUpType.heal50) {
+      // Heart: small for +25%, larger with sparkle for +50%.
+      final isBig = p.type == PowerUpType.heal50;
+      final r = s * (isBig ? 0.5 : 0.34);
+      _drawHeart(canvas, center: Offset(cx, cy), radius: r, paint: fill);
+      _drawHeart(
+        canvas,
+        center: Offset(cx, cy),
+        radius: r,
+        paint: outline,
+      );
+      // Highlight glint on both hearts so they read as collectible.
+      _drawSparkleGlint(
+        canvas,
+        center: Offset(cx - s * 0.1, cy - s * 0.15),
+        phase: p.phase,
+        scale: s * (isBig ? 0.35 : 0.22),
+      );
+      return;
+    }
+
     if (p.type == PowerUpType.shield) {
       // Shield = rounded pentagon-ish via arc strokes.
       final r = s * 0.5;
@@ -1311,6 +1341,38 @@ class StickmanRunPainter extends CustomPainter {
       phase: p.phase,
       scale: s * 0.5,
     );
+  }
+
+  /// Draws a classic heart shape centered at [center] with the given radius.
+  void _drawHeart(
+    Canvas canvas, {
+    required Offset center,
+    required double radius,
+    required Paint paint,
+  }) {
+    final r = radius;
+    final cx = center.dx;
+    final cy = center.dy;
+    final path = Path()
+      ..moveTo(cx, cy + r * 0.9)
+      ..cubicTo(
+        cx - r * 1.5,
+        cy + r * 0.2,
+        cx - r * 1.1,
+        cy - r * 0.7,
+        cx,
+        cy - r * 0.15,
+      )
+      ..cubicTo(
+        cx + r * 1.1,
+        cy - r * 0.7,
+        cx + r * 1.5,
+        cy + r * 0.2,
+        cx,
+        cy + r * 0.9,
+      )
+      ..close();
+    canvas.drawPath(path, paint);
   }
 
   void _drawHud(Canvas canvas, {required double groundY}) {
@@ -1472,14 +1534,39 @@ class StickmanRunPainter extends CustomPainter {
         ..strokeWidth = 2,
     );
     // Simple face so the avatar reads as the stickman's head.
-    // During damage the face becomes sad (worried brows + frown).
-    final sad = snapshot.damageGraceSec > 0 || snapshot.damageFlashSec > 0;
+    // Damage -> angry; collecting a heal -> happy; otherwise neutral.
+    final angry = snapshot.damageGraceSec > 0 || snapshot.damageFlashSec > 0;
+    final happy = snapshot.healFlashSec > 0;
     final eyePaint = Paint()
       ..color = Colors.black
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
-    if (sad) {
-      // Drooping (upside-down V) brows for a sad look.
+    if (happy) {
+      // Wide smiling eyes (shorter upward arcs).
+      canvas.drawArc(
+        Rect.fromCenter(
+          center: Offset(headCenter.dx - 3.5 * s, headCenter.dy - 3 * s),
+          width: 5 * s,
+          height: 5 * s,
+        ),
+        pi,
+        pi,
+        false,
+        eyePaint,
+      );
+      canvas.drawArc(
+        Rect.fromCenter(
+          center: Offset(headCenter.dx + 3.5 * s, headCenter.dy - 3 * s),
+          width: 5 * s,
+          height: 5 * s,
+        ),
+        pi,
+        pi,
+        false,
+        eyePaint,
+      );
+    } else if (angry) {
+      // Drooping (upside-down V) brows for an angry look.
       canvas.drawLine(
         Offset(headCenter.dx - 6 * s, headCenter.dy - 4 * s),
         Offset(headCenter.dx - 3 * s, headCenter.dy - 1 * s),
@@ -1502,7 +1589,20 @@ class StickmanRunPainter extends CustomPainter {
         eyePaint,
       );
     }
-    if (sad) {
+    if (happy) {
+      // Big happy smile.
+      canvas.drawArc(
+        Rect.fromCenter(
+          center: Offset(headCenter.dx, headCenter.dy + 3 * s),
+          width: 10 * s,
+          height: 7 * s,
+        ),
+        0,
+        pi,
+        false,
+        eyePaint,
+      );
+    } else if (angry) {
       // Frowning mouth curve.
       canvas.drawArc(
         Rect.fromCenter(
@@ -1681,6 +1781,10 @@ class StickmanRunPainter extends CustomPainter {
         return Colors.yellow;
       case PowerUpType.magnet:
         return Colors.cyanAccent;
+      case PowerUpType.heal25:
+        return const Color(0xFFE74C3C);
+      case PowerUpType.heal50:
+        return const Color(0xFFFF2D55);
     }
   }
 

@@ -30,6 +30,9 @@ class StickmanRunSnapshot {
   /// Seconds remaining of post-hit invulnerability (blinks the stickman).
   final double damageGraceSec;
 
+  /// Seconds remaining of the green heal flash overlay.
+  final double healFlashSec;
+
   final bool shieldActive;
   final double shieldRemainingSec;
 
@@ -61,6 +64,7 @@ class StickmanRunSnapshot {
     required this.lifePercent,
     required this.damageFlashSec,
     required this.damageGraceSec,
+    required this.healFlashSec,
     required this.shieldActive,
     required this.shieldRemainingSec,
     required this.magnetActive,
@@ -121,6 +125,8 @@ class StickmanRunEngine {
   double _damageGraceSec = 0;
   // Seconds remaining of the red hit-flash effect.
   double _damageFlashSec = 0;
+  // Seconds remaining of the green heal-flash effect.
+  double _healFlashSec = 0;
 
   // Power-ups timers
   double _shieldRemainingSec = 0;
@@ -175,6 +181,7 @@ class StickmanRunEngine {
       lifePercent: _lifePercent,
       damageFlashSec: _damageFlashSec,
       damageGraceSec: _damageGraceSec,
+      healFlashSec: _healFlashSec,
       shieldActive: _shieldRemainingSec > 0,
       shieldRemainingSec: _shieldRemainingSec,
       magnetActive: _magnetRemainingSec > 0,
@@ -262,6 +269,7 @@ class StickmanRunEngine {
     _lifePercent = 100.0;
     _damageGraceSec = 0;
     _damageFlashSec = 0;
+    _healFlashSec = 0;
 
     _shieldRemainingSec = 0;
     _magnetRemainingSec = 0;
@@ -505,6 +513,7 @@ class StickmanRunEngine {
     _postJumpCollisionGraceSec = max(0, _postJumpCollisionGraceSec - dtSec);
     _damageGraceSec = max(0, _damageGraceSec - dtSec);
     _damageFlashSec = max(0, _damageFlashSec - dtSec);
+    _healFlashSec = max(0, _healFlashSec - dtSec);
 
     _crawlRemainingSec = max(0, _crawlRemainingSec - dtSec);
     _smashActiveSec = max(0, _smashActiveSec - dtSec);
@@ -852,6 +861,14 @@ class StickmanRunEngine {
         } else if (p.type == PowerUpType.magnet) {
           _magnetRemainingSec = max(_magnetRemainingSec, 6.0);
           _score += 25;
+        } else if (p.type == PowerUpType.heal25) {
+          _lifePercent = min(100.0, _lifePercent + 25);
+          _score += 15;
+          _healFlashSec = max(_healFlashSec, 0.35);
+        } else if (p.type == PowerUpType.heal50) {
+          _lifePercent = min(100.0, _lifePercent + 50);
+          _score += 15;
+          _healFlashSec = max(_healFlashSec, 0.45);
         }
 
         return true;

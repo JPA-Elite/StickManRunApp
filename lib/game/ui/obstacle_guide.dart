@@ -19,6 +19,8 @@ enum GuideKind {
   coin,
   shield,
   magnet,
+  heal25,
+  heal50,
 }
 
 class GuideItem {
@@ -101,6 +103,16 @@ const List<GuideItem> _collectibleItems = [
     kind: GuideKind.magnet,
     name: 'MAGNET',
     definition: 'Pulls nearby coins toward you for 6s.',
+  ),
+  GuideItem(
+    kind: GuideKind.heal25,
+    name: 'HEAL +25',
+    definition: 'Restores 25% of your life. Grab it when you are low.',
+  ),
+  GuideItem(
+    kind: GuideKind.heal50,
+    name: 'HEAL +50',
+    definition: 'Restores 50% of your life. A big recovery boost.',
   ),
 ];
 
@@ -401,6 +413,10 @@ class _GuideGlyphPainter extends CustomPainter {
         return Colors.yellow;
       case GuideKind.magnet:
         return Colors.cyanAccent;
+      case GuideKind.heal25:
+        return const Color(0xFFE74C3C);
+      case GuideKind.heal50:
+        return const Color(0xFFFF2D55);
     }
   }
 
@@ -595,6 +611,34 @@ class _GuideGlyphPainter extends CustomPainter {
           ..strokeWidth = 2.2;
         canvas.drawLine(p(12, 8), p(12, 16), bar);
         canvas.drawLine(p(9, 11), p(15, 11), bar);
+        break;
+
+      case GuideKind.heal25:
+      case GuideKind.heal50:
+        final isBig = kind == GuideKind.heal50;
+        final r = (isBig ? 8.0 : 6.2) * u;
+        final cx = p(12, 13);
+        final heart = Path()
+          ..moveTo(cx.dx, cx.dy + r * 0.9)
+          ..cubicTo(
+            cx.dx - r * 1.5,
+            cx.dy + r * 0.2,
+            cx.dx - r * 1.1,
+            cx.dy - r * 0.7,
+            cx.dx,
+            cx.dy - r * 0.15,
+          )
+          ..cubicTo(
+            cx.dx + r * 1.1,
+            cx.dy - r * 0.7,
+            cx.dx + r * 1.5,
+            cx.dy + r * 0.2,
+            cx.dx,
+            cx.dy + r * 0.9,
+          )
+          ..close();
+        canvas.drawPath(heart, fill);
+        canvas.drawPath(heart, outline);
         break;
     }
   }
