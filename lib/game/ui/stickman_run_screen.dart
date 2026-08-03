@@ -36,6 +36,9 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     score: 0,
     coins: 0,
     distanceMeters: 0,
+    lifePercent: 100,
+    damageFlashSec: 0,
+    damageGraceSec: 0,
     shieldActive: false,
     shieldRemainingSec: 0,
     magnetActive: false,
@@ -494,7 +497,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
         width: 52,
         height: 52,
         child: ElevatedButton(
-          onPressed: isRunning ? _onJump : null,
+          onPressed: isRunning && !_paused ? _onJump : null,
           style: _circleBtnStyle(
             isRunning: isRunning,
             activeColor: Colors.yellow,
@@ -517,7 +520,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
         width: 52,
         height: 52,
         child: ElevatedButton(
-          onPressed: isRunning ? _onCrawl : null,
+          onPressed: isRunning && !_paused ? _onCrawl : null,
           style: _circleBtnStyle(
             isRunning: isRunning,
             activeColor: Colors.cyanAccent,
@@ -583,7 +586,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                     : null,
               ),
               child: ElevatedButton(
-                onPressed: canSmash
+                onPressed: canSmash && !_paused
                     ? () {
                         _engine.smash();
                         if (_settings.vibrationsEnabled) {

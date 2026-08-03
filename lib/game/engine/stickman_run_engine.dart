@@ -21,6 +21,15 @@ class StickmanRunSnapshot {
   final int coins;
   final double distanceMeters;
 
+  /// Stickman life, 0..100. Reaching 0 ends the game.
+  final double lifePercent;
+
+  /// Seconds remaining of the red hit-flash effect (0 when no flash).
+  final double damageFlashSec;
+
+  /// Seconds remaining of post-hit invulnerability (blinks the stickman).
+  final double damageGraceSec;
+
   final bool shieldActive;
   final double shieldRemainingSec;
 
@@ -49,6 +58,9 @@ class StickmanRunSnapshot {
     required this.score,
     required this.coins,
     required this.distanceMeters,
+    required this.lifePercent,
+    required this.damageFlashSec,
+    required this.damageGraceSec,
     required this.shieldActive,
     required this.shieldRemainingSec,
     required this.magnetActive,
@@ -102,6 +114,14 @@ class StickmanRunEngine {
   int _coinsCollected = 0;
   double _distanceMeters = 0;
 
+  // Life: 0..100. Big obstacles -10, small -5. game over at 0.
+  double _lifePercent = 100.0;
+
+  // Post-hit invulnerability (seconds) so a touching column doesn't drain HP.
+  double _damageGraceSec = 0;
+  // Seconds remaining of the red hit-flash effect.
+  double _damageFlashSec = 0;
+
   // Power-ups timers
   double _shieldRemainingSec = 0;
   double _magnetRemainingSec = 0;
@@ -152,6 +172,9 @@ class StickmanRunEngine {
       score: _score,
       coins: _coinsCollected,
       distanceMeters: _distanceMeters,
+      lifePercent: _lifePercent,
+      damageFlashSec: _damageFlashSec,
+      damageGraceSec: _damageGraceSec,
       shieldActive: _shieldRemainingSec > 0,
       shieldRemainingSec: _shieldRemainingSec,
       magnetActive: _magnetRemainingSec > 0,
@@ -236,6 +259,9 @@ class StickmanRunEngine {
     _score = 0;
     _coinsCollected = 0;
     _distanceMeters = 0;
+    _lifePercent = 100.0;
+    _damageGraceSec = 0;
+    _damageFlashSec = 0;
 
     _shieldRemainingSec = 0;
     _magnetRemainingSec = 0;
@@ -477,6 +503,8 @@ class StickmanRunEngine {
 
     _collisionGraceSec = max(0, _collisionGraceSec - dtSec);
     _postJumpCollisionGraceSec = max(0, _postJumpCollisionGraceSec - dtSec);
+    _damageGraceSec = max(0, _damageGraceSec - dtSec);
+    _damageFlashSec = max(0, _damageFlashSec - dtSec);
 
     _crawlRemainingSec = max(0, _crawlRemainingSec - dtSec);
     _smashActiveSec = max(0, _smashActiveSec - dtSec);
@@ -848,8 +876,26 @@ class StickmanRunEngine {
         continue;
       }
 
-      _status = GameStatus.gameOver;
-      return;
+      // Invulnerable right after taking damage (grace window) so a single
+      // touching column can't drain all life at once.
+      if (_damageGraceSec > 0) continue;
+
+      _lifePercent = max(0, _lifePercent - _obstacleDamage(o.type));
+      _damageGraceSec = 1.0;
+      _damageFlashSec = 0.35;
+      _smashScorePopups.add(
+        SmashScorePopup(
+          x: o.x + o.width / 2,
+          y: o.y + o.height / 2,
+          remainingSec: 0.8,
+          score: -_obstacleDamage(o.type),
+        ),
+      );
+
+      if (_lifePercent <= 0) {
+        _status = GameStatus.gameOver;
+        return;
+      }
     }
 
     if (destroyedByShield.isNotEmpty) {
@@ -884,5 +930,23 @@ class StickmanRunEngine {
 
   double _stickmanHeightPx() {
     return max(90, _height * 0.22);
+  }
+
+  /// Life lost on collision. Big obstacles -10, small -5.
+  int _obstacleDamage(ObstacleType type) {
+    switch (type) {
+      case ObstacleType.stalagmite:
+      case ObstacleType.cactus:
+      case ObstacleType.rollingRock:
+      case ObstacleType.pendulumMine:
+        return 10;
+      case ObstacleType.spike:
+      case ObstacleType.drone:
+      case ObstacleType.laser:
+      case ObstacleType.bat:
+      case ObstacleType.fireJet:
+      case ObstacleType.fireball:
+        return 5;
+    }
   }
 }

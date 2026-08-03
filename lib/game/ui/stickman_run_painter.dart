@@ -47,6 +47,16 @@ class StickmanRunPainter extends CustomPainter {
       }
     }
 
+    // Shake + red vignette while the stickman is taking damage.
+    if (snapshot.damageFlashSec > 0) {
+      final p = (snapshot.damageFlashSec / 0.35).clamp(0.0, 1.0);
+      final t = snapshot.timeSec * 90.0;
+      canvas.translate(
+        sin(t) * p * 5.0,
+        cos(t * 0.7) * p * 3.0,
+      );
+    }
+
     final groundY = height * 0.78;
 
     // Background.
@@ -113,8 +123,25 @@ class StickmanRunPainter extends CustomPainter {
     // Floating score popups.
     _drawSmashScorePopups(canvas);
 
-    // Stickman.
-    _drawStickman(canvas, snapshot.stickman);
+    // Stickman. During post-hit invulnerability the body fades in and out
+    // (flicker) to communicate the grace window.
+    if (snapshot.damageGraceSec > 0) {
+      final flickerAlpha = 0.25 + 0.6 * (0.5 + 0.5 * sin(snapshot.timeSec * 24));
+      final flickerRect = Rect.fromLTWH(
+        snapshot.stickman.x - _stickmanWidthPx(),
+        snapshot.stickman.y - _stickmanHeightPx() * 1.1,
+        _stickmanWidthPx() * 2,
+        _stickmanHeightPx() * 1.1,
+      );
+      canvas.saveLayer(
+        flickerRect,
+        Paint()..color = Colors.white.withValues(alpha: flickerAlpha),
+      );
+      _drawStickman(canvas, snapshot.stickman);
+      canvas.restore();
+    } else {
+      _drawStickman(canvas, snapshot.stickman);
+    }
 
     // Speed-streak trail behind the punching fist.
     if (snapshot.smashActive) {
@@ -126,6 +153,16 @@ class StickmanRunPainter extends CustomPainter {
     // to prevent SCORE/COINS from overlapping the overlay card.
     if (snapshot.status == GameStatus.running) {
       _drawHud(canvas, groundY: groundY);
+      _drawLifeBar(canvas, groundY: groundY);
+    }
+
+    // Red flash overlay while taking damage.
+    if (snapshot.damageFlashSec > 0) {
+      final alpha = (snapshot.damageFlashSec / 0.35).clamp(0.0, 1.0);
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, width, height),
+        Paint()..color = Colors.red.withValues(alpha: alpha * 0.18),
+      );
     }
   }
 
@@ -1375,6 +1412,171 @@ class StickmanRunPainter extends CustomPainter {
   double _stickmanWidthPx() => max(32.0, width * 0.12);
   double _stickmanHeightPx() => max(90.0, height * 0.22);
 
+  /// Bottom-center life indicator: circular stickman head + HP bar + % text.
+  /// Rendered in the ground band, below the dashed highway line.
+  void _drawLifeBar(Canvas canvas, {required double groundY}) {
+    // Slight scale-down so the indicator occupies less screen space.
+    final s = 0.78;
+    final barW = 230.0 * s;
+    final barH = 46.0 * s;
+    final bottomPad = 8.0;
+    final left = (width - barW) / 2;
+    final top = height - barH - bottomPad;
+
+    // Guard against overlapping the right-side control buttons on narrow screens.
+    if (left < 6) {
+      return;
+    }
+
+    final life = snapshot.lifePercent.clamp(0.0, 100.0);
+
+    // Container pill.
+    final container = RRect.fromRectAndRadius(
+      Rect.fromLTWH(left, top, barW, barH),
+      Radius.circular(barH / 2),
+    );
+    canvas.drawRRect(
+      container,
+      Paint()..color = const Color(0x99000000),
+    );
+    canvas.drawRRect(
+      container,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.35)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
+    );
+
+    // Low-HP pulse: bar + text steady once life < 30%.
+    final lowHp = life < 30;
+    final pulse = lowHp ? (0.6 + 0.4 * (0.5 + 0.5 * sin(snapshot.timeSec * 8))) : 1.0;
+
+    // Left: circular stickman head avatar.
+    final headRadius = 16.0 * s;
+    final headPadding = 30.0 * s;
+    final headCenter = Offset(left + headPadding, top + barH / 2);
+    canvas.drawCircle(
+      headCenter,
+      headRadius,
+      Paint()
+        ..color = snapshot.damageFlashSec > 0
+            ? Colors.red
+            : _effectiveStickmanColor(),
+    );
+    canvas.drawCircle(
+      headCenter,
+      headRadius,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.7)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
+    // Simple face so the avatar reads as the stickman's head.
+    // During damage the face becomes sad (worried brows + frown).
+    final sad = snapshot.damageGraceSec > 0 || snapshot.damageFlashSec > 0;
+    final eyePaint = Paint()
+      ..color = Colors.black
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    if (sad) {
+      // Drooping (upside-down V) brows for a sad look.
+      canvas.drawLine(
+        Offset(headCenter.dx - 6 * s, headCenter.dy - 4 * s),
+        Offset(headCenter.dx - 3 * s, headCenter.dy - 1 * s),
+        eyePaint,
+      );
+      canvas.drawLine(
+        Offset(headCenter.dx + 3 * s, headCenter.dy - 1 * s),
+        Offset(headCenter.dx + 6 * s, headCenter.dy - 4 * s),
+        eyePaint,
+      );
+    } else {
+      canvas.drawLine(
+        Offset(headCenter.dx - 5 * s, headCenter.dy - 2 * s),
+        Offset(headCenter.dx - 2 * s, headCenter.dy - 2 * s),
+        eyePaint,
+      );
+      canvas.drawLine(
+        Offset(headCenter.dx + 2 * s, headCenter.dy - 2 * s),
+        Offset(headCenter.dx + 5 * s, headCenter.dy - 2 * s),
+        eyePaint,
+      );
+    }
+    if (sad) {
+      // Frowning mouth curve.
+      canvas.drawArc(
+        Rect.fromCenter(
+          center: Offset(headCenter.dx, headCenter.dy + 5 * s),
+          width: 10 * s,
+          height: 6 * s,
+        ),
+        pi + 0.15,
+        pi - 0.3,
+        false,
+        eyePaint,
+      );
+    } else {
+      canvas.drawArc(
+        Rect.fromCenter(
+          center: Offset(headCenter.dx, headCenter.dy + 3 * s),
+          width: 10 * s,
+          height: 6 * s,
+        ),
+        0.15,
+        pi - 0.3,
+        false,
+        eyePaint,
+      );
+    }
+
+    // Right: HP bar.
+    final br = 9.0 * s;
+    final barX = headCenter.dx + headRadius + br;
+    final barW0 = barW - (barX - left) - br;
+    final barHh = 14.0 * s;
+    final barYB = top + barH / 2 - barHh / 2;
+    final barRect = Rect.fromLTWH(barX, barYB, barW0, barHh);
+    final track = RRect.fromRectAndRadius(barRect, Radius.circular(7 * s));
+    canvas.drawRRect(track, Paint()..color = const Color(0x66000000));
+    final fill = RRect.fromRectAndRadius(
+      Rect.fromLTWH(barX, barYB, barW0 * life / 100, barHh),
+      Radius.circular(7 * s),
+    );
+    canvas.drawRRect(
+      fill,
+      Paint()..color = _hpColor(life).withValues(alpha: 0.55 * pulse + 0.45),
+    );
+
+    // Percentage text centered inside the bar.
+    final tp = TextPainter(
+      text: TextSpan(
+        text: '${life.round()}%',
+        style: TextStyle(
+          fontSize: 14.0 * s * pulse,
+          fontWeight: FontWeight.w900,
+          color: Colors.white.withValues(alpha: 0.6 * pulse + 0.4),
+          shadows: const [
+            Shadow(color: Colors.black, blurRadius: 0, offset: Offset(1, 1)),
+          ],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(
+      canvas,
+      Offset(
+        barX + barW0 / 2 - tp.width / 2,
+        top + barH / 2 - tp.height / 2,
+      ),
+    );
+  }
+
+  Color _hpColor(double life) {
+    if (life < 25) return const Color(0xFFE74C3C);
+    if (life < 50) return Color.lerp(const Color(0xFFF1C40F), const Color(0xFFE74C3C), (50 - life) / 25)!;
+    return Color.lerp(const Color(0xFF2ECC71), const Color(0xFFF1C40F), (100 - life) / 50)!;
+  }
+
   Color _obstacleFill(ObstacleType type) {
     switch (type) {
       case ObstacleType.spike:
@@ -1523,14 +1725,15 @@ class StickmanRunPainter extends CustomPainter {
       // Pop-in scale: grows from 0.6 -> 1.0 in the first 25% of life.
       final scale = t < 0.25 ? (0.6 + (t / 0.25) * 0.4) : 1.0;
 
-      final text = '+${p.score}';
+      final text = p.score >= 0 ? '+${p.score}' : '${p.score}';
+      final color = p.score >= 0 ? Colors.yellow : const Color(0xFFFF4D4D);
       final tp = TextPainter(
         text: TextSpan(
           text: text,
           style: TextStyle(
             fontSize: 22 * scale,
             fontWeight: FontWeight.w900,
-            color: Colors.yellow.withOpacity(alpha),
+            color: color.withOpacity(alpha),
             letterSpacing: 0.5,
             shadows: [
               Shadow(
