@@ -507,11 +507,6 @@ class StickmanRunPainter extends CustomPainter {
     // Center stickman on X. stickman.y is bottom.
     final cx = stickman.x;
     final bottomY = stickman.y;
-    // Connect body to the bottom of the head circle.
-    // Pull torso up slightly so the head circle visually touches the body (no gap).
-    // Put the torso start exactly where the head circle ends.
-    final headCenterY = bottomY - effectiveH * 0.88;
-    final torsoTop = headCenterY + effectiveH * 0.09;
 
     final effectiveColor = _effectiveStickmanColor();
 
@@ -522,18 +517,25 @@ class StickmanRunPainter extends CustomPainter {
 
     final fillPaint = Paint()..color = effectiveColor;
 
-    // Running animation: swing legs with a more “natural” gait.
+    // Run cycle.
     final isRunning = snapshot.status == GameStatus.running;
-    final crawlFactor = snapshot.crawlingActive ? 0.22 : 1.0;
-
-    // If we're in the air (jumping), reduce the run cycle so it feels believable.
     final inAirFactor = stickman.vy < -5 ? 0.45 : 1.0;
-
     final phase = snapshot.timeSec * 10.0;
-    final swing = isRunning ? sin(phase) : 0.0;
-    final pulse = (1 + cos(phase)) * 0.5; // 0..1
 
-    final legSwing = -swing * crawlFactor * inAirFactor;
+    // Realistic running body: bounce with each stride + forward lean.
+    final bobAmp = effectiveH * 0.035;
+    final bob = isRunning && !snapshot.crawlingActive
+        ? -sin(phase).abs() * bobAmp * inAirFactor
+        : 0.0;
+    final bodyBottom = bottomY + bob;
+    final runLeanPx = isRunning && !snapshot.crawlingActive ? w * 0.05 : 0.0;
+
+    // Connect body to the bottom of the head circle.
+    // Pull torso up slightly so the head circle visually touches the body (no gap).
+    // Put the torso start exactly where the head circle ends.
+    final headCenterY = bodyBottom - effectiveH * 0.88;
+    final torsoTop = headCenterY + effectiveH * 0.09;
+    final hipY = bodyBottom - effectiveH * 0.42;
 
     // --- Smash punch animation ---
     // Progress across the 0.18s smash window (0 = start, 1 = done).
@@ -549,17 +551,18 @@ class StickmanRunPainter extends CustomPainter {
             : ((1 - smashProgress) / 0.65).clamp(0.0, 1.0))
         : 0.0;
 
-    // Body leans into the punch.
-    final lean = punchExtend * w * 0.10;
-    final bodyCx = cx + lean;
+    // Body leans into the punch (smash) and tilts into the run.
+    final bodyCx = cx + punchExtend * w * 0.10;
+    final shoulderX = bodyCx + runLeanPx * 0.5;
+    final hipX = bodyCx - runLeanPx * 0.5;
 
     // Head.
-    canvas.drawCircle(Offset(bodyCx, headCenterY), effectiveH * 0.09, fillPaint);
+    canvas.drawCircle(Offset(shoulderX, headCenterY), effectiveH * 0.09, fillPaint);
 
-    // Body.
+    // Body: torso tilts forward while running.
     canvas.drawLine(
-      Offset(bodyCx, torsoTop),
-      Offset(bodyCx, bottomY - effectiveH * 0.18),
+      Offset(shoulderX, torsoTop),
+      Offset(hipX, hipY),
       outline,
     );
 
@@ -582,9 +585,9 @@ class StickmanRunPainter extends CustomPainter {
       final rearElbow = Offset(bodyCx - w * 0.06, shoulderY + s * 0.28);
       final rearFist = Offset(bodyCx + w * 0.12, shoulderY + s * 0.16);
 
-      canvas.drawLine(Offset(bodyCx, shoulderY), leadElbow, outline);
+      canvas.drawLine(Offset(shoulderX, shoulderY), leadElbow, outline);
       canvas.drawLine(leadElbow, leadFist, outline);
-      canvas.drawLine(Offset(bodyCx, shoulderY), rearElbow, outline);
+      canvas.drawLine(Offset(shoulderX, shoulderY), rearElbow, outline);
       canvas.drawLine(rearElbow, rearFist, outline);
 
       // Glove: filled circle at the striking fist.
@@ -619,53 +622,92 @@ class StickmanRunPainter extends CustomPainter {
         shoulderY + s * 0.04 - guardBob,
       );
 
-      canvas.drawLine(Offset(cx, shoulderY), rearElbow, outline);
+      canvas.drawLine(Offset(shoulderX, shoulderY), rearElbow, outline);
       canvas.drawLine(rearElbow, rearFist, outline);
-      canvas.drawLine(Offset(cx, shoulderY), leadElbow, outline);
+      canvas.drawLine(Offset(shoulderX, shoulderY), leadElbow, outline);
       canvas.drawLine(leadElbow, leadFist, outline);
 
       _punchFist = null;
       _punchStrength = 0;
     }
 
-    // --- Legs (2 segments) ---
-    final hipY = bottomY - effectiveH * 0.18;
+    // --- Legs — human running gait (2 segments + 2-bone IK) ---
+    final hip = Offset(hipX, hipY);
 
-    final leftForwardLeg = legSwing > 0 ? 1.0 : -1.0;
-    final rightForwardLeg = -leftForwardLeg;
+    if (isRunning && !snapshot.crawlingActive) {
+      final thighLen = effectiveH * 0.21;
+      final shinLen = effectiveH * 0.22;
+      final maxReach = thighLen + shinLen - 1.0;
+      final strideLen = w * 0.14;
+      final maxLift = effectiveH * 0.13;
 
-    final stepOut = w * (0.16 + 0.14 * pulse);
-    final kneeLift = effectiveH * (0.05 + 0.07 * pulse);
+      // Foot follows a triangle wave: lifts and reaches forward in a straight
+      // line (piston-like), so the runner moves straight ahead with the foot
+      // planted behind and the other planted in front.
+      Offset footFor(double p) {
+        final cycle = (p / pi) % 2.0;
+        final tri = cycle < 1.0 ? cycle : 2.0 - cycle;
+        final lift = tri * maxLift;
+        // Reach forward while lifted, back behind the hip while planted.
+        final fwd = (tri - 0.5) * 2.0;
+        final fx = hip.dx + strideLen * fwd;
+        return Offset(fx, bottomY - lift);
+      }
 
-    // Forward leg: higher knee + bigger step.
-    final leftKneeY = hipY + kneeLift * (leftForwardLeg > 0 ? 1.0 : 0.25);
-    final rightKneeY = hipY + kneeLift * (rightForwardLeg > 0 ? 1.0 : 0.25);
+      // Solve the knee so thigh+shin reach hip -> foot, bending the knee
+      // up/forward like a real runner.
+      Offset kneeFor(Offset foot) {
+        final dx = foot.dx - hip.dx;
+        final dy = foot.dy - hip.dy;
+        final rawD = sqrt(dx * dx + dy * dy);
+        // Pull the foot within the leg's reach so the shin never stretches.
+        final scale = rawD > 1.0 ? min(1.0, maxReach / rawD) : 1.0;
+        final fx = hip.dx + dx * scale;
+        final fy = hip.dy + dy * scale;
+        final d2 = (fx - hip.dx) * (fx - hip.dx) + (fy - hip.dy) * (fy - hip.dy);
+        final D = max(1.0, sqrt(d2));
+        final cosA = ((thighLen * thighLen + D * D - shinLen * shinLen) /
+                (2 * thighLen * D))
+            .clamp(-1.0, 1.0);
+        final a = acos(cosA);
+        final base = atan2(fy - hip.dy, fx - hip.dx);
+        final knee1 = Offset(
+          hip.dx + thighLen * cos(base + a),
+          hip.dy + thighLen * sin(base + a),
+        );
+        final knee2 = Offset(
+          hip.dx + thighLen * cos(base - a),
+          hip.dy + thighLen * sin(base - a),
+        );
+        // Pick the knee that points up/forward (reads as a bent running knee).
+        return knee1.dy <= knee2.dy ? knee1 : knee2;
+      }
 
-    // Connect legs to the torso center.
-    final leftHip = Offset(cx, hipY);
-    final leftKnee = Offset(
-      leftHip.dx - leftForwardLeg * stepOut * 0.35,
-      leftKneeY,
-    );
-    final leftFoot = Offset(
-      leftKnee.dx - leftForwardLeg * stepOut * 0.62,
-      bottomY,
-    );
+      final leftFoot = footFor(phase);
+      final rightFoot = footFor(phase + pi);
+      final leftKnee = kneeFor(leftFoot);
+      final rightKnee = kneeFor(rightFoot);
 
-    final rightHip = Offset(cx, hipY);
-    final rightKnee = Offset(
-      rightHip.dx - rightForwardLeg * stepOut * 0.35,
-      rightKneeY,
-    );
-    final rightFoot = Offset(
-      rightKnee.dx - rightForwardLeg * stepOut * 0.62,
-      bottomY,
-    );
+      canvas.drawLine(hip, leftKnee, outline);
+      canvas.drawLine(leftKnee, leftFoot, outline);
+      canvas.drawLine(hip, rightKnee, outline);
+      canvas.drawLine(rightKnee, rightFoot, outline);
+    } else if (snapshot.crawlingActive) {
+      // Crawl: short, bent legs tucked under the body.
+      final leftKnee = Offset(hip.dx - w * 0.12, hipY + effectiveH * 0.14);
+      final leftFoot = Offset(hip.dx - w * 0.22, bottomY);
+      final rightKnee = Offset(hip.dx + w * 0.12, hipY + effectiveH * 0.14);
+      final rightFoot = Offset(hip.dx + w * 0.22, bottomY);
 
-    canvas.drawLine(leftHip, leftKnee, outline);
-    canvas.drawLine(leftKnee, leftFoot, outline);
-    canvas.drawLine(rightHip, rightKnee, outline);
-    canvas.drawLine(rightKnee, rightFoot, outline);
+      canvas.drawLine(hip, leftKnee, outline);
+      canvas.drawLine(leftKnee, leftFoot, outline);
+      canvas.drawLine(hip, rightKnee, outline);
+      canvas.drawLine(rightKnee, rightFoot, outline);
+    } else {
+      // Standing: two straight legs slightly apart.
+      canvas.drawLine(hip, Offset(hip.dx - w * 0.12, bottomY), outline);
+      canvas.drawLine(hip, Offset(hip.dx + w * 0.12, bottomY), outline);
+    }
 
     // If shield active, draw halo.
     if (snapshot.shieldActive) {
@@ -673,7 +715,7 @@ class StickmanRunPainter extends CustomPainter {
         ..color = Colors.yellow
         ..style = PaintingStyle.stroke
         ..strokeWidth = 5;
-      canvas.drawCircle(Offset(bodyCx, headCenterY), effectiveH * 0.22, haloPaint);
+      canvas.drawCircle(Offset(shoulderX, headCenterY), effectiveH * 0.22, haloPaint);
 
       // Shield countdown timer above the head.
       if (snapshot.shieldRemainingSec > 0) {
@@ -693,7 +735,7 @@ class StickmanRunPainter extends CustomPainter {
 
         final badgeRadius = 11.0;
         final badgeCenter = Offset(
-          bodyCx,
+          shoulderX,
           headCenterY - effectiveH * 0.09 - badgeRadius - 5,
         );
 
