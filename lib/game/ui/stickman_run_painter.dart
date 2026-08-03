@@ -1073,7 +1073,7 @@ class StickmanRunPainter extends CustomPainter {
     canvas.drawOval(body, outline);
 
     final eyePaint = Paint()
-      ..color = Colors.white
+      ..color = Colors.black
       ..style = PaintingStyle.fill;
 
     final eyeY = y1 + (o.height * 0.42);
