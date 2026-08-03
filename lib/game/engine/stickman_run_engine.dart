@@ -368,16 +368,21 @@ class StickmanRunEngine {
     int hitCount = 0;
     _obstacles.removeWhere((o) {
       final dist = o.x - _stickman.x;
-      final hit = dist >= 0 && dist <= smashRange && o.y + o.height > _groundY - _stickmanHeightPx() * 1.6;
-      if (hit) {
-        _spawnSmashDebris(o);
-        if (firstHitX == null) {
-          firstHitX = o.x + o.width / 2;
-          firstHitY = o.y + o.height / 2;
-        }
-        hitCount++;
+      if (dist < 0 || dist > smashRange) return false;
+
+      // Vertical reach follows the stickman's current height so the punch
+      // can smash flying obstacles while the stickman is airborne.
+      final verticalHit =
+          o.y + o.height > _stickman.y - _stickmanHeightPx() * 1.6;
+      if (!verticalHit) return false;
+
+      _spawnSmashDebris(o);
+      if (firstHitX == null) {
+        firstHitX = o.x + o.width / 2;
+        firstHitY = o.y + o.height / 2;
       }
-      return hit;
+      hitCount++;
+      return true;
     });
 
     // Only award points and show a popup when an obstacle was actually defeated.
@@ -594,7 +599,7 @@ class StickmanRunEngine {
 
   void _spawnObstacleColumn() {
     // Choose a rule index using ruleOrder progression.
-    final ruleIndex = _level.ruleOrder[(min(_level.ruleOrder.length - 1, _spawnTick ~/ 3)) % _level.ruleOrder.length];
+    final ruleIndex = _level.ruleOrder[(_spawnTick ~/ 3) % _level.ruleOrder.length];
     final candidateRuleIndices = _level.obstacleRules.asMap().entries.where((e) => e.key == ruleIndex).map((e) => e.key).toList();
 
     final chosenRule = candidateRuleIndices.isEmpty
