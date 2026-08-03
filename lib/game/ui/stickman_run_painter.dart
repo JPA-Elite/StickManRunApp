@@ -6,6 +6,9 @@ import '../engine/entities.dart';
 import '../engine/level_config.dart' as lc;
 import '../engine/stickman_run_engine.dart';
 
+/// Icon shown on the leading chip of each HUD leaderboard plate.
+enum BadgeIcon { star, coin }
+
 class StickmanRunPainter extends CustomPainter {
   final StickmanRunSnapshot snapshot;
   final lc.LevelConfig level;
@@ -510,39 +513,213 @@ class StickmanRunPainter extends CustomPainter {
 
   void _drawLevelLabel(Canvas canvas) {
     final label = level.visuals.name;
-    final paint = Paint()
-      ..color = Colors.black
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
+    final accent = _levelAccentColor();
 
-    final fill = Paint()..color = Colors.white.withOpacity(0.22);
+    // Slow neon pulse so the sign feels alive.
+    final pulse = 0.65 + 0.35 * (0.5 + 0.5 * sin(snapshot.timeSec * 2.2));
 
     final textPainter = TextPainter(
       text: TextSpan(
         text: label,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 22,
           fontWeight: FontWeight.w900,
-          color: Colors.white,
-          letterSpacing: 1.0,
+          letterSpacing: 1.5,
+          color: Colors.white.withValues(alpha: 0.95),
+          shadows: [
+            // Outer wide halo.
+            Shadow(
+              color: accent.withValues(alpha: 0.35 * pulse),
+              blurRadius: 22,
+              offset: Offset.zero,
+            ),
+            // Mid glow.
+            Shadow(
+              color: accent.withValues(alpha: 0.75 * pulse),
+              blurRadius: 9,
+              offset: Offset.zero,
+            ),
+            // Tight tube core.
+            Shadow(
+              color: Colors.white.withValues(alpha: 0.9),
+              blurRadius: 2,
+              offset: Offset.zero,
+            ),
+          ],
         ),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
 
-    final pad = 12.0;
-    final rect = RRect.fromLTRBR(
-      16,
-      16,
-      16 + textPainter.width + pad * 2,
-      16 + textPainter.height + pad * 2,
-      const Radius.circular(10),
+    final left = 16.0;
+    final top = 16.0;
+    textPainter.paint(canvas, Offset(left, top));
+
+    // Neon accent icon to the right of the title (varies by level theme).
+    // Material Icons cover forest, moon, and fire; cactus and bat are drawn manually.
+    final iconX = left + textPainter.width + 14;
+    final iconTop = top + textPainter.height * 0.15;
+    final iconH = textPainter.height * 0.7;
+    final iconRect = Rect.fromLTWH(iconX, iconTop, 14, iconH);
+
+    if (level.levelIndex == 2) {
+      // DESERT — manual cactus.
+      _drawCactusIcon(canvas, rect: iconRect, accent: accent, pulse: pulse);
+    } else if (level.levelIndex == 4) {
+      // DARK CAVE — manual bat.
+      _drawBatIcon(canvas, rect: iconRect, accent: accent, pulse: pulse);
+    } else {
+      // Material Icons (forest, moon, fire).
+      final IconData icon;
+      switch (level.levelIndex) {
+        case 1:
+          icon = Icons.forest;
+        case 3:
+          icon = Icons.nightlight_round;
+        case 5:
+          icon = Icons.local_fire_department;
+        default:
+          icon = Icons.flash_on;
+      }
+      _drawNeonIcon(canvas, icon: icon, rect: iconRect, accent: accent, pulse: pulse);
+    }
+  }
+
+  /// Renders a Material Icon with a soft neon glow behind the crisp glyph.
+  void _drawNeonIcon(
+    Canvas canvas, {
+    required IconData icon,
+    required Rect rect,
+    required Color accent,
+    required double pulse,
+  }) {
+    final iconH = rect.height;
+    canvas.saveLayer(rect.inflate(18), Paint()..color = const Color(0x00FFFFFF));
+    final glowIcon = TextPainter(
+      text: TextSpan(
+        text: String.fromCharCode(icon.codePoint),
+        style: TextStyle(
+          fontFamily: icon.fontFamily,
+          package: icon.fontPackage,
+          fontSize: iconH,
+          color: accent.withValues(alpha: 0.55 * pulse),
+          shadows: [
+            Shadow(
+              color: accent.withValues(alpha: 0.9 * pulse),
+              blurRadius: 12,
+              offset: Offset.zero,
+            ),
+          ],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    glowIcon.paint(canvas, Offset(rect.left, rect.top));
+    canvas.restore();
+
+    final iconPainter = TextPainter(
+      text: TextSpan(
+        text: String.fromCharCode(icon.codePoint),
+        style: TextStyle(
+          fontFamily: icon.fontFamily,
+          package: icon.fontPackage,
+          fontSize: iconH,
+          color: accent.withValues(alpha: 0.95),
+          shadows: const [
+            Shadow(color: Colors.black, blurRadius: 0, offset: Offset(1, 1)),
+          ],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    iconPainter.paint(canvas, Offset(rect.left, rect.top));
+  }
+
+  /// Simple neon cactus icon (two arms + body).
+  void _drawCactusIcon(
+    Canvas canvas, {
+    required Rect rect,
+    required Color accent,
+    required double pulse,
+  }) {
+    final cx = rect.center.dx;
+    final bodyW = rect.width * 0.35;
+    final bodyH = rect.height;
+    final body = RRect.fromRectAndRadius(
+      Rect.fromLTWH(cx - bodyW / 2, rect.top, bodyW, bodyH),
+      Radius.circular(bodyW / 2),
     );
+    final fill = Paint()..color = accent.withValues(alpha: 0.9);
+    final glow = Paint()
+      ..color = accent.withValues(alpha: 0.55 * pulse)
+      ..style = PaintingStyle.fill
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 8);
+    canvas.drawRRect(body, glow);
+    canvas.drawRRect(body, fill);
+    // Left arm.
+    final armW = bodyW * 0.6;
+    final armH = bodyW * 0.5;
+    final leftArm = RRect.fromRectAndRadius(
+      Rect.fromLTWH(rect.left - armW, rect.top + bodyH * 0.3, armW, armH),
+      Radius.circular(armW / 2),
+    );
+    canvas.drawRRect(leftArm, fill);
+    // Right arm.
+    final rightArm = RRect.fromRectAndRadius(
+      Rect.fromLTWH(rect.right, rect.top + bodyH * 0.55, armW, armH),
+      Radius.circular(armW / 2),
+    );
+    canvas.drawRRect(rightArm, fill);
+  }
 
-    canvas.drawRRect(rect, fill);
-    canvas.drawRRect(rect, paint);
+  /// Simple neon bat icon (wings spread).
+  void _drawBatIcon(
+    Canvas canvas, {
+    required Rect rect,
+    required Color accent,
+    required double pulse,
+  }) {
+    final c = rect.center;
+    final wingW = rect.width * 0.7;
+    final wingH = rect.height * 0.5;
+    final fill = Paint()..color = accent.withValues(alpha: 0.9);
+    final glow = Paint()
+      ..color = accent.withValues(alpha: 0.55 * pulse)
+      ..style = PaintingStyle.fill
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 8);
+    // Left wing.
+    final leftWing = Path()
+      ..moveTo(c.dx, c.dy)
+      ..quadraticBezierTo(rect.left, rect.top + rect.height * 0.2, c.dx - wingW, c.dy - wingH)
+      ..quadraticBezierTo(c.dx - wingW * 0.5, c.dy, c.dx, c.dy)
+      ..close();
+    canvas.drawPath(leftWing, glow);
+    canvas.drawPath(leftWing, fill);
+    // Right wing.
+    final rightWing = Path()
+      ..moveTo(c.dx, c.dy)
+      ..quadraticBezierTo(rect.right, rect.top + rect.height * 0.2, c.dx + wingW, c.dy - wingH)
+      ..quadraticBezierTo(c.dx + wingW * 0.5, c.dy, c.dx, c.dy)
+      ..close();
+    canvas.drawPath(rightWing, glow);
+    canvas.drawPath(rightWing, fill);
+    // Body.
+    final body = RRect.fromRectAndRadius(
+      Rect.fromLTWH(c.dx - rect.width * 0.1, c.dy, rect.width * 0.2, rect.height * 0.4),
+      Radius.circular(rect.width * 0.05),
+    );
+    canvas.drawRRect(body, fill);
+  }
 
-    textPainter.paint(canvas, Offset(rect.left + pad, rect.top + pad));
+  /// Bright accent used by the level banner ribbon so it pops against the sky.
+  Color _levelAccentColor() {
+    final base = _flutterColor(level.visuals.topColor);
+    final hsl = HSLColor.fromColor(base);
+    final lighter = hsl
+        .withLightness((hsl.lightness * 0.55 + 0.6).clamp(0.0, 1.0))
+        .withSaturation(0.85)
+        .toColor();
+    return lighter;
   }
 
   void _drawStickman(Canvas canvas, Stickman stickman) {
@@ -1381,38 +1558,41 @@ class StickmanRunPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3;
 
-    final badgeFill = Paint()..color = Colors.white.withOpacity(0.18);
+    // Leaderboard plates: darker fill so the icon chip + values pop.
+    final badgeFill = Paint()..color = const Color(0xCC000000).withValues(alpha: 0.45);
 
     double y = 18;
-    double x = width - 182;
+    double x = width - 186;
 
-    // Score badge.
+    // Score plate (star chip).
     _drawBadge(
       canvas,
       x: x,
       y: y,
-      w: 166,
-      h: 44,
+      w: 170,
+      h: 46,
       title: 'SCORE',
       value: snapshot.score.toString(),
       badgeFill: badgeFill,
       outline: outline,
-      color: Colors.white,
+      icon: BadgeIcon.star,
+      accent: const Color(0xFFFFD700),
     );
-    y += 50;
+    y += 52;
 
-    // Coins badge.
+    // Coins plate (coin chip).
     _drawBadge(
       canvas,
       x: x,
       y: y,
-      w: 166,
-      h: 44,
+      w: 170,
+      h: 46,
       title: 'COINS',
       value: snapshot.coins.toString(),
       badgeFill: badgeFill,
       outline: outline,
-      color: Colors.white,
+      icon: BadgeIcon.coin,
+      accent: const Color(0xFFFFBF00),
     );
   }
 
@@ -1426,7 +1606,8 @@ class StickmanRunPainter extends CustomPainter {
     required String value,
     required Paint badgeFill,
     required Paint outline,
-    required Color color,
+    required BadgeIcon icon,
+    required Color accent,
   }) {
     final rrect = RRect.fromRectAndRadius(
       Rect.fromLTWH(x, y, w, h),
@@ -1435,13 +1616,48 @@ class StickmanRunPainter extends CustomPainter {
     canvas.drawRRect(rrect, badgeFill);
     canvas.drawRRect(rrect, outline);
 
+    // Leading accent bar (leaderboard "rank" feel).
+    final accentBar = Paint()..color = accent;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(x, y + 5, 4, h - 10),
+        const Radius.circular(2),
+      ),
+      accentBar,
+    );
+
+    // Icon chip on the left.
+    final chipCenter = Offset(x + 26, y + h / 2);
+    canvas.drawCircle(
+      chipCenter,
+      14,
+      Paint()
+        ..color = accent.withValues(alpha: 0.22)
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawCircle(
+      chipCenter,
+      14,
+      Paint()
+        ..color = accent
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
+    if (icon == BadgeIcon.star) {
+      _drawStar(canvas, center: chipCenter, radius: 8, color: accent);
+    } else {
+      _drawCoinIcon(canvas, center: chipCenter, radius: 8);
+    }
+
+    final textX = x + 44;
+
     final titlePainter = TextPainter(
       text: TextSpan(
         text: title,
         style: const TextStyle(
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: FontWeight.w900,
-          color: Colors.white,
+          color: Colors.white70,
           letterSpacing: 1,
         ),
       ),
@@ -1451,23 +1667,66 @@ class StickmanRunPainter extends CustomPainter {
     final valuePainter = TextPainter(
       text: TextSpan(
         text: value,
-        style: const TextStyle(
-          fontSize: 18,
+        style: TextStyle(
+          fontSize: 20,
           fontWeight: FontWeight.w900,
-          color: Colors.yellow,
+          color: accent,
           letterSpacing: 0.5,
+          shadows: const [
+            Shadow(color: Colors.black, blurRadius: 0, offset: Offset(1, 1)),
+          ],
         ),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
 
     // Layout inside badge: title near top, value around lower-middle.
-    final titleY = y + 8;
+    final titleY = y + 7;
     final valueCenterY = y + h * 0.62;
-    titlePainter.paint(canvas, Offset(x + 12, titleY));
+    titlePainter.paint(canvas, Offset(textX, titleY));
     valuePainter.paint(
       canvas,
-      Offset(x + 12, valueCenterY - valuePainter.height / 2),
+      Offset(textX, valueCenterY - valuePainter.height / 2),
+    );
+  }
+
+  /// Draws a 4-point star/sparkle silhouette.
+  void _drawStar(
+    Canvas canvas, {
+    required Offset center,
+    required double radius,
+    required Color color,
+  }) {
+    final cx = center.dx;
+    final cy = center.dy;
+    final r = radius;
+    final path = Path();
+    const points = 4;
+    for (var i = 0; i < points * 2; i++) {
+      final rad = (i.isEven ? r : r * 0.4);
+      final a = -3.14159 / 2 + i * 3.14159 / points;
+      final px = cx + rad * cos(a);
+      final py = cy + rad * sin(a);
+      if (i == 0) {
+        path.moveTo(px, py);
+      } else {
+        path.lineTo(px, py);
+      }
+    }
+    path.close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  /// Draws a gold coin: filled circle with an inner ring.
+  void _drawCoinIcon(Canvas canvas, {required Offset center, required double radius}) {
+    canvas.drawCircle(center, radius, Paint()..color = const Color(0xFFFFBF00));
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..color = const Color(0xFF9A6A00)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
     );
   }
 
