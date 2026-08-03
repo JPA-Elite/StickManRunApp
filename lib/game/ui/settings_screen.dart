@@ -564,6 +564,13 @@ class _StickmanColorPicker extends StatelessWidget {
     required this.onSelected,
   });
 
+  static Color _iconColorFor(int swatch) {
+    final c = Color(swatch);
+    final luminance =
+        (0.299 * c.red + 0.587 * c.green + 0.114 * c.blue) / 255.0;
+    return luminance > 0.5 ? Colors.black : Colors.white;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -597,9 +604,7 @@ class _StickmanColorPicker extends StatelessWidget {
                 ),
                 child: Center(
                   child: _StickmanIcon(
-                    color: color == 0xFFFFFF00 || color == 0xFF00FFFF
-                        ? Colors.black
-                        : Colors.white,
+                    color: _iconColorFor(color),
                   ),
                 ),
               ),

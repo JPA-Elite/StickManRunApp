@@ -513,12 +513,14 @@ class StickmanRunPainter extends CustomPainter {
     final headCenterY = bottomY - effectiveH * 0.88;
     final torsoTop = headCenterY + effectiveH * 0.09;
 
+    final effectiveColor = _effectiveStickmanColor();
+
     final outline = Paint()
-      ..color = stickmanColor
+      ..color = effectiveColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4;
 
-    final fillPaint = Paint()..color = stickmanColor;
+    final fillPaint = Paint()..color = effectiveColor;
 
     // Running animation: swing legs with a more “natural” gait.
     final isRunning = snapshot.status == GameStatus.running;
@@ -850,6 +852,15 @@ class StickmanRunPainter extends CustomPainter {
   }
 
   Color _flutterColor(int argb) => Color(argb);
+
+  /// Stickman color with automatic contrast: on a light/white background the
+  /// stickman is drawn black so it stays clearly visible.
+  Color _effectiveStickmanColor() {
+    final bg = _flutterColor(level.visuals.topColor);
+    final luminance =
+        (0.299 * bg.red + 0.587 * bg.green + 0.114 * bg.blue) / 255.0;
+    return luminance > 0.65 ? Colors.black : stickmanColor;
+  }
 
   /// Obstacle outline color. High-contrast mode swaps the usual black
   /// outlines for white so obstacles pop against any background.
