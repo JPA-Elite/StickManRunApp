@@ -1390,11 +1390,18 @@ final bool highContrast;
 
     final double drawW;
     final double drawH;
-    if (_groundAnchored(o.type)) {
-      // Rolling rock reads slightly larger than its hitbox.
-      final bump = o.type == ObstacleType.rollingRock ? 1.25 : 1.0;
+    final bool ground = _groundAnchored(o.type);
+    if (ground) {
+      // Ground obstacles are pinned by their base to the road (the hitbox
+      // bottom). A slight overshoot makes the base visibly sit ON the asphalt
+      // instead of hovering just above it.
+      final bump = o.type == ObstacleType.rollingRock
+          ? 1.25
+          : o.type == ObstacleType.cactus || o.type == ObstacleType.stalagmite
+              ? 1.08
+              : 1.04;
       drawH = boxH * bump;
-      drawW = src.width * (boxH / src.height) * bump;
+      drawW = src.width * (drawH / src.height);
     } else {
       // Center the whole sprite, but bump its size so flying obstacles read
       // larger than their (deliberately forgiving) gameplay hitbox.
@@ -1417,7 +1424,12 @@ final bool highContrast;
 
     final dst = Rect.fromLTWH(
       o.x + (boxW - drawW) / 2,
-      o.y + (boxH - drawH) / 2,
+      ground
+          ? o.y + boxH - drawH +
+              (o.type == ObstacleType.rollingRock
+                  ? boxH * 0.12
+                  : boxH * 0.1)
+          : o.y + (boxH - drawH) / 2,
       drawW,
       drawH,
     );
