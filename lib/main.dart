@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'game/app/stickman_run_app.dart';
+import 'game/settings/score_history.dart';
 import 'game/settings/settings_controller.dart';
 
 Future<void> main() async {
@@ -14,5 +15,6 @@ Future<void> main() async {
   // never overlaps the game or swallows taps on the top buttons.
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   await SettingsController.instance.load();
+  await ScoreHistoryController.instance.load();
   runApp(const StickmanRunApp());
 }

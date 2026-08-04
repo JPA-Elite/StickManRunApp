@@ -34,6 +34,29 @@ class StickmanRunPainter extends CustomPainter {
   Offset? _punchFist;
   double _punchStrength = 0;
 
+  /// The five themed levels used by the RANDOM/endless palette cycling.
+  static final List<lc.LevelConfig> _cycleThemes = lc.LevelConfig.all()
+      .where((l) => l.levelIndex >= 1 && l.levelIndex <= 5)
+      .toList();
+
+  /// Visuals that should actually be drawn. The RANDOM/endless level ignores
+  /// its own placeholder palette and borrows one of the five level palettes
+  /// based on [snapshot.randomThemeIndex].
+  lc.LevelVisuals get _activeVisuals {
+    if (level.levelIndex == 6 && snapshot.randomThemeIndex >= 0) {
+      final idx = snapshot.randomThemeIndex.clamp(0, _cycleThemes.length - 1);
+      return _cycleThemes[idx].visuals;
+    }
+    return level.visuals;
+  }
+
+  /// Seed index that mirrors the active theme (used for deterministic layouts
+  /// and per-theme accent colors). For RANDOM this maps the cycled palette to
+  /// the corresponding level index so existing per-level branch logic works.
+  int get _themeSeedIndex =>
+      level.levelIndex == 6 ? _cycleThemes[0].levelIndex +
+      snapshot.randomThemeIndex.clamp(0, _cycleThemes.length - 1) : level.levelIndex;
+
   @override
   void paint(Canvas canvas, Size size) {
     // Cinematic screen shake around the punch impact.
@@ -67,7 +90,7 @@ class StickmanRunPainter extends CustomPainter {
 
     // Ground band.
     final groundPaint = Paint()
-      ..color = _flutterColor(level.visuals.groundColor);
+      ..color = _flutterColor(_activeVisuals.groundColor);
     canvas.drawRect(
       Rect.fromLTWH(0, groundY, width, height - groundY),
       groundPaint,
@@ -179,8 +202,8 @@ class StickmanRunPainter extends CustomPainter {
   }
 
   void _fillBackground(Canvas canvas) {
-    final top = _flutterColor(level.visuals.topColor);
-    final bottom = _flutterColor(level.visuals.bottomColor);
+    final top = _flutterColor(_activeVisuals.topColor);
+    final bottom = _flutterColor(_activeVisuals.bottomColor);
 
     // Solid two-tone bands for “brutalist cartoon” vibe (no gradients).
     final topRect = Rect.fromLTWH(0, 0, width, height * 0.58);
@@ -197,7 +220,7 @@ class StickmanRunPainter extends CustomPainter {
       ..color = Colors.black.withOpacity(0.15)
       ..style = PaintingStyle.fill;
 
-    final rng = Random(level.levelIndex * 1337);
+    final rng = Random(_themeSeedIndex * 1337);
 
     // Animate the sky texture by offsetting the deterministic dot positions.
     // This makes the “sky” feel like it's moving while the player runs.
@@ -225,7 +248,7 @@ class StickmanRunPainter extends CustomPainter {
     required double scrollX,
   }) {
     // Deterministic layout per level.
-    final rng = Random(level.levelIndex * 7777);
+    final rng = Random(_themeSeedIndex * 7777);
 
     // We avoid per-object modulo wrapping (which causes visible “popping/flicker”).
     // Instead we tile the scene twice (offset + span) so there is always a copy
@@ -512,7 +535,7 @@ class StickmanRunPainter extends CustomPainter {
   }
 
   void _drawLevelLabel(Canvas canvas) {
-    final label = level.visuals.name;
+    final label = _activeVisuals.name;
     final accent = _levelAccentColor();
 
     // Slow neon pulse so the sign feels alive.
@@ -562,16 +585,25 @@ class StickmanRunPainter extends CustomPainter {
     final iconH = textPainter.height * 0.7;
     final iconRect = Rect.fromLTWH(iconX, iconTop, 14, iconH);
 
-    if (level.levelIndex == 2) {
+    if (level.levelIndex == 6) {
+      // RANDOM — dice icon.
+      _drawNeonIcon(
+        canvas,
+        icon: Icons.casino,
+        rect: iconRect,
+        accent: accent,
+        pulse: pulse,
+      );
+    } else if (_themeSeedIndex == 2) {
       // DESERT — manual cactus.
       _drawCactusIcon(canvas, rect: iconRect, accent: accent, pulse: pulse);
-    } else if (level.levelIndex == 4) {
+    } else if (_themeSeedIndex == 4) {
       // DARK CAVE — manual bat.
       _drawBatIcon(canvas, rect: iconRect, accent: accent, pulse: pulse);
     } else {
       // Material Icons (forest, moon, fire).
       final IconData icon;
-      switch (level.levelIndex) {
+      switch (_themeSeedIndex) {
         case 1:
           icon = Icons.forest;
         case 3:
@@ -583,6 +615,61 @@ class StickmanRunPainter extends CustomPainter {
       }
       _drawNeonIcon(canvas, icon: icon, rect: iconRect, accent: accent, pulse: pulse);
     }
+
+    // Distance readout tucked below the title (live-updates every frame).
+    _drawDistanceLabel(canvas, left: left, top: top + textPainter.height + 6, accent: accent, pulse: pulse);
+  }
+
+  /// Small neon "distance" line under the level title, e.g. "⇔ 123 M".
+  void _drawDistanceLabel(
+    Canvas canvas, {
+    required double left,
+    required double top,
+    required Color accent,
+    required double pulse,
+  }) {
+    const fontSize = 13.0;
+
+    // Runner glyph sized to the text.
+    final iconH = fontSize * 1.15;
+    final iconRect = Rect.fromLTWH(left, top + 1, iconH * 0.8, iconH);
+    _drawNeonIcon(
+      canvas,
+      icon: Icons.directions_run,
+      rect: iconRect,
+      accent: accent,
+      pulse: pulse * 0.7,
+    );
+
+    final valuePainter = TextPainter(
+      text: TextSpan(
+        text: '${snapshot.distanceMeters.round()} M',
+        style: TextStyle(
+          fontSize: fontSize,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1,
+          color: Colors.white.withValues(alpha: 0.9),
+          shadows: [
+            Shadow(
+              color: accent.withValues(alpha: 0.6 * pulse),
+              blurRadius: 6,
+              offset: Offset.zero,
+            ),
+            Shadow(
+              color: Colors.black.withValues(alpha: 0.8),
+              blurRadius: 1,
+              offset: Offset(1, 1),
+            ),
+          ],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    valuePainter.paint(
+      canvas,
+      Offset(left + iconRect.width + 6, top + (iconH - valuePainter.height) / 2 + 0.5),
+    );
   }
 
   /// Renders a Material Icon with a soft neon glow behind the crisp glyph.
@@ -713,7 +800,7 @@ class StickmanRunPainter extends CustomPainter {
 
   /// Bright accent used by the level banner ribbon so it pops against the sky.
   Color _levelAccentColor() {
-    final base = _flutterColor(level.visuals.topColor);
+    final base = _flutterColor(_activeVisuals.topColor);
     final hsl = HSLColor.fromColor(base);
     final lighter = hsl
         .withLightness((hsl.lightness * 0.55 + 0.6).clamp(0.0, 1.0))
@@ -1121,7 +1208,7 @@ class StickmanRunPainter extends CustomPainter {
   /// Stickman color with automatic contrast: on a light/white background the
   /// stickman is drawn black so it stays clearly visible.
   Color _effectiveStickmanColor() {
-    final bg = _flutterColor(level.visuals.topColor);
+    final bg = _flutterColor(_activeVisuals.topColor);
     final luminance =
         (0.299 * bg.red + 0.587 * bg.green + 0.114 * bg.blue) / 255.0;
     return luminance > 0.65 ? Colors.black : stickmanColor;
@@ -1960,7 +2047,7 @@ class StickmanRunPainter extends CustomPainter {
   /// always stand out against each level's sky instead of blending in
   /// (e.g. black bat/drone were invisible on the dark blue Night City sky).
   Color _flyingObstacleFill(ObstacleType type) {
-    switch (level.levelIndex) {
+    switch (_themeSeedIndex) {
       case 1: // FOREST – dark green sky
         switch (type) {
           case ObstacleType.drone:

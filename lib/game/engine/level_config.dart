@@ -303,8 +303,7 @@ class LevelConfig {
           topColor: _c(0xFF8A1F1B),
           bottomColor: _c(0xFF2B0808),
           groundColor: _c(0xFF5A1212),
-        ),
-        tuning: LevelTuning(
+        ),        tuning: LevelTuning(
           speed: 460,
           gravity: 3050,
           jumpVelocity: -840,
@@ -333,6 +332,83 @@ class LevelConfig {
           ),
         ],
         ruleOrder: const [0, 1, 0, 2, 0],
+      ),
+      LevelConfig(
+        levelIndex: 6,
+        visuals: LevelVisuals(
+          name: 'RANDOM',
+          themeTag: 'ENDLESS',
+          // Placeholder theme; the painter cycles through the other five
+          // level palettes while this endless level runs.
+          topColor: _c(0xFF202020),
+          bottomColor: _c(0xFF0A0A0A),
+          groundColor: _c(0xFF141414),
+        ),
+        tuning: LevelTuning(
+          speed: 500,
+          gravity: 3150,
+          jumpVelocity: -860,
+          obstacleSpawnEvery: 0.72,
+          speedMultiplierPerCoin: 0.026,
+          coinChance: 0.8,
+          powerUpChance: 0.15,
+        ),
+        obstacleRules: [
+          ObstacleSpawnRule(
+            obstacleTypes: const [
+              ObstacleType.spike,
+              ObstacleType.cactus,
+              ObstacleType.stalagmite,
+              ObstacleType.rollingRock,
+              ObstacleType.pendulumMine,
+              ObstacleType.laser,
+              ObstacleType.drone,
+              ObstacleType.bat,
+              ObstacleType.fireJet,
+              ObstacleType.fireball,
+            ],
+            weight: 1.5,
+            spawnCoins: true,
+            powerUps: const [
+              PowerUpType.shield,
+              PowerUpType.magnet,
+              PowerUpType.heal25,
+              PowerUpType.heal50,
+            ],
+          ),
+          ObstacleSpawnRule(
+            obstacleTypes: const [
+              ObstacleType.spike,
+              ObstacleType.cactus,
+              ObstacleType.stalagmite,
+              ObstacleType.rollingRock,
+            ],
+            weight: 0.8,
+            spawnCoins: true,
+            powerUps: const [
+              PowerUpType.shield,
+              PowerUpType.heal25,
+              PowerUpType.heal50,
+            ],
+          ),
+          ObstacleSpawnRule(
+            obstacleTypes: const [
+              ObstacleType.laser,
+              ObstacleType.drone,
+              ObstacleType.bat,
+              ObstacleType.fireJet,
+              ObstacleType.fireball,
+            ],
+            weight: 0.9,
+            spawnCoins: true,
+            powerUps: const [
+              PowerUpType.magnet,
+              PowerUpType.heal25,
+              PowerUpType.heal50,
+            ],
+          ),
+        ],
+        ruleOrder: const [0, 2, 0, 1, 2],
       ),
     ];
   }

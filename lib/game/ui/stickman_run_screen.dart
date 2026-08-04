@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../engine/entities.dart';
 import '../engine/stickman_run_engine.dart';
 import '../settings/game_settings.dart';
+import '../settings/score_history.dart';
 import '../settings/settings_controller.dart';
 import 'obstacle_guide.dart';
 import 'settings_screen.dart';
@@ -56,6 +57,8 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     smashDebris: [],
     smashScorePopups: [],
     timeSec: 0,
+    hitCount: 0,
+    randomThemeIndex: 0,
   );
 
   int _levelIndex = 1;
@@ -100,6 +103,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
 
   double _lastTime = 0;
   bool _wasSmashActive = false;
+  int _lastHitCount = 0;
 
   void _tick() {
     final now = _controller.lastElapsedDuration?.inMicroseconds.toDouble() ?? 0;
@@ -127,10 +131,30 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     }
     _wasSmashActive = _snapshot.smashActive;
 
+    // Vibrate on every obstacle hit (damage taken), not just at game over.
+    if (_snapshot.hitCount != _lastHitCount) {
+      _lastHitCount = _snapshot.hitCount;
+      if (_settings.vibrationsEnabled) {
+        HapticFeedback.lightImpact();
+      }
+    }
+
     // Vibrate when the stickman hits an obstacle (game over).
     if (wasRunning && _snapshot.status == GameStatus.gameOver) {
       if (_settings.vibrationsEnabled) {
         HapticFeedback.heavyImpact();
+      }
+      // Record the finished run for the score history.
+      if (_snapshot.score > 0) {
+        ScoreHistoryController.instance.add(
+          ScoreRecord(
+            score: _snapshot.score,
+            coins: _snapshot.coins,
+            distanceMeters: _snapshot.distanceMeters,
+            levelIndex: _snapshot.levelIndex,
+            timestamp: DateTime.now(),
+          ),
+        );
       }
     }
   }
@@ -213,6 +237,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     _paused = false;
     _showPauseCard = false;
     _lastTime = 0;
+    _lastHitCount = 0;
     _controller.repeat();
     setState(() {});
   }
@@ -223,6 +248,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     _paused = false;
     _showPauseCard = false;
     _lastTime = 0;
+    _lastHitCount = 0;
     _controller.repeat();
     setState(() {
       _snapshot = _engine.snapshot();

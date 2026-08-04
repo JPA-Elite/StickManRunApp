@@ -55,6 +55,14 @@ class StickmanRunSnapshot {
 
   final double timeSec;
 
+  /// Total number of times the stickman has taken damage this run. The UI uses
+  /// changes in this value to trigger haptic feedback on each hit.
+  final int hitCount;
+
+  /// Active visual theme index (0..4) for the RANDOM/endless level. Themes
+  /// cycle every few seconds; 0 for normal levels.
+  final int randomThemeIndex;
+
   const StickmanRunSnapshot({
     required this.status,
     required this.levelIndex,
@@ -81,6 +89,8 @@ class StickmanRunSnapshot {
     required this.smashDebris,
     required this.smashScorePopups,
     required this.timeSec,
+    required this.hitCount,
+    required this.randomThemeIndex,
   });
 }
 
@@ -158,9 +168,6 @@ class StickmanRunEngine {
   double _spawnTick = 0;
   double _levelTimeSec = 0;
 
-  // Level completion distance.
-  double _targetDistanceMeters = 250;
-
   // Obstacles spawn cadence adapts to difficulty.
   // Deterministic base cadence, then randomized per spawn so gaps vary.
   double _baseSpawnEverySec = 1;
@@ -170,6 +177,12 @@ class StickmanRunEngine {
   double _coinRadiusMultiplier = 1.0;
 
   double _timeSec = 0;
+
+  /// Total damage events this run (drives per-hit haptic feedback).
+  int _hitCount = 0;
+
+  /// Cycled visual theme index (0..4) for the RANDOM/endless level.
+  int _randomThemeIndex = 0;
 
   StickmanRunSnapshot snapshot() {
     return StickmanRunSnapshot(
@@ -198,6 +211,8 @@ class StickmanRunEngine {
       smashDebris: List.unmodifiable(_smashDebris),
       smashScorePopups: List.unmodifiable(_smashScorePopups),
       timeSec: _timeSec,
+      hitCount: _hitCount,
+      randomThemeIndex: _randomThemeIndex,
     );
   }
 
@@ -281,9 +296,8 @@ class StickmanRunEngine {
     _levelTimeSec = 0;
 
     _timeSec = 0;
-
-    // Target distance scales by level.
-    _targetDistanceMeters = 240 + _level.levelIndex * 55;
+    _randomThemeIndex = 0;
+    _hitCount = 0;
 
     // Place stickman at ground.
     _stickman = Stickman(
@@ -509,6 +523,11 @@ class StickmanRunEngine {
     _timeSec += dtSec;
     _levelTimeSec += dtSec;
 
+    // RANDOM/endless level: cycle the visual theme every 10 seconds.
+    if (_level.levelIndex == 6) {
+      _randomThemeIndex = (_levelTimeSec ~/ 10) % 5;
+    }
+
     _collisionGraceSec = max(0, _collisionGraceSec - dtSec);
     _postJumpCollisionGraceSec = max(0, _postJumpCollisionGraceSec - dtSec);
     _damageGraceSec = max(0, _damageGraceSec - dtSec);
@@ -531,19 +550,10 @@ class StickmanRunEngine {
     _updateStickmanPhysics(dtSec);
     _updateWorld(dtSec);
     _handleCollisionsAndCollect();
-    _updateLevelProgress();
 
     // Safety clamp.
     if (_stickman.y > _groundY) {
       _stickman = _stickman.copyWith(y: _groundY, vy: 0);
-    }
-  }
-
-  void _updateLevelProgress() {
-    if (_status != GameStatus.running) return;
-
-    if (_distanceMeters >= _targetDistanceMeters) {
-      _status = GameStatus.levelComplete;
     }
   }
 
@@ -900,6 +910,7 @@ class StickmanRunEngine {
       _lifePercent = max(0, _lifePercent - _obstacleDamage(o.type));
       _damageGraceSec = 1.0;
       _damageFlashSec = 0.35;
+      _hitCount += 1;
       _smashScorePopups.add(
         SmashScorePopup(
           x: o.x + o.width / 2,

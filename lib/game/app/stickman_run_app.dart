@@ -2,6 +2,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../settings/score_history.dart';
+import '../ui/score_history_screen.dart';
 import '../ui/settings_screen.dart';
 import '../ui/stickman_run_screen.dart';
 import '../../game/engine/level_config.dart' as engine;
@@ -50,8 +52,10 @@ class _StickmanRunAppState extends State<StickmanRunApp> {
       debugShowCheckedModeBanner: false,
       theme: theme,
       navigatorKey: _navigatorKey,
-      home: Scaffold(
-        body: SafeArea(
+      home: ListenableBuilder(
+        listenable: ScoreHistoryController.instance,
+        builder: (context, _) => Scaffold(
+          body: SafeArea(
           child: Stack(
             children: [
               Positioned.fill(
@@ -144,6 +148,9 @@ class _StickmanRunAppState extends State<StickmanRunApp> {
                                     return _CarouselLevelCard(
                                       level: l,
                                       isActive: isActive,
+                                      bestScore: ScoreHistoryController
+                                          .instance
+                                          .bestForLevel(l.levelIndex),
                                       starCount: (l.levelIndex.clamp(1, 5)),
                                     );
                                   },
@@ -246,6 +253,7 @@ class _StickmanRunAppState extends State<StickmanRunApp> {
           ),
         ),
       ),
+        ),
     );
   }
 }
@@ -321,6 +329,17 @@ class _BrandCard extends StatelessWidget {
             ),
           ),
           IconButton(
+            icon: const Icon(Icons.emoji_events, color: Colors.yellow, size: 24),
+            tooltip: 'Score History',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const ScoreHistoryScreen(),
+                ),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.settings, color: Colors.white, size: 24),
             tooltip: 'Settings',
             onPressed: () {
@@ -338,11 +357,13 @@ class _BrandCard extends StatelessWidget {
 class _CarouselLevelCard extends StatelessWidget {
   final engine.LevelConfig level;
   final bool isActive;
+  final int bestScore;
   final int starCount;
 
   const _CarouselLevelCard({
     required this.level,
     required this.isActive,
+    required this.bestScore,
     required this.starCount,
   });
 
@@ -398,6 +419,31 @@ class _CarouselLevelCard extends StatelessWidget {
                             ),
                           ),
                           const Spacer(),
+                          if (level.levelIndex == 6)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: Colors.redAccent,
+                                  width: 2,
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                                color: Colors.redAccent.withOpacity(0.15),
+                              ),
+                              child: const Text(
+                                'HARDEST',
+                                style: TextStyle(
+                                  color: Colors.redAccent,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 14,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                            ),
+                          const SizedBox(width: 8),
                           Container(
                             width: 48,
                             height: 48,
@@ -406,8 +452,10 @@ class _CarouselLevelCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(12),
                               color: Colors.yellow.withOpacity(0.15),
                             ),
-                            child: const Icon(
-                              Icons.star,
+                            child: Icon(
+                              level.levelIndex == 6
+                                  ? Icons.casino
+                                  : Icons.star,
                               color: Colors.yellow,
                               size: 24,
                             ),
@@ -469,6 +517,21 @@ class _CarouselLevelCard extends StatelessWidget {
                               color: Colors.white.withOpacity(0.8),
                               fontWeight: FontWeight.w800,
                               fontSize: 15,
+                            ),
+                          ),
+                          const Spacer(),
+                          const Icon(
+                            Icons.emoji_events,
+                            size: 18,
+                            color: Colors.yellow,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            bestScore > 0 ? 'BEST $bestScore' : 'NO RECORD',
+                            style: const TextStyle(
+                              color: Colors.yellow,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 14,
                             ),
                           ),
                         ],
