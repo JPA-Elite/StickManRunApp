@@ -11,6 +11,7 @@ import '../settings/game_settings.dart';
 import '../settings/score_history.dart';
 import '../settings/settings_controller.dart';
 import 'obstacle_guide.dart';
+import 'menu_backdrop.dart';
 import 'settings_screen.dart';
 import 'stickman_run_painter.dart';
 
@@ -61,6 +62,8 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     timeSec: 0,
     hitCount: 0,
     randomThemeIndex: 0,
+    randomThemeIndexPrev: 0,
+    themeTransitionSec: 0,
   );
 
   int _levelIndex = 1;
@@ -79,6 +82,11 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     'assets/images/firejet_obstacle.png',
     'assets/images/fireball_obstacle.png',
     'assets/images/pendulummine_obstacle.png',
+    'assets/images/forest_background.png',
+    'assets/images/desert_background.png',
+    'assets/images/nightcity_background.png',
+    'assets/images/darkcave_background.png',
+    'assets/images/volcano_background.png',
   ];
 
   @override
@@ -129,10 +137,17 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     try {
       final data = await rootBundle.load(asset);
       final bytes = data.buffer.asUint8List();
+      final isBackground = asset == 'assets/images/forest_background.png' ||
+          asset == 'assets/images/desert_background.png' ||
+          asset == 'assets/images/nightcity_background.png' ||
+          asset == 'assets/images/darkcave_background.png' ||
+          asset == 'assets/images/volcano_background.png';
       final size = _pngSize(bytes);
       int? targetWidth;
       int? targetHeight;
-      if (size != null) {
+      // Obstacle sprites are decoded small for a soft cartoon look, but the
+      // level background keeps its full resolution so it stays sharp.
+      if (size != null && !isBackground) {
         const maxSide = 128.0;
         final scale = maxSide / max(size.$1, size.$2);
         if (scale < 1) {
@@ -151,10 +166,16 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
         return;
       }
       // Cartoonize the sprite (flat colors + ink outline) so the detailed
-      // art reads as a soft cartoon during play. The laser keeps its original
-      // look.
+      // art reads as a soft cartoon during play. The laser and the level
+      // background keep their original look.
       var sprite = frame.image;
-      if (asset != 'assets/images/laser_obstacle.png') {
+      final cartoonized = asset != 'assets/images/laser_obstacle.png' &&
+          asset != 'assets/images/forest_background.png' &&
+          asset != 'assets/images/desert_background.png' &&
+          asset != 'assets/images/nightcity_background.png' &&
+          asset != 'assets/images/darkcave_background.png' &&
+          asset != 'assets/images/volcano_background.png';
+      if (cartoonized) {
         try {
           final cartoon = await _cartoonize(frame.image);
           if (!identical(cartoon, frame.image)) {
@@ -904,14 +925,52 @@ child: RepaintBoundary(
         ? 'GAME OVER'
         : 'LEVEL COMPLETE';
 
+    final flicker = 0.55 +
+        0.45 *
+            sin(
+              (_controller.lastElapsedDuration?.inMicroseconds.toDouble() ??
+                      0) /
+                  1e6 *
+                  7,
+            );
+
     final subtitle = isReady
-        ? 'Survive & collect coins'
+        ? 'TAP TO START'
         : isOver
         ? 'Score: ${_snapshot.score} • Coins: ${_snapshot.coins}'
         : 'Nice! Score: ${_snapshot.score} • Coins: ${_snapshot.coins}';
 
     return Positioned.fill(
-      child: LayoutBuilder(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Cinematic dusk backdrop behind the overlay.
+          CustomPaint(
+            painter: MenuBackdropPainter(
+              levelCount: _levelIndex,
+              timeNow: () =>
+                  (_controller.lastElapsedDuration?.inMicroseconds.toDouble() ??
+                      0) /
+                  1e6,
+              repaint: _controller,
+            ),
+          ),
+          // Letterbox bars (cinematic frame).
+          const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 16,
+            child: ColoredBox(color: Colors.black),
+          ),
+          const Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 16,
+            child: ColoredBox(color: Colors.black),
+          ),
+          LayoutBuilder(
         builder: (context, constraints) {
           return SingleChildScrollView(
             child: ConstrainedBox(
@@ -936,7 +995,7 @@ child: RepaintBoundary(
                               vertical: 14,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.5),
+                              color: Colors.black.withOpacity(0.6),
                               border: Border.all(
                                 color: Colors.white.withOpacity(0.9),
                                 width: 3,
@@ -949,21 +1008,35 @@ child: RepaintBoundary(
                                 children: [
                                   Text(
                                     title,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 32,
                                       fontWeight: FontWeight.w900,
                                       color: Colors.white,
                                       letterSpacing: 1,
+                                      shadows: [
+                                        const Shadow(
+                                          color: Colors.black,
+                                          blurRadius: 8,
+                                        ),
+                                        Shadow(
+                                          color: isReady
+                                              ? Colors.yellowAccent
+                                              : Colors.redAccent,
+                                          blurRadius: 18,
+                                        ),
+                                      ],
                                     ),
                                     textAlign: TextAlign.center,
                                   ),
                                   const SizedBox(height: 10),
                                   Text(
                                     subtitle,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w700,
-                                      color: Colors.white,
+                                      color: Colors.white.withOpacity(
+                                        isReady ? flicker : 1.0,
+                                      ),
                                     ),
                                     textAlign: TextAlign.center,
                                   ),
@@ -1098,9 +1171,11 @@ child: RepaintBoundary(
                   ),
                 ),
               ),
-            ),
-          );
+              ),
+            );
         },
+      ),
+        ],
       ),
     );
   }

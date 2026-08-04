@@ -60,8 +60,16 @@ class StickmanRunSnapshot {
   final int hitCount;
 
   /// Active visual theme index (0..4) for the RANDOM/endless level. Themes
-  /// cycle every few seconds; 0 for normal levels.
+  /// cycle every 500 meters; 0 for normal levels.
   final int randomThemeIndex;
+
+  /// Theme index active just before the current one, used to crossfade the
+  /// cinematic transition when the endless theme rotates (0 for normal levels).
+  final int randomThemeIndexPrev;
+
+  /// Seconds remaining of the cinematic theme-change transition (0 when no
+  /// transition is playing).
+  final double themeTransitionSec;
 
   const StickmanRunSnapshot({
     required this.status,
@@ -91,6 +99,8 @@ class StickmanRunSnapshot {
     required this.timeSec,
     required this.hitCount,
     required this.randomThemeIndex,
+    required this.randomThemeIndexPrev,
+    required this.themeTransitionSec,
   });
 }
 
@@ -184,6 +194,15 @@ class StickmanRunEngine {
   /// Cycled visual theme index (0..4) for the RANDOM/endless level.
   int _randomThemeIndex = 0;
 
+  /// Previous cycled theme index, used to crossfade cinematic transitions.
+  int _randomThemeIndexPrev = 0;
+
+  /// Seconds remaining of the cinematic theme-change transition (0 = none).
+  double _themeTransitionSec = 0;
+
+  /// Duration of the cinematic theme-change transition.
+  static const double themeTransitionDurationSec = 1.4;
+
   StickmanRunSnapshot snapshot() {
     return StickmanRunSnapshot(
       status: _status,
@@ -213,6 +232,8 @@ class StickmanRunEngine {
       timeSec: _timeSec,
       hitCount: _hitCount,
       randomThemeIndex: _randomThemeIndex,
+      randomThemeIndexPrev: _randomThemeIndexPrev,
+      themeTransitionSec: _themeTransitionSec,
     );
   }
 
@@ -297,6 +318,8 @@ class StickmanRunEngine {
 
     _timeSec = 0;
     _randomThemeIndex = 0;
+    _randomThemeIndexPrev = 0;
+    _themeTransitionSec = 0;
     _hitCount = 0;
 
     // Place stickman at ground.
@@ -523,10 +546,18 @@ class StickmanRunEngine {
     _timeSec += dtSec;
     _levelTimeSec += dtSec;
 
-    // RANDOM/endless level: cycle the visual theme every 10 seconds.
+    // RANDOM/endless level: rotate the visual theme every 500 meters, with a
+    // cinematic transition. The band is computed from distance traveled; a
+    // change records the previous theme and starts the transition timer.
     if (_level.levelIndex == 6) {
-      _randomThemeIndex = (_levelTimeSec ~/ 10) % 5;
+      final band = (_distanceMeters / 500.0).floor().clamp(0, 4);
+      if (band != _randomThemeIndex) {
+        _randomThemeIndexPrev = _randomThemeIndex;
+        _randomThemeIndex = band;
+        _themeTransitionSec = themeTransitionDurationSec;
+      }
     }
+    _themeTransitionSec = max(0, _themeTransitionSec - dtSec);
 
     _collisionGraceSec = max(0, _collisionGraceSec - dtSec);
     _postJumpCollisionGraceSec = max(0, _postJumpCollisionGraceSec - dtSec);

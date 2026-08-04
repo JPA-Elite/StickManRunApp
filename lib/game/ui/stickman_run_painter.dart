@@ -35,6 +35,9 @@ final bool highContrast;
   /// Duration of the smash punch window (matches the engine's smash duration).
   static const double _smashWindowSec = 0.18;
 
+  /// Duration of the cinematic theme-change transition (matches the engine).
+  static const double _themeTransitionDurationSec = 1.4;
+
   /// Latest punching fist position + strength, used by the streak trail.
   Offset? _punchFist;
   double _punchStrength = 0;
@@ -44,23 +47,31 @@ final bool highContrast;
       .where((l) => l.levelIndex >= 1 && l.levelIndex <= 5)
       .toList();
 
-  /// Visuals that should actually be drawn. The RANDOM/endless level ignores
-  /// its own placeholder palette and borrows one of the five level palettes
-  /// based on [snapshot.randomThemeIndex].
-  lc.LevelVisuals get _activeVisuals {
-    if (level.levelIndex == 6 && snapshot.randomThemeIndex >= 0) {
-      final idx = snapshot.randomThemeIndex.clamp(0, _cycleThemes.length - 1);
-      return _cycleThemes[idx].visuals;
+  /// Visuals for a specific cycled theme index (RANDOM borrows one of the five
+  /// level palettes keyed by [idx]; normal levels always use their own).
+  lc.LevelVisuals _visualsFor(int idx) {
+    if (level.levelIndex == 6) {
+      return _cycleThemes[idx.clamp(0, _cycleThemes.length - 1)].visuals;
     }
     return level.visuals;
   }
 
-  /// Seed index that mirrors the active theme (used for deterministic layouts
-  /// and per-theme accent colors). For RANDOM this maps the cycled palette to
-  /// the corresponding level index so existing per-level branch logic works.
-  int get _themeSeedIndex =>
-      level.levelIndex == 6 ? _cycleThemes[0].levelIndex +
-      snapshot.randomThemeIndex.clamp(0, _cycleThemes.length - 1) : level.levelIndex;
+  /// Seed index that mirrors a given theme (used for deterministic layouts and
+  /// per-theme accent colors). For RANDOM this maps the cycled palette to the
+  /// corresponding level index so existing per-level branch logic works.
+  int _seedIndexFor(int idx) {
+    if (level.levelIndex == 6) {
+      return _cycleThemes[0].levelIndex +
+          idx.clamp(0, _cycleThemes.length - 1);
+    }
+    return level.levelIndex;
+  }
+
+  /// Visuals that should actually be drawn this frame.
+  lc.LevelVisuals get _activeVisuals => _visualsFor(snapshot.randomThemeIndex);
+
+  /// Seed index mirroring the active theme.
+  int get _themeSeedIndex => _seedIndexFor(snapshot.randomThemeIndex);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -93,19 +104,21 @@ final bool highContrast;
     // Background.
     _fillBackground(canvas);
 
-    // Ground band.
+    // Ground band — one cinematic asphalt road used by every level.
+    final roadRect = Rect.fromLTWH(0, groundY, width, height - groundY);
     final groundPaint = Paint()
-      ..color = _flutterColor(_activeVisuals.groundColor);
-    canvas.drawRect(
-      Rect.fromLTWH(0, groundY, width, height - groundY),
-      groundPaint,
-    );
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFF333333), Color(0xFF161616)],
+      ).createShader(roadRect);
+    canvas.drawRect(roadRect, groundPaint);
 
-    // “Highway” animation: single horizontal dashed line.
+    // Center road marking (dashed, real-road style).
     final dashPaint = Paint()
-      ..color = Colors.black.withOpacity(0.22)
+      ..color = const Color(0xFFFFCF4D).withValues(alpha: 0.5)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 6;
+      ..strokeWidth = 5;
 
     final yLine = groundY + 28;
 
@@ -204,46 +217,159 @@ final bool highContrast;
         Paint()..color = Colors.greenAccent.withValues(alpha: alpha * 0.16),
       );
     }
+
+    // Cinematic theme-change transition: soft bloom + incoming theme banner.
+    if (level.levelIndex == 6 && snapshot.themeTransitionSec > 0) {
+      _drawThemeTransition(canvas);
+    }
+  }
+
+  void _drawThemeTransition(Canvas canvas) {
+    final p = (1 - snapshot.themeTransitionSec / _themeTransitionDurationSec)
+        .clamp(0.0, 1.0);
+    // Pulse 0 → peak (midpoint) → 0.
+    final strength = sin(p * pi).clamp(0.0, 1.0);
+    if (strength <= 0.01) return;
+
+    // Soft radial bloom centered slightly above the road.
+    final bloomRect = Rect.fromCircle(
+      center: Offset(width / 2, height * 0.4),
+      radius: max(width, height) * 0.75,
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, width, height),
+      Paint()
+        ..shader = RadialGradient(
+          colors: [
+            Colors.white.withValues(alpha: 0.5 * strength),
+            Colors.white.withValues(alpha: 0.12 * strength),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.45, 1.0],
+        ).createShader(bloomRect),
+    );
+
+    // Incoming theme name fading in center-screen with a gentle lift.
+    final name = _visualsFor(snapshot.randomThemeIndex).name;
+    final accentBase =
+        _flutterColor(_visualsFor(snapshot.randomThemeIndex).topColor);
+    final hsl = HSLColor.fromColor(accentBase);
+    final accent = hsl
+        .withLightness((hsl.lightness * 0.55 + 0.6).clamp(0.0, 1.0))
+        .withSaturation(0.85)
+        .toColor();
+    final t = strength;
+    final tp = TextPainter(
+      text: TextSpan(
+        text: name,
+        style: TextStyle(
+          fontSize: 34,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 6,
+          color: Colors.white.withValues(alpha: t),
+          shadows: [
+            Shadow(
+              color: accent.withValues(alpha: 0.8 * t),
+              blurRadius: 26,
+              offset: Offset.zero,
+            ),
+            Shadow(
+              color: accent.withValues(alpha: 0.95 * t),
+              blurRadius: 9,
+              offset: Offset.zero,
+            ),
+          ],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(
+      canvas,
+      Offset(
+        (width - tp.width) / 2,
+        height * 0.38 - (1 - t) * 14 - tp.height / 2,
+      ),
+    );
   }
 
   void _fillBackground(Canvas canvas) {
-    final top = _flutterColor(_activeVisuals.topColor);
-    final bottom = _flutterColor(_activeVisuals.bottomColor);
+    // Endless/RANDOM cinematic theme rotation: crossfade the outgoing theme
+    // backdrop out while the incoming theme fades in.
+    if (level.levelIndex == 6 && snapshot.themeTransitionSec > 0) {
+      final p = 1 - snapshot.themeTransitionSec / _themeTransitionDurationSec;
+      if (snapshot.randomThemeIndexPrev != snapshot.randomThemeIndex) {
+        _drawBackdrop(canvas, _seedIndexFor(snapshot.randomThemeIndexPrev),
+            opacity: 1 - p);
+      }
+      _drawBackdrop(
+          canvas, _seedIndexFor(snapshot.randomThemeIndex), opacity: p);
+      return;
+    }
+
+    _drawBackdrop(canvas, _themeSeedIndex);
+  }
+
+  void _drawBackdrop(Canvas canvas, int seedIndex, {double opacity = 1.0}) {
+    final visuals = _visualsFor(_seedIndexToTheme(seedIndex));
+    final top = _flutterColor(visuals.topColor);
+    final bottom = _flutterColor(visuals.bottomColor);
+
+    // Theme scenery images used as the sky/backdrop.
+    final backdropAsset = switch (seedIndex) {
+      1 => 'assets/images/forest_background.png',
+      2 => 'assets/images/desert_background.png',
+      3 => 'assets/images/nightcity_background.png',
+      4 => 'assets/images/darkcave_background.png',
+      5 => 'assets/images/volcano_background.png',
+      _ => null,
+    };
+    if (backdropAsset != null) {
+      final backdrop = sprites[backdropAsset];
+      if (backdrop != null) {
+        final dstH = height * 0.78;
+        final iw = backdrop.width.toDouble();
+        final ih = backdrop.height.toDouble();
+        final scale = max(width / iw, dstH / ih);
+        final sw = width / scale;
+        final sh = dstH / scale;
+        final src = Rect.fromLTWH(
+          (iw - sw) / 2,
+          (ih - sh) / 2,
+          sw,
+          sh,
+        );
+        canvas.drawImageRect(
+          backdrop,
+          src,
+          Rect.fromLTWH(0, 0, width, dstH),
+          Paint()
+            ..filterQuality = FilterQuality.medium
+            ..color = Colors.white.withValues(alpha: 0.85 * opacity),
+        );
+        return;
+      }
+    }
 
     // Solid two-tone bands for “brutalist cartoon” vibe (no gradients).
     final topRect = Rect.fromLTWH(0, 0, width, height * 0.58);
     final bottomRect = Rect.fromLTWH(0, height * 0.58, width, height * 0.42);
 
-    final topPaint = Paint()..color = top;
-    final bottomPaint = Paint()..color = bottom;
+    final topPaint = Paint()..color = top.withValues(alpha: opacity);
+    final bottomPaint = Paint()..color = bottom.withValues(alpha: opacity);
 
     canvas.drawRect(topRect, topPaint);
     canvas.drawRect(bottomRect, bottomPaint);
+  }
 
-    // Simple texture dots/blocks.
-    final dotPaint = Paint()
-      ..color = Colors.black.withOpacity(0.15)
-      ..style = PaintingStyle.fill;
-
-    final rng = Random(_themeSeedIndex * 1337);
-
-    // Animate the sky texture by offsetting the deterministic dot positions.
-    // This makes the “sky” feel like it's moving while the player runs.
-    final skyScrollX = (snapshot.timeSec * 45.0) % width;
-    final skyScrollY = (snapshot.timeSec * 12.0) % (height * 0.58);
-
-    for (int i = 0; i < 90; i++) {
-      final x0 = rng.nextDouble() * width;
-      final y0 = rng.nextDouble() * (height * 0.58);
-      final s = 3 + rng.nextDouble() * 7;
-
-      final x = (x0 + skyScrollX) % width;
-      final y = (y0 + skyScrollY) % (height * 0.58);
-
-      canvas.drawRect(Rect.fromLTWH(x, y, s, s), dotPaint);
+  /// Converts a [seedIndex] (1..5) back into a cycled theme index (0..4) for
+  /// [RANDOM] lookups, or returns the raw index for normal levels.
+  int _seedIndexToTheme(int seedIndex) {
+    if (level.levelIndex == 6) {
+      final base = _cycleThemes[0].levelIndex;
+      final theme = seedIndex - base;
+      return theme.clamp(0, _cycleThemes.length - 1);
     }
-
-    // Trees + houses removed (kept game background clean so obstacles stay readable).
+    return seedIndex;
   }
 
   void _drawVillageScene(

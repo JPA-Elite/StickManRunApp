@@ -146,7 +146,7 @@ class LevelConfig {
           themeTag: 'LEVEL 1',
           topColor: _c(0xFF1F5B2B),
           bottomColor: _c(0xFF0F2D16),
-          groundColor: _c(0xFF103B1E),
+          groundColor: _c(0xFF2E7D4F),
         ),
         tuning: LevelTuning(
           speed: 280,
@@ -185,7 +185,7 @@ class LevelConfig {
           themeTag: 'LEVEL 2',
           topColor: _c(0xFF8F5A24),
           bottomColor: _c(0xFF2B1A07),
-          groundColor: _c(0xFF5A2E10),
+          groundColor: _c(0xFFB07A3E),
         ),
         tuning: LevelTuning(
           speed: 330,
@@ -224,7 +224,7 @@ class LevelConfig {
           themeTag: 'LEVEL 3',
           topColor: _c(0xFF0C2D6B),
           bottomColor: _c(0xFF050D2B),
-          groundColor: _c(0xFF12245A),
+          groundColor: _c(0xFF27489A),
         ),
         tuning: LevelTuning(
           speed: 370,
@@ -263,7 +263,7 @@ class LevelConfig {
           themeTag: 'LEVEL 4',
           topColor: _c(0xFF4D1C6E),
           bottomColor: _c(0xFF1B0830),
-          groundColor: _c(0xFF2A0F3E),
+          groundColor: _c(0xFF148CD2),
         ),
         tuning: LevelTuning(
           speed: 410,
@@ -302,7 +302,7 @@ class LevelConfig {
           themeTag: 'LEVEL 5',
           topColor: _c(0xFF8A1F1B),
           bottomColor: _c(0xFF2B0808),
-          groundColor: _c(0xFF5A1212),
+          groundColor: _c(0xFF992611),
         ),        tuning: LevelTuning(
           speed: 460,
           gravity: 3050,

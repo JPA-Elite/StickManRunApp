@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../settings/score_history.dart';
+import '../ui/menu_backdrop.dart';
 import '../ui/score_history_screen.dart';
 import '../ui/settings_screen.dart';
 import '../ui/stickman_run_screen.dart';
@@ -15,15 +16,21 @@ class StickmanRunApp extends StatefulWidget {
   State<StickmanRunApp> createState() => _StickmanRunAppState();
 }
 
-class _StickmanRunAppState extends State<StickmanRunApp> {
+class _StickmanRunAppState extends State<StickmanRunApp>
+    with SingleTickerProviderStateMixin {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   final PageController _pageController = PageController(viewportFraction: 0.88);
   int _selectedLevel = 1;
   bool _showLevelSelect = false;
 
+  late final AnimationController _backdropController =
+      AnimationController(vsync: this, duration: const Duration(seconds: 1))
+        ..repeat();
+
   @override
   void dispose() {
     _pageController.dispose();
+    _backdropController.dispose();
     super.dispose();
   }
 
@@ -60,7 +67,14 @@ class _StickmanRunAppState extends State<StickmanRunApp> {
             children: [
               Positioned.fill(
                 child: CustomPaint(
-                  painter: _MenuBackdropPainter(levelCount: levels.length),
+                  painter: MenuBackdropPainter(
+                    levelCount: levels.length,
+                    timeNow: () =>
+                        _backdropController.value *
+                        _backdropController.duration!.inMicroseconds /
+                        1e6,
+                    repaint: _backdropController,
+                  ),
                 ),
               ),
 
@@ -87,6 +101,21 @@ class _StickmanRunAppState extends State<StickmanRunApp> {
                             color: Colors.white,
                             letterSpacing: 2,
                             height: 1.1,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black,
+                                blurRadius: 10,
+                              ),
+                              Shadow(
+                                color: Color(0xFF4DD8FF),
+                                blurRadius: 26,
+                              ),
+                              Shadow(
+                                color: Colors.yellowAccent,
+                                blurRadius: 14,
+                                offset: Offset(0, 4),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -101,26 +130,39 @@ class _StickmanRunAppState extends State<StickmanRunApp> {
                         const SizedBox(height: 28),
                         GestureDetector(
                           onTap: () => setState(() => _showLevelSelect = true),
-                          child: Container(
-                            width: 100,
-                            height: 100,
-                            decoration: BoxDecoration(
-                              color: Colors.yellow,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 4),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.yellow.withOpacity(0.4),
-                                  blurRadius: 24,
-                                  spreadRadius: 2,
+                          child: AnimatedBuilder(
+                            animation: _backdropController,
+                            builder: (context, _) {
+                              final t =
+                                  _backdropController.value * 2 * pi;
+                              final pulse = 0.5 + 0.5 * sin(t);
+                              return Container(
+                                width: 100 + pulse * 6,
+                                height: 100 + pulse * 6,
+                                decoration: BoxDecoration(
+                                  color: Colors.yellow,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 4,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.yellow.withOpacity(
+                                        0.35 + pulse * 0.3,
+                                      ),
+                                      blurRadius: 24 + pulse * 14,
+                                      spreadRadius: 2 + pulse * 3,
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.play_arrow,
-                              size: 56,
-                              color: Colors.black,
-                            ),
+                                child: const Icon(
+                                  Icons.play_arrow,
+                                  size: 56,
+                                  color: Colors.black,
+                                ),
+                              );
+                            },
                           ),
                         ),
                         const Spacer(flex: 4),
@@ -546,31 +588,4 @@ class _CarouselLevelCard extends StatelessWidget {
       ),
     );
   }
-}
-
-class _MenuBackdropPainter extends CustomPainter {
-  final int levelCount;
-
-  _MenuBackdropPainter({required this.levelCount});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withOpacity(0.05)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-
-    final rng = Random(levelCount * 999);
-
-    for (int i = 0; i < 35; i++) {
-      final x = rng.nextDouble() * size.width;
-      final y = rng.nextDouble() * size.height;
-      final w = 40 + rng.nextDouble() * 140;
-      final h = 16 + rng.nextDouble() * 70;
-      canvas.drawRect(Rect.fromLTWH(x, y, w, h), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
