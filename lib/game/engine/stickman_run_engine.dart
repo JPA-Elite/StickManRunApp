@@ -388,6 +388,11 @@ class StickmanRunEngine {
     }
     if (_status != GameStatus.running) return;
 
+    // Only allow a jump while on the ground — no re-jumping or floating while
+    // airborne. This stops the stickman from bouncing repeatedly on taps.
+    final onGround = (_groundY - _stickman.y).abs() < 4.0;
+    if (!onGround) return;
+
     // Force a visibly obvious jump immediately.
     // This removes any timing sensitivity and makes it easy to confirm
     // that the jump button is working.
