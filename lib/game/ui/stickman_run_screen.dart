@@ -1,4 +1,6 @@
 import 'dart:math';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -63,6 +65,21 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
 
   int _levelIndex = 1;
   late GameSettings _settings;
+  final Map<String, ui.Image> _sprites = {};
+  final Map<String, Color> _spriteColors = {};
+
+  static const List<String> _spriteAssets = [
+    'assets/images/cactus_obstacle.png',
+    'assets/images/spike_obstacle.png',
+    'assets/images/stalagmite_obstacle.png',
+    'assets/images/rollingrock_obstacle.png',
+    'assets/images/drone_obstacle.png',
+    'assets/images/laser_obstacle.png',
+    'assets/images/bat_obstacle.png',
+    'assets/images/firejet_obstacle.png',
+    'assets/images/fireball_obstacle.png',
+    'assets/images/pendulummine_obstacle.png',
+  ];
 
   @override
   void initState() {
@@ -72,6 +89,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     _engine.start(levelIndex: widget.initialLevel);
     _levelIndex = widget.initialLevel;
     SettingsController.instance.addListener(_onSettingsChanged);
+    _loadSprites();
 
     _snapshot = _engine.snapshot();
 
@@ -88,7 +106,195 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   void dispose() {
     SettingsController.instance.removeListener(_onSettingsChanged);
     _controller.dispose();
+    for (final image in _sprites.values) {
+      image.dispose();
+    }
+    _sprites.clear();
+    _spriteColors.clear();
     super.dispose();
+  }
+
+  /// Decodes obstacle sprites for the painter. Until they finish loading, the
+  /// painter falls back to the hand-drawn neon shapes.
+  Future<void> _loadSprites() async {
+    for (final asset in _spriteAssets) {
+      await _loadSprite(asset);
+    }
+  }
+
+  /// Decodes obstacle sprites at a small size so their crisp, high-res detail
+  /// is softened into a gentle cartoon look during play (less harsh on the
+  /// eyes) while also cutting memory and paint cost.
+  Future<void> _loadSprite(String asset) async {
+    try {
+      final data = await rootBundle.load(asset);
+      final bytes = data.buffer.asUint8List();
+      final size = _pngSize(bytes);
+      int? targetWidth;
+      int? targetHeight;
+      if (size != null) {
+        const maxSide = 128.0;
+        final scale = maxSide / max(size.$1, size.$2);
+        if (scale < 1) {
+          targetWidth = (size.$1 * scale).round();
+          targetHeight = (size.$2 * scale).round();
+        }
+      }
+      final codec = await ui.instantiateImageCodec(
+        bytes,
+        targetWidth: targetWidth,
+        targetHeight: targetHeight,
+      );
+      final frame = await codec.getNextFrame();
+      if (!mounted) {
+        frame.image.dispose();
+        return;
+      }
+      // Cartoonize the sprite (flat colors + ink outline) so the detailed
+      // art reads as a soft cartoon during play. The laser keeps its original
+      // look.
+      var sprite = frame.image;
+      if (asset != 'assets/images/laser_obstacle.png') {
+        try {
+          final cartoon = await _cartoonize(frame.image);
+          if (!identical(cartoon, frame.image)) {
+            sprite = cartoon;
+            frame.image.dispose();
+          }
+        } catch (_) {}
+      }
+      if (!mounted) {
+        sprite.dispose();
+        return;
+      }
+      final dominant = await _dominantColor(sprite);
+      if (!mounted) {
+        sprite.dispose();
+        return;
+      }
+      setState(() {
+        _sprites[asset] = sprite;
+        if (dominant != null) _spriteColors[asset] = dominant;
+      });
+    } catch (_) {
+      // Keep the neon fallback if a sprite can't be loaded.
+    }
+  }
+
+  /// Converts a sprite to a flat cartoon: quantized colors, boosted
+  /// saturation, and a dark ink outline around transparent edges.
+  Future<ui.Image> _cartoonize(ui.Image image) async {
+    final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+    if (data == null) return image;
+    final src = data.buffer.asUint8List();
+    final w = image.width;
+    final h = image.height;
+    final out = Uint8List(w * h * 4);
+
+    const q = 64; // color levels per channel (4 bands).
+    const sat = 1.35;
+
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        final i = (y * w + x) * 4;
+        final a = src[i + 3];
+        if (a < 8) continue;
+        final r = src[i].toDouble();
+        final g = src[i + 1].toDouble();
+        final b = src[i + 2].toDouble();
+        final lum = 0.299 * r + 0.587 * g + 0.114 * b;
+        out[i] = (lum + (r - lum) * sat).clamp(0.0, 255.0) ~/ q * q;
+        out[i + 1] = (lum + (g - lum) * sat).clamp(0.0, 255.0) ~/ q * q;
+        out[i + 2] = (lum + (b - lum) * sat).clamp(0.0, 255.0) ~/ q * q;
+        out[i + 3] = a;
+      }
+    }
+
+    // Ink outline: darken opaque pixels that touch transparent ones.
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        final i = (y * w + x) * 4;
+        if (out[i + 3] == 0) continue;
+        var edge = false;
+        for (var dy = -1; dy <= 1 && !edge; dy++) {
+          for (var dx = -1; dx <= 1 && !edge; dx++) {
+            if (dx == 0 && dy == 0) continue;
+            final nx = x + dx;
+            final ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) {
+              edge = true;
+              break;
+            }
+            if (src[((ny * w + nx) * 4) + 3] < 64) {
+              edge = true;
+              break;
+            }
+          }
+        }
+        if (edge) {
+          out[i] = 8;
+          out[i + 1] = 8;
+          out[i + 2] = 12;
+          out[i + 3] = 255;
+        }
+      }
+    }
+
+    final buffer = await ui.ImmutableBuffer.fromUint8List(out);
+    final descriptor = ui.ImageDescriptor.raw(
+      buffer,
+      width: w,
+      height: h,
+      pixelFormat: ui.PixelFormat.rgba8888,
+    );
+    final codec = await descriptor.instantiateCodec();
+    final frame = await codec.getNextFrame();
+    return frame.image;
+  }
+
+  /// Reads the PNG width/height from its IHDR header so we can decode at a
+  /// smaller size. Returns null for non-PNG data.
+  (int, int)? _pngSize(Uint8List bytes) {
+    if (bytes.length < 24) return null;
+    // PNG signature + IHDR length/type, then 4-byte big-endian width/height.
+    if (bytes[0] != 0x89 || bytes[1] != 0x50 || bytes[2] != 0x4E ||
+        bytes[3] != 0x47) {
+      return null;
+    }
+    int readInt(int o) =>
+        (bytes[o] << 24) | (bytes[o + 1] << 16) | (bytes[o + 2] << 8) |
+        bytes[o + 3];
+    return (readInt(16), readInt(20));
+  }
+
+  /// Approximates the sprite's main color by averaging its non-transparent
+  /// pixels of a sampled subset (used for obstacle damage/debris color).
+  Future<Color?> _dominantColor(ui.Image image) async {
+    try {
+      final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      if (data == null) return null;
+      final bytes = data.buffer.asUint8List();
+      final pxCount = image.width * image.height;
+      final stride = pxCount > 60000 ? (pxCount ~/ 60000) : 1;
+      var r = 0.0, g = 0.0, b = 0.0, n = 0.0;
+      for (var i = 0; i < pxCount; i += stride) {
+        final o = i * 4;
+        if (bytes[o + 3] < 16) continue;
+        r += bytes[o];
+        g += bytes[o + 1];
+        b += bytes[o + 2];
+        n += 1;
+      }
+      if (n == 0) return null;
+      return Color.fromARGB(
+        255,
+        (r / n).round(),
+        (g / n).round(),
+        (b / n).round(),
+      );
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Reflects settings changed from the in-pause settings screen without
@@ -293,21 +499,26 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                         ? _onJump
                         : (_canTapToSmash ? _onSmash : null),
                     onVerticalDragEnd: _gesturesActive ? _onVerticalSwipe : null,
-                    child: CustomPaint(
-                      painter: StickmanRunPainter(
-                        snapshot: _snapshot,
-                        level:
-                            _engine.snapshot().levelIndex ==
-                                _snapshot.levelIndex
-                            ? _engine.levels[_levelIndex - 1]
-                            : _engine.levels[(_snapshot.levelIndex - 1).clamp(
-                                0,
-                                _engine.levels.length - 1,
-                              )],
-                        width: width,
-                        height: height,
-                        stickmanColor: Color(_settings.stickmanColor),
-                        highContrast: _settings.highContrast,
+child: RepaintBoundary(
+                      child: CustomPaint(
+                        painter: StickmanRunPainter(
+                          snapshot: _snapshot,
+                          level:
+                              _engine.snapshot().levelIndex ==
+                                  _snapshot.levelIndex
+                              ? _engine.levels[_levelIndex - 1]
+                              : _engine.levels[
+                                  (_snapshot.levelIndex - 1).clamp(
+                                    0,
+                                    _engine.levels.length - 1,
+                                  )],
+                          width: width,
+                          height: height,
+                          stickmanColor: Color(_settings.stickmanColor),
+                          highContrast: _settings.highContrast,
+                          sprites: _sprites,
+                          spriteColors: _spriteColors,
+                        ),
                       ),
                     ),
                   ),

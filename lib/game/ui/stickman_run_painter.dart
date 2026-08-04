@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -15,7 +16,9 @@ class StickmanRunPainter extends CustomPainter {
   final double width;
   final double height;
   final Color stickmanColor;
-  final bool highContrast;
+final bool highContrast;
+  final Map<String, ui.Image> sprites;
+  final Map<String, Color> spriteColors;
 
   StickmanRunPainter({
     super.repaint,
@@ -25,6 +28,8 @@ class StickmanRunPainter extends CustomPainter {
     required this.height,
     this.stickmanColor = Colors.white,
     this.highContrast = false,
+    this.sprites = const {},
+    this.spriteColors = const {},
   });
 
   /// Duration of the smash punch window (matches the engine's smash duration).
@@ -1143,6 +1148,8 @@ class StickmanRunPainter extends CustomPainter {
     final x2 = o.x + o.width;
     final y2 = o.y + o.height;
 
+    if (_drawSprite(canvas, o)) return;
+
     if (o.rotation != 0) {
       canvas.save();
       canvas.translate((x1 + x2) / 2, (y1 + y2) / 2);
@@ -1201,6 +1208,110 @@ class StickmanRunPainter extends CustomPainter {
         _drawPendulumMine(canvas, o, fill, outline);
         return;
     }
+  }
+
+  /// Asset path for an obstacle type's sprite, or null if it has none.
+  String? _spriteAssetFor(ObstacleType type) {
+    switch (type) {
+      case ObstacleType.spike:
+        return 'assets/images/spike_obstacle.png';
+      case ObstacleType.cactus:
+        return 'assets/images/cactus_obstacle.png';
+      case ObstacleType.stalagmite:
+        return 'assets/images/stalagmite_obstacle.png';
+      case ObstacleType.rollingRock:
+        return 'assets/images/rollingrock_obstacle.png';
+      case ObstacleType.drone:
+        return 'assets/images/drone_obstacle.png';
+      case ObstacleType.laser:
+        return 'assets/images/laser_obstacle.png';
+      case ObstacleType.bat:
+        return 'assets/images/bat_obstacle.png';
+      case ObstacleType.fireJet:
+        return 'assets/images/firejet_obstacle.png';
+      case ObstacleType.fireball:
+        return 'assets/images/fireball_obstacle.png';
+      case ObstacleType.pendulumMine:
+        return 'assets/images/pendulummine_obstacle.png';
+    }
+  }
+
+  /// Obstacles that stand on the ground get their sprite scaled to the full
+  /// hitbox height and anchored at the base. Flying obstacles are centered
+  /// with the whole sprite visible (BoxFit.contain) so the hitbox stays fair.
+  bool _groundAnchored(ObstacleType type) =>
+      type == ObstacleType.spike ||
+      type == ObstacleType.cactus ||
+      type == ObstacleType.stalagmite ||
+      type == ObstacleType.rollingRock;
+
+  /// Draws the obstacle's sprite if one is loaded. Returns false when there is
+  /// no sprite so the caller falls back to the hand-drawn shape.
+  bool _drawSprite(Canvas canvas, Obstacle o) {
+    final asset = _spriteAssetFor(o.type);
+    if (asset == null) return false;
+    final image = sprites[asset];
+    if (image == null) return false;
+
+    final src = Rect.fromLTWH(
+      0,
+      0,
+      image.width.toDouble(),
+      image.height.toDouble(),
+    );
+    final boxW = o.width;
+    final boxH = o.height;
+
+    final double drawW;
+    final double drawH;
+    if (_groundAnchored(o.type)) {
+      // Rolling rock reads slightly larger than its hitbox.
+      final bump = o.type == ObstacleType.rollingRock ? 1.25 : 1.0;
+      drawH = boxH * bump;
+      drawW = src.width * (boxH / src.height) * bump;
+    } else {
+      // Center the whole sprite, but bump its size so flying obstacles read
+      // larger than their (deliberately forgiving) gameplay hitbox.
+      final bump = o.type == ObstacleType.bat ||
+              o.type == ObstacleType.drone
+          ? 1.25
+          : 1.0;
+      var scale = min(boxW / src.width, boxH / src.height) * 1.35 * bump;
+      if (o.type == ObstacleType.laser) {
+        // The laser beam is very wide and thin; scale it to roughly the
+        // hitbox height so it reads as a proper beam instead of a sliver.
+        scale = (boxH / src.height) * 1.5;
+      } else if (o.type == ObstacleType.pendulumMine) {
+        // Make the swinging mine read larger than its small hitbox.
+        scale = (boxH / src.height) * 1.6;
+      }
+      drawW = src.width * scale;
+      drawH = src.height * scale;
+    }
+
+    final dst = Rect.fromLTWH(
+      o.x + (boxW - drawW) / 2,
+      o.y + (boxH - drawH) / 2,
+      drawW,
+      drawH,
+    );
+
+    canvas.save();
+    if (o.rotation != 0) {
+      canvas.translate(o.x + boxW / 2, o.y + boxH / 2);
+      canvas.rotate(o.rotation);
+      canvas.translate(-(o.x + boxW / 2), -(o.y + boxH / 2));
+    }
+    canvas.drawImageRect(
+      image,
+      src,
+      dst,
+      Paint()
+        ..filterQuality = FilterQuality.low
+        ..color = Colors.white.withValues(alpha: 0.85),
+    );
+    canvas.restore();
+    return true;
   }
 
   Color _flutterColor(int argb) => Color(argb);
@@ -2023,6 +2134,12 @@ class StickmanRunPainter extends CustomPainter {
     return Color.lerp(const Color(0xFF2ECC71), const Color(0xFFF1C40F), (100 - life) / 50)!;
   }
 
+  Color _spriteFill(ObstacleType type) {
+    final asset = _spriteAssetFor(type);
+    final dominant = asset == null ? null : spriteColors[asset];
+    return dominant ?? _obstacleFill(type);
+  }
+
   Color _obstacleFill(ObstacleType type) {
     switch (type) {
       case ObstacleType.spike:
@@ -2143,7 +2260,7 @@ class StickmanRunPainter extends CustomPainter {
       final alpha = (d.remainingSec / 0.5).clamp(0.0, 1.0);
       if (alpha <= 0.01) continue;
 
-      final baseColor = _obstacleFill(d.obstacleType);
+      final baseColor = _spriteFill(d.obstacleType);
       final color = baseColor.withOpacity(alpha);
 
       final paint = Paint()
@@ -2209,6 +2326,8 @@ class StickmanRunPainter extends CustomPainter {
     return oldDelegate.snapshot != snapshot ||
         oldDelegate.level != level ||
         oldDelegate.stickmanColor != stickmanColor ||
-        oldDelegate.highContrast != highContrast;
+        oldDelegate.highContrast != highContrast ||
+        !identical(oldDelegate.sprites, sprites) ||
+        !identical(oldDelegate.spriteColors, spriteColors);
   }
 }

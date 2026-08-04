@@ -20,3 +20,15 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/images/cactus_obstacle.png
+    - assets/images/spike_obstacle.png
+    - assets/images/stalagmite_obstacle.png
+    - assets/images/rollingrock_obstacle.png
+    - assets/images/drone_obstacle.png
+    - assets/images/laser_obstacle.png
+    - assets/images/bat_obstacle.png
+    - assets/images/firejet_obstacle.png
+    - assets/images/fireball_obstacle.png
+    - assets/images/pendulummine_obstacle.png

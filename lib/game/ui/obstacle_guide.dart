@@ -373,10 +373,52 @@ class _GuideGlyph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final asset = _assetFor(kind);
+    if (asset != null) {
+      return Image.asset(
+        asset,
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.low,
+        cacheWidth: 64,
+      );
+    }
     return CustomPaint(
       size: const Size(38, 38),
       painter: _GuideGlyphPainter(kind),
     );
+  }
+
+  /// Sprite asset for guide kinds that have one; otherwise the hand-drawn
+  /// cartoon silhouette is used.
+  static String? _assetFor(GuideKind kind) {
+    switch (kind) {
+      case GuideKind.spike:
+        return 'assets/images/spike_obstacle.png';
+      case GuideKind.cactus:
+        return 'assets/images/cactus_obstacle.png';
+      case GuideKind.stalagmite:
+        return 'assets/images/stalagmite_obstacle.png';
+      case GuideKind.rollingRock:
+        return 'assets/images/rollingrock_obstacle.png';
+      case GuideKind.drone:
+        return 'assets/images/drone_obstacle.png';
+      case GuideKind.laser:
+        return 'assets/images/laser_obstacle.png';
+      case GuideKind.bat:
+        return 'assets/images/bat_obstacle.png';
+      case GuideKind.fireJet:
+        return 'assets/images/firejet_obstacle.png';
+      case GuideKind.fireball:
+        return 'assets/images/fireball_obstacle.png';
+      case GuideKind.pendulumMine:
+        return 'assets/images/pendulummine_obstacle.png';
+      case GuideKind.coin:
+      case GuideKind.shield:
+      case GuideKind.magnet:
+      case GuideKind.heal25:
+      case GuideKind.heal50:
+        return null;
+    }
   }
 }
 
