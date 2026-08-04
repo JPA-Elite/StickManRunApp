@@ -588,13 +588,17 @@ class StickmanRunEngine {
     }
   }
 
-  void _recomputeSpawnCadence() {
-    // Difficulty: ramp speed & spawn rate slightly as coins increase.
-    final coinRamp = _coinsCollected.toDouble() * _level.tuning.speedMultiplierPerCoin;
-    final speed = _level.tuning.speed * (1 + coinRamp);
+  /// Running speed rises only at each 500-meter milestone reached, for every
+  /// level — no continuous per-coin creep. Bumped +5% per step, capped so
+  /// endless runs don't spiral out of control.
+  double _steppedSpeed() {
+    final step = (_distanceMeters / 500.0).floor().clamp(0, 12);
+    final base = _level.tuning.speed;
+    return base * (1 + step * 0.05);
+  }
 
-    // Translate world speed into “meters” for completion: 1px ~ 1/100 meter.
-    // We use distance meters increment elsewhere; here we focus spawn cadence.
+  void _recomputeSpawnCadence() {
+    // Difficulty: ramp spawn rate slightly as coins increase.
     final base = _level.tuning.obstacleSpawnEvery;
 
     // Make obstacles a bit more frequent over time.
@@ -602,9 +606,6 @@ class StickmanRunEngine {
     final coinRampSpawn = min(0.25, _coinsCollected / 35.0 * 0.25);
 
     _baseSpawnEverySec = max(0.55, base * (1 - timeRamp - coinRampSpawn));
-
-    // Prevent speed var from being unused (keeps mental model).
-    if (speed < 0) return;
   }
 
   /// Rolls a random spawn interval so obstacle gaps vary: sometimes close
@@ -638,7 +639,7 @@ class StickmanRunEngine {
   void _updateWorld(double dtSec) {
     // Move and spawn with world scrolling:
     // Obstacles/coins/powerups move left, stickman stays horizontally.
-    final speed = _level.tuning.speed * (1 + (_coinsCollected.toDouble() * _level.tuning.speedMultiplierPerCoin));
+    final speed = _steppedSpeed();
 
     // Convert dt & speed to px delta.
     final dx = speed * dtSec;
