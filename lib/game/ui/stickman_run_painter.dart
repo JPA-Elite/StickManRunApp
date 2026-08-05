@@ -1150,57 +1150,69 @@ final bool highContrast;
       canvas.drawLine(hip, Offset(hip.dx + w * 0.12, bottomY), outline);
     }
 
-    // If shield active, draw halo.
+    // Power-up auras + countdown badges around the stickman.
+    final powerupCenter = Offset(shoulderX, headCenterY);
+
+    // Shield halo: solid yellow ring.
     if (snapshot.shieldActive) {
       final haloPaint = Paint()
         ..color = Colors.yellow
         ..style = PaintingStyle.stroke
         ..strokeWidth = 5;
-      canvas.drawCircle(Offset(shoulderX, headCenterY), effectiveH * 0.22, haloPaint);
+      canvas.drawCircle(powerupCenter, effectiveH * 0.22, haloPaint);
+    }
 
-      // Shield countdown timer above the head.
-      if (snapshot.shieldRemainingSec > 0) {
-        final secs = snapshot.shieldRemainingSec.ceil();
-        final textPainter = TextPainter(
-          text: TextSpan(
-            text: '$secs',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w900,
-              color: Colors.white,
-              height: 1.0,
-            ),
-          ),
-          textDirection: TextDirection.ltr,
-        )..layout();
+    // Magnet aura: dashed cyan ring mirroring the shield halo.
+    if (snapshot.magnetActive) {
+      _drawDashedCircle(
+        canvas,
+        center: powerupCenter,
+        radius: effectiveH * 0.27,
+        color: Colors.cyanAccent,
+        strokeWidth: 4,
+        dashLength: 6,
+        gapLength: 6,
+      );
+    }
 
-        final badgeRadius = 11.0;
-        final badgeCenter = Offset(
-          shoulderX,
-          headCenterY - effectiveH * 0.09 - badgeRadius - 5,
-        );
+    // Countdown badges — side-by-side above the head when both are active.
+    const badgeRadius = 11.0;
+    final badgeY = headCenterY - effectiveH * 0.09 - badgeRadius - 5;
+    final showShield = snapshot.shieldActive && snapshot.shieldRemainingSec > 0;
+    final showMagnet = snapshot.magnetActive && snapshot.magnetRemainingSec > 0;
 
-        canvas.drawCircle(
-          badgeCenter,
-          badgeRadius,
-          Paint()..color = const Color(0xE6141B2E),
-        );
-        canvas.drawCircle(
-          badgeCenter,
-          badgeRadius,
-          Paint()
-            ..color = Colors.yellow
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 2,
-        );
-        textPainter.paint(
-          canvas,
-          Offset(
-            badgeCenter.dx - textPainter.width / 2,
-            badgeCenter.dy - textPainter.height / 2,
-          ),
-        );
-      }
+    if (showShield && showMagnet) {
+      final gap = badgeRadius + 4;
+      _drawPowerBadge(
+        canvas,
+        center: Offset(shoulderX - gap, badgeY),
+        secs: snapshot.shieldRemainingSec.ceil(),
+        ringColor: Colors.yellow,
+        type: PowerUpType.shield,
+      );
+      _drawPowerBadge(
+        canvas,
+        center: Offset(shoulderX + gap, badgeY),
+        secs: snapshot.magnetRemainingSec.ceil(),
+        ringColor: Colors.cyanAccent,
+        type: PowerUpType.magnet,
+      );
+    } else if (showShield) {
+      _drawPowerBadge(
+        canvas,
+        center: Offset(shoulderX, badgeY),
+        secs: snapshot.shieldRemainingSec.ceil(),
+        ringColor: Colors.yellow,
+        type: PowerUpType.shield,
+      );
+    } else if (showMagnet) {
+      _drawPowerBadge(
+        canvas,
+        center: Offset(shoulderX, badgeY),
+        secs: snapshot.magnetRemainingSec.ceil(),
+        ringColor: Colors.cyanAccent,
+        type: PowerUpType.magnet,
+      );
     }
   }
 
@@ -1237,6 +1249,143 @@ final bool highContrast;
         ..color = Colors.white.withOpacity(0.4 + strength * 0.6)
         ..style = PaintingStyle.fill,
     );
+  }
+
+  /// Draws a power-up countdown badge: dark circle, colored ring, a tiny
+  /// type glyph in the top interior, and the remaining seconds below it.
+  void _drawPowerBadge(
+    Canvas canvas, {
+    required Offset center,
+    required int secs,
+    required Color ringColor,
+    required PowerUpType type,
+  }) {
+    const badgeRadius = 11.0;
+    canvas.drawCircle(
+      center,
+      badgeRadius,
+      Paint()..color = const Color(0xE6141B2E),
+    );
+    canvas.drawCircle(
+      center,
+      badgeRadius,
+      Paint()
+        ..color = ringColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
+
+    if (type == PowerUpType.shield) {
+      _drawShieldGlyph(
+        canvas,
+        Offset(center.dx, center.dy - 7),
+        size: 7,
+        color: ringColor,
+      );
+    } else if (type == PowerUpType.magnet) {
+      _drawMagnetGlyph(
+        canvas,
+        Offset(center.dx, center.dy - 7),
+        size: 7,
+        color: ringColor,
+      );
+    }
+
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: '$secs',
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+          color: Colors.white,
+          height: 1.0,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    textPainter.paint(
+      canvas,
+      Offset(
+        center.dx - textPainter.width / 2,
+        center.dy + 3 - textPainter.height / 2,
+      ),
+    );
+  }
+
+  /// Tiny rounded shield outline used inside the shield badge.
+  void _drawShieldGlyph(
+    Canvas canvas,
+    Offset c, {
+    required double size,
+    required Color color,
+  }) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..strokeJoin = StrokeJoin.round;
+    final path = Path()
+      ..moveTo(c.dx - size / 2, c.dy - size * 0.15)
+      ..lineTo(c.dx, c.dy - size * 0.4)
+      ..lineTo(c.dx + size / 2, c.dy - size * 0.15)
+      ..lineTo(c.dx + size * 0.38, c.dy + size * 0.3)
+      ..lineTo(c.dx, c.dy + size * 0.4)
+      ..lineTo(c.dx - size * 0.38, c.dy + size * 0.3)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  /// Tiny "U"-shaped magnet outline used inside the magnet badge.
+  void _drawMagnetGlyph(
+    Canvas canvas,
+    Offset c, {
+    required double size,
+    required Color color,
+  }) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round;
+    final halfW = size / 2;
+    final legTop = c.dy - size / 2;
+    final legBottom = c.dy + size * 0.05;
+    canvas.drawLine(Offset(c.dx - halfW, legTop), Offset(c.dx - halfW, legBottom), paint);
+    canvas.drawLine(Offset(c.dx + halfW, legTop), Offset(c.dx + halfW, legBottom), paint);
+    canvas.drawArc(
+      Rect.fromCenter(center: c, width: size, height: size * 0.55),
+      pi,
+      pi,
+      false,
+      paint,
+    );
+  }
+
+  /// Draws a dashed circle (used for the magnet aura).
+  void _drawDashedCircle(
+    Canvas canvas, {
+    required Offset center,
+    required double radius,
+    required Color color,
+    required double strokeWidth,
+    required double dashLength,
+    required double gapLength,
+  }) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+    final total = dashLength + gapLength;
+    final segments = (2 * pi * radius / total).ceil();
+    for (var i = 0; i < segments; i++) {
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        i * total / radius,
+        dashLength / radius,
+        false,
+        paint,
+      );
+    }
   }
 
   /// Horizontal speed streaks trailing behind the punching fist.
