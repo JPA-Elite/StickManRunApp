@@ -155,6 +155,10 @@ class StickmanRunEngine {
   // Crawl (lower head while still running)
   double _crawlRemainingSec = 0;
 
+  // Double jump: the stickman can jump once more while airborne, then must
+  // land again before jumping again. 1 = one extra air-jump remaining.
+  int _airJumpsLeft = 1;
+
   // Smash (punch/destroy front obstacle)
   double _smashActiveSec = 0;
   double _smashCooldownSecRemaining = 0;
@@ -328,6 +332,7 @@ class StickmanRunEngine {
       y: _groundY,
       vy: 0,
     );
+    _airJumpsLeft = 1;
 
     _recomputeSpawnCadence();
     _rollNextSpawnInterval();
@@ -391,22 +396,32 @@ class StickmanRunEngine {
     // Only allow a jump while on the ground — no re-jumping or floating while
     // airborne. This stops the stickman from bouncing repeatedly on taps.
     final onGround = (_groundY - _stickman.y).abs() < 4.0;
-    if (!onGround) return;
 
-    // Force a visibly obvious jump immediately.
-    // This removes any timing sensitivity and makes it easy to confirm
-    // that the jump button is working.
-    const jumpHeightPx = 120.0;
+    // Double jump: on the ground we do the full jump; while airborne we allow
+    // one extra mid-air jump that cuts the fall, then no more until landing.
+    if (onGround) {
+      // Full jump.
+      const jumpHeightPx = 120.0;
+      _stickman = _stickman.copyWith(
+        y: _groundY - jumpHeightPx,
+        vy: _level.tuning.jumpVelocity,
+      );
 
-    _stickman = _stickman.copyWith(
-      y: _groundY - jumpHeightPx,
-      vy: _level.tuning.jumpVelocity,
-    );
+      // Grant back the extra air jump for when the player leaves the ground.
+      _airJumpsLeft = 1;
 
-    // Critical for "tap near obstacle" timing:
-    // if the tap happens late, the stickman may still intersect on the
-    // first frame after the jump. A short grace window makes jumps reliable.
-    _postJumpCollisionGraceSec = 0.12;
+      // Critical for "tap near obstacle" timing:
+      // if the tap happens late, the stickman may still intersect on the
+      // first frame after the jump. A short grace window makes jumps reliable.
+      _postJumpCollisionGraceSec = 0.12;
+    } else if (_airJumpsLeft > 0) {
+      // Mid-air double jump: heave upward off whatever vertical velocity we
+      // currently have so it feels like a distinct second impulse.
+      _stickman = _stickman.copyWith(
+        vy: _level.tuning.jumpVelocity,
+      );
+      _airJumpsLeft = 0;
+    }
   }
 
   void crawl() {
@@ -635,6 +650,7 @@ class StickmanRunEngine {
     // back to the ground on the first frame.
     if (nextY >= _groundY && _stickman.vy >= 0) {
       _stickman = _stickman.copyWith(y: _groundY, vy: 0);
+      _airJumpsLeft = 1;
       return;
     }
 
