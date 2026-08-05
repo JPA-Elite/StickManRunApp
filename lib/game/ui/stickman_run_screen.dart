@@ -170,6 +170,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
       // background keep their original look.
       var sprite = frame.image;
       final cartoonized = asset != 'assets/images/laser_obstacle.png' &&
+          asset != 'assets/images/cactus_obstacle.png' &&
           asset != 'assets/images/forest_background.png' &&
           asset != 'assets/images/desert_background.png' &&
           asset != 'assets/images/nightcity_background.png' &&
@@ -180,6 +181,17 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
           final cartoon = await _cartoonize(frame.image);
           if (!identical(cartoon, frame.image)) {
             sprite = cartoon;
+            frame.image.dispose();
+          }
+        } catch (_) {}
+      } else if (asset == 'assets/images/cactus_obstacle.png' ||
+          asset == 'assets/images/stalagmite_obstacle.png') {
+        // Slightly darken the cactus/stalagmite art while keeping its
+        // original colors.
+        try {
+          final darkened = await _darken(frame.image, factor: 0.72);
+          if (!identical(darkened, frame.image)) {
+            sprite = darkened;
             frame.image.dispose();
           }
         } catch (_) {}
@@ -275,6 +287,35 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
 
   /// Reads the PNG width/height from its IHDR header so we can decode at a
   /// smaller size. Returns null for non-PNG data.
+
+  /// Multiplies the RGB of every opaque pixel by [factor] (0..1 darkens,
+  /// >1 brightens) while leaving the alpha untouched. Used to gently darken
+  /// sprites that keep their original detail.
+  Future<ui.Image> _darken(ui.Image image, {required double factor}) async {
+    final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+    if (data == null) return image;
+    final src = data.buffer.asUint8List();
+    final w = image.width;
+    final h = image.height;
+    final out = Uint8List(w * h * 4);
+    for (var i = 0; i < src.length; i += 4) {
+      out[i] = (src[i] * factor).round().clamp(0, 255);
+      out[i + 1] = (src[i + 1] * factor).round().clamp(0, 255);
+      out[i + 2] = (src[i + 2] * factor).round().clamp(0, 255);
+      out[i + 3] = src[i + 3];
+    }
+    final buffer = await ui.ImmutableBuffer.fromUint8List(out);
+    final descriptor = ui.ImageDescriptor.raw(
+      buffer,
+      width: w,
+      height: h,
+      pixelFormat: ui.PixelFormat.rgba8888,
+    );
+    final codec = await descriptor.instantiateCodec();
+    final frame = await codec.getNextFrame();
+    return frame.image;
+  }
+
   (int, int)? _pngSize(Uint8List bytes) {
     if (bytes.length < 24) return null;
     // PNG signature + IHDR length/type, then 4-byte big-endian width/height.

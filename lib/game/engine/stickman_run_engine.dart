@@ -672,6 +672,33 @@ class StickmanRunEngine {
       _powerUps[i] = _powerUps[i].copyWith(x: _powerUps[i].x - dx);
     }
 
+    // Magnet pull: attract coins toward the stickman's head, moving diagonally
+    // anywhere on screen (50% of the screen) — no ground forcing.
+    if (_magnetRemainingSec > 0 && _coins.isNotEmpty) {
+      final magnetRange = max(_width, _height) * 0.5;
+      final targetX = _stickman.x;
+      final targetY = _stickman.y - _stickmanHeightPx() / 2;
+      const double pullStrength = 500.0;
+      const double angularVelocity = 2.0;
+      for (var i = 0; i < _coins.length; i++) {
+        final c = _coins[i];
+        final dx = targetX - c.x;
+        final dy = targetY - c.y;
+        final dist = sqrt(dx * dx + dy * dy);
+        if (dist > magnetRange || dist < 1) continue;
+
+        final pullX = (dx / dist) * pullStrength * dtSec;
+        final pullY = (dy / dist) * pullStrength * dtSec;
+        final orbitX = (-dy / dist) * angularVelocity * dist * dtSec;
+        final orbitY = (dx / dist) * angularVelocity * dist * dtSec;
+
+        _coins[i] = c.copyWith(
+          x: c.x + pullX + orbitX,
+          y: c.y + pullY + orbitY,
+        );
+      }
+    }
+
     _distanceMeters += dx / 100.0;
 
     // Remove out-of-screen entities.
@@ -864,12 +891,13 @@ class StickmanRunEngine {
     // While crawling, lower head -> reduce collision box height.
     final stickmanH = _crawlRemainingSec > 0 ? baseStickmanH * 0.58 : baseStickmanH;
 
-    // Magnet: if active, coins become easier to collect.
+    // Magnet: if active, coins become easier to collect and are pulled
+    // toward the stickman within a wide radius (50% of the screen).
     final magnetPull = _magnetRemainingSec > 0;
 
     // Coin collection.
     if (_coins.isNotEmpty) {
-      final magnetRange = magnetPull ? 72.0 : 42.0;
+      final magnetRange = magnetPull ? max(_width, _height) * 0.5 : 42.0;
       _coins.removeWhere((c) {
         final dx = (c.x - _stickman.x).abs();
         if (dx > magnetRange) return false;
