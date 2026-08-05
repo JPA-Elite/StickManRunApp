@@ -79,9 +79,11 @@ class _StickmanRunAppState extends State<StickmanRunApp>
                   ),
                 ),
               ),
-              SafeArea(
-                child: Stack(
-                  children: [
+              // Full-width layout centered in the actual screen width
+              // (no SafeArea, so header/cards/footer are not shifted by
+              // asymmetric system padding).
+              Stack(
+                children: [
                     // Full-width header bar (level select page only).
                     if (_showLevelSelect)
                       Positioned(
@@ -347,11 +349,10 @@ class _StickmanRunAppState extends State<StickmanRunApp>
               ),
               ],
             ),
-          ),
         ],
+          ),
       ),
     ),
-  ),
 );
   }
 }
