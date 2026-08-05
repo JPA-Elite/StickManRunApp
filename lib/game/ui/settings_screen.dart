@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../settings/game_settings.dart';
 import '../settings/settings_controller.dart';
+import 'haptics.dart';
 
 /// Arcade-Console style settings screen.
 ///
@@ -80,7 +80,7 @@ class SettingsScreen extends StatelessWidget {
                                value: settings.vibrationsEnabled,
                                onChanged: (value) {
                                  if (value) {
-                                   HapticFeedback.mediumImpact();
+                                   vibrate(HapticIntensity.medium);
                                  }
                                  SettingsController.instance
                                      .setVibrationsEnabled(value);

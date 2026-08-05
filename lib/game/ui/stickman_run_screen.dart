@@ -10,6 +10,7 @@ import '../engine/stickman_run_engine.dart';
 import '../settings/game_settings.dart';
 import '../settings/score_history.dart';
 import '../settings/settings_controller.dart';
+import 'haptics.dart';
 import 'obstacle_guide.dart';
 import 'menu_backdrop.dart';
 import 'settings_screen.dart';
@@ -394,7 +395,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     // Vibrate when the smash actually impacts (animation starts).
     if (!_wasSmashActive && _snapshot.smashActive) {
       if (_settings.vibrationsEnabled) {
-        HapticFeedback.heavyImpact();
+        vibrate(HapticIntensity.heavy);
       }
     }
     _wasSmashActive = _snapshot.smashActive;
@@ -403,14 +404,14 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     if (_snapshot.hitCount != _lastHitCount) {
       _lastHitCount = _snapshot.hitCount;
       if (_settings.vibrationsEnabled) {
-        HapticFeedback.lightImpact();
+        vibrate(HapticIntensity.light);
       }
     }
 
     // Vibrate when the stickman hits an obstacle (game over).
     if (wasRunning && _snapshot.status == GameStatus.gameOver) {
       if (_settings.vibrationsEnabled) {
-        HapticFeedback.heavyImpact();
+        vibrate(HapticIntensity.heavy);
       }
       // Record the finished run for the score history.
       if (_snapshot.score > 0) {
@@ -442,7 +443,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     _engine.tick(1 / 60.0);
 
     if (_settings.vibrationsEnabled) {
-      HapticFeedback.heavyImpact();
+      vibrate(HapticIntensity.heavy);
     }
 
     setState(() {
@@ -489,7 +490,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   void _onCrawl() {
     _engine.crawl();
     if (_settings.vibrationsEnabled) {
-      HapticFeedback.lightImpact();
+      vibrate(HapticIntensity.light);
     }
     setState(() => _snapshot = _engine.snapshot());
   }
@@ -890,7 +891,7 @@ child: RepaintBoundary(
                     ? () {
                         _engine.smash();
                         if (_settings.vibrationsEnabled) {
-                          HapticFeedback.heavyImpact();
+                          vibrate(HapticIntensity.heavy);
                         }
                         setState(() => _snapshot = _engine.snapshot());
                       }
@@ -1133,7 +1134,7 @@ child: RepaintBoundary(
                                           _engine.jump();
                                           _engine.tick(1 / 60.0);
                                           if (_settings.vibrationsEnabled) {
-                                            HapticFeedback.heavyImpact();
+                                            vibrate(HapticIntensity.heavy);
                                           }
                                           setState(() {
                                             _snapshot = _engine.snapshot();

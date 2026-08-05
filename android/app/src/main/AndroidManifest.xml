@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required for haptic/vibration feedback (smash impact, obstacle hits).
+         Flutter only injects this permission automatically in debug/profile
+         builds, so it must be declared here for release builds. -->
+    <uses-permission android:name="android.permission.VIBRATE"/>
     <application
         android:label="StickManRun"
         android:name="${applicationName}"
