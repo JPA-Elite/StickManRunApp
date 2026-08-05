@@ -171,11 +171,16 @@ final bool highContrast;
     // (flicker) to communicate the grace window.
     if (snapshot.damageGraceSec > 0) {
       final flickerAlpha = 0.25 + 0.6 * (0.5 + 0.5 * sin(snapshot.timeSec * 24));
+      // Generous clip region that also covers the power-up aura + countdown
+      // badges above the head, so the flicker never cuts them in half.
+      final stickmanW = _stickmanWidthPx();
+      final stickmanH = _stickmanHeightPx();
+      final reach = stickmanH * 1.4;
       final flickerRect = Rect.fromLTWH(
-        snapshot.stickman.x - _stickmanWidthPx(),
-        snapshot.stickman.y - _stickmanHeightPx() * 1.1,
-        _stickmanWidthPx() * 2,
-        _stickmanHeightPx() * 1.1,
+        snapshot.stickman.x - stickmanW * 0.5 - reach,
+        snapshot.stickman.y - reach,
+        stickmanW + reach * 2,
+        reach + stickmanH * 0.2,
       );
       canvas.saveLayer(
         flickerRect,
@@ -1176,8 +1181,11 @@ final bool highContrast;
     }
 
     // Countdown badges — side-by-side above the head when both are active.
+    // Clamp vertically so the badge is never clipped when the stickman jumps
+    // high (or during screen shake) and would otherwise leave the canvas top.
     const badgeRadius = 11.0;
-    final badgeY = headCenterY - effectiveH * 0.09 - badgeRadius - 5;
+    final badgeY = (headCenterY - effectiveH * 0.09 - badgeRadius - 5)
+        .clamp(badgeRadius + 6.0, height);
     final showShield = snapshot.shieldActive && snapshot.shieldRemainingSec > 0;
     final showMagnet = snapshot.magnetActive && snapshot.magnetRemainingSec > 0;
 
