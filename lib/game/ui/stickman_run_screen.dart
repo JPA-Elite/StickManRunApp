@@ -792,8 +792,8 @@ child: RepaintBoundary(
     }
     final isRunning = _snapshot.status == GameStatus.running;
     return Positioned(
-      right: 30,
-      bottom: _buttonBottom + _jumpSpacing,
+      right: 30 + 52 + 14,
+      bottom: _buttonBottom,
       child: SizedBox(
         width: 52,
         height: 52,
