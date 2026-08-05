@@ -676,7 +676,7 @@ final bool highContrast;
       text: TextSpan(
         text: label,
         style: TextStyle(
-          fontSize: 22,
+          fontSize: 18,
           fontWeight: FontWeight.w900,
           letterSpacing: 1.5,
           color: Colors.white.withValues(alpha: 0.95),
@@ -705,8 +705,8 @@ final bool highContrast;
       textDirection: TextDirection.ltr,
     )..layout();
 
-    final left = 16.0;
-    final top = 16.0;
+    final left = 14.0;
+    final top = 14.0;
     textPainter.paint(canvas, Offset(left, top));
 
     // Neon accent icon to the right of the title (varies by level theme).
@@ -2046,16 +2046,16 @@ final bool highContrast;
     // Leaderboard plates: darker fill so the icon chip + values pop.
     final badgeFill = Paint()..color = const Color(0xCC000000).withValues(alpha: 0.45);
 
-    double y = 18;
-    double x = width - 186;
+    double y = 14;
+    double x = width - 160;
 
     // Score plate (star chip).
     _drawBadge(
       canvas,
       x: x,
       y: y,
-      w: 170,
-      h: 46,
+      w: 145,
+      h: 40,
       title: 'SCORE',
       value: snapshot.score.toString(),
       badgeFill: badgeFill,
@@ -2063,15 +2063,15 @@ final bool highContrast;
       icon: BadgeIcon.star,
       accent: const Color(0xFFFFD700),
     );
-    y += 52;
+    y += 46;
 
     // Coins plate (coin chip).
     _drawBadge(
       canvas,
       x: x,
       y: y,
-      w: 170,
-      h: 46,
+      w: 145,
+      h: 40,
       title: 'COINS',
       value: snapshot.coins.toString(),
       badgeFill: badgeFill,
@@ -2096,7 +2096,7 @@ final bool highContrast;
   }) {
     final rrect = RRect.fromRectAndRadius(
       Rect.fromLTWH(x, y, w, h),
-      const Radius.circular(12),
+      const Radius.circular(10),
     );
     canvas.drawRRect(rrect, badgeFill);
     canvas.drawRRect(rrect, outline);
@@ -2112,35 +2112,35 @@ final bool highContrast;
     );
 
     // Icon chip on the left.
-    final chipCenter = Offset(x + 26, y + h / 2);
+    final chipCenter = Offset(x + 22, y + h / 2);
     canvas.drawCircle(
       chipCenter,
-      14,
+      12,
       Paint()
         ..color = accent.withValues(alpha: 0.22)
         ..style = PaintingStyle.fill,
     );
     canvas.drawCircle(
       chipCenter,
-      14,
+      12,
       Paint()
         ..color = accent
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2,
     );
     if (icon == BadgeIcon.star) {
-      _drawStar(canvas, center: chipCenter, radius: 8, color: accent);
+      _drawStar(canvas, center: chipCenter, radius: 7, color: accent);
     } else {
-      _drawCoinIcon(canvas, center: chipCenter, radius: 8);
+      _drawCoinIcon(canvas, center: chipCenter, radius: 7);
     }
 
-    final textX = x + 44;
+    final textX = x + 38;
 
     final titlePainter = TextPainter(
       text: TextSpan(
         text: title,
         style: const TextStyle(
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: FontWeight.w900,
           color: Colors.white70,
           letterSpacing: 1,
@@ -2153,7 +2153,7 @@ final bool highContrast;
       text: TextSpan(
         text: value,
         style: TextStyle(
-          fontSize: 20,
+          fontSize: 17,
           fontWeight: FontWeight.w900,
           color: accent,
           letterSpacing: 0.5,
@@ -2166,7 +2166,7 @@ final bool highContrast;
     )..layout();
 
     // Layout inside badge: title near top, value around lower-middle.
-    final titleY = y + 7;
+    final titleY = y + 6;
     final valueCenterY = y + h * 0.62;
     titlePainter.paint(canvas, Offset(textX, titleY));
     valuePainter.paint(

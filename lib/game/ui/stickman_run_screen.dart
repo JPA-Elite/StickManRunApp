@@ -610,7 +610,7 @@ child: RepaintBoundary(
       left: 0,
       right: 0,
       child: Padding(
-        padding: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.only(top: 6),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -619,7 +619,7 @@ child: RepaintBoundary(
               tooltip: 'Pause',
               onTap: _pause,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
             _TopCircleButton(
               icon: Icons.help_outline,
               tooltip: 'Obstacle guide',
@@ -1242,14 +1242,14 @@ class _TopCircleButton extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: Container(
-          width: 50,
-          height: 50,
+          width: 42,
+          height: 42,
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.45),
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 2),
+            border: Border.all(color: Colors.white, width: 1.5),
           ),
-          child: Icon(icon, color: Colors.white, size: 26),
+          child: Icon(icon, color: Colors.white, size: 22),
         ),
       ),
     );
