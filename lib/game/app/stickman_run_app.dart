@@ -3,10 +3,13 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../settings/score_history.dart';
+import '../settings/settings_controller.dart';
 import '../ui/menu_backdrop.dart';
+import '../ui/obstacle_guide.dart';
 import '../ui/score_history_screen.dart';
 import '../ui/settings_screen.dart';
 import '../ui/stickman_run_screen.dart';
+import '../../widgets/top_toast.dart';
 import '../../game/engine/level_config.dart' as engine;
 
 class StickmanRunApp extends StatefulWidget {
@@ -79,11 +82,19 @@ class _StickmanRunAppState extends State<StickmanRunApp>
               SafeArea(
                 child: Stack(
                   children: [
+                    // Full-width header bar (level select page only).
+                    if (_showLevelSelect)
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: _BrandCard(),
+                      ),
                     // Main content — fills the screen so cards can grow as
                     // large as possible.
                     Positioned.fill(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: EdgeInsets.zero,
                   child: Column(
                     children: [
                       if (!_showLevelSelect) ...[
@@ -164,10 +175,8 @@ class _StickmanRunAppState extends State<StickmanRunApp>
                         ),
                         const Spacer(flex: 4),
                       ] else ...[
-                        // Level select header lives in the column flow so the
-                        // card sits naturally between it and the play button,
-                        // with equal top & bottom margins.
-                        _BrandCard(),
+                        // Room for the full-width header bar rendered above.
+                        const SizedBox(height: 64),
                         const SizedBox(height: 8),
                         Expanded(
                           child: Stack(
@@ -252,38 +261,83 @@ class _StickmanRunAppState extends State<StickmanRunApp>
                           ),
                         ),
                         const SizedBox(height: 12),
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            _navigatorKey.currentState!.push(
-                              MaterialPageRoute(
-                                builder: (_) => StickmanRunScreen(
-                                  initialLevel: _selectedLevel,
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: IconButton(
+                                  icon: const Icon(
+                                    Icons.emoji_events,
+                                    color: Colors.yellow,
+                                    size: 28,
+                                  ),
+                                  tooltip: 'Score History',
+                                  onPressed: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            const ScoreHistoryScreen(),
+                                      ),
+                                    );
+                                  },
                                 ),
                               ),
-                            );
-                          },
-                          icon: const Icon(
-                            Icons.play_arrow,
-                            color: Colors.black,
-                          ),
-                          label: const Text(
-                            'PLAY LEVEL',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w900,
-                              fontSize: 18,
                             ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.yellow,
-                            foregroundColor: Colors.black,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                _navigatorKey.currentState!.push(
+                                  MaterialPageRoute(
+                                    builder: (_) => StickmanRunScreen(
+                                      initialLevel: _selectedLevel,
+                                    ),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(
+                                Icons.play_arrow,
+                                color: Colors.black,
+                              ),
+                              label: const Text(
+                                'PLAY LEVEL',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.yellow,
+                                foregroundColor: Colors.black,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 32,
+                                  vertical: 10,
+                                ),
+                              ),
                             ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 32,
-                              vertical: 10,
+                            Expanded(
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: IconButton(
+                                  icon: const Icon(
+                                    Icons.menu_book,
+                                    color: Colors.white,
+                                    size: 28,
+                                  ),
+                                  tooltip: 'Skills',
+                                  onPressed: () {
+                                    TopToast.show(
+                                      context,
+                                      message: 'Skills – coming soon',
+                                    );
+                                  },
+                                ),
+                              ),
                             ),
-                          ),
+                          ],
                         ),
                         const SizedBox(height: 8),
                       ],
@@ -331,7 +385,6 @@ class _BrandCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.white, width: 3),
         borderRadius: BorderRadius.circular(22),
         color: Colors.white.withOpacity(0.06),
       ),
@@ -359,14 +412,44 @@ class _BrandCard extends StatelessWidget {
           const SizedBox(width: 8),
           const Spacer(),
           IconButton(
-            icon: const Icon(Icons.emoji_events, color: Colors.yellow, size: 24),
-            tooltip: 'Score History',
+            icon: const Icon(Icons.help_outline, color: Colors.white, size: 24),
+            tooltip: 'How to Play',
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => const ScoreHistoryScreen(),
+                  builder: (_) => const ObstacleGuideScreen(),
                 ),
               );
+            },
+          ),
+          ListenableBuilder(
+            listenable: SettingsController.instance,
+            builder: (context, _) {
+              final muted = !SettingsController.instance
+                  .settings
+                  .vibrationsEnabled;
+              return IconButton(
+                icon: Icon(
+                  muted ? Icons.volume_off : Icons.volume_up,
+                  color: Colors.white,
+                  size: 24,
+                ),
+                tooltip: muted ? 'Sound: Off' : 'Sound: On',
+                onPressed: () {
+                  SettingsController.instance.setVibrationsEnabled(muted);
+                },
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(
+              Icons.local_fire_department,
+              color: Colors.orangeAccent,
+              size: 24,
+            ),
+            tooltip: 'Daily Streak',
+            onPressed: () {
+              TopToast.show(context, message: 'Daily Streak – coming soon');
             },
           ),
           IconButton(
@@ -378,6 +461,7 @@ class _BrandCard extends StatelessWidget {
               ).push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
             },
           ),
+          const SizedBox(width: 9),
         ],
       ),
     );
