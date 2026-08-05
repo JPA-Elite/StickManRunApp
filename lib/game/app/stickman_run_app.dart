@@ -432,10 +432,54 @@ class _CarouselLevelCard extends StatelessWidget {
   static String _levelBackdropAsset(int levelIndex) =>
       _endlessBackdrops[(levelIndex - 1).clamp(0, _endlessBackdrops.length - 1)];
 
+  /// Difficulty tier shown on each card (mirrors the level's difficulty ramp).
+  static const List<String> _difficultyLabels = [
+    'CASUAL',
+    'EASY',
+    'MEDIUM',
+    'HARD',
+    'EXTREME',
+    'ENDLESS',
+  ];
+
+  static String _difficultyLabel(int levelIndex) =>
+      _difficultyLabels[(levelIndex - 1).clamp(0, _difficultyLabels.length - 1)];
+
+  /// Thematic icon shown in each card's top-right corner, matching the icon the
+  /// game draws next to the level title during play (see _drawLevelLabel).
+  static IconData _levelIcon(int levelIndex) {
+    switch (levelIndex) {
+      case 1:
+        return Icons.forest; // FOREST
+      case 2:
+        return Icons.wb_sunny; // DESERT (cactus is drawn manually in-game)
+      case 3:
+        return Icons.nightlight_round; // NIGHT CITY
+      case 4:
+        return Icons.brightness_3; // DARK CAVE (bat is drawn manually in-game)
+      case 5:
+        return Icons.local_fire_department; // VOLCANO
+      default:
+        return Icons.casino; // RANDOM / ENDLESS
+    }
+  }
+
+  /// Accent color used for the level's in-game title glow, derived from the
+  /// level's sky color (mirrors StickmanRunPainter._levelAccentColor).
+  static Color _levelAccent(int topColor) {
+    final base = Color(topColor);
+    final hsl = HSLColor.fromColor(base);
+    return hsl
+        .withLightness((hsl.lightness * 0.55 + 0.6).clamp(0.0, 1.0))
+        .withSaturation(0.85)
+        .toColor();
+  }
+
   @override
   Widget build(BuildContext context) {
     final border = isActive ? Colors.yellow : Colors.white;
     final scale = isActive ? 1.0 : 0.92;
+    final accent = _levelAccent(level.visuals.topColor);
 
     return AnimatedScale(
       scale: scale,
@@ -518,6 +562,13 @@ class _CarouselLevelCard extends StatelessWidget {
                     gaplessPlayback: true,
                   ),
                 ),
+              // Slightly darken the background image so the level info reads
+              // clearly on top of it.
+              Positioned.fill(
+                child: ColoredBox(
+                  color: Colors.black.withValues(alpha: 0.35),
+                ),
+              ),
               LayoutBuilder(
                 builder: (context, constraints) {
                   return FittedBox(
@@ -566,13 +617,11 @@ class _CarouselLevelCard extends StatelessWidget {
                                       width: 3,
                                     ),
                                     borderRadius: BorderRadius.circular(12),
-                                    color: Colors.yellow.withValues(alpha: 0.25),
+                                    color: accent.withValues(alpha: 0.28),
                                   ),
                                   child: Icon(
-                                    level.levelIndex == 6
-                                        ? Icons.casino
-                                        : Icons.star,
-                                    color: Colors.yellow,
+                                    _levelIcon(level.levelIndex),
+                                    color: accent,
                                     size: 24,
                                   ),
                                 ),
@@ -629,13 +678,14 @@ class _CarouselLevelCard extends StatelessWidget {
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
-                                        'Shield + Magnet',
+                                        _difficultyLabel(level.levelIndex),
                                         style: TextStyle(
                                           color: Colors.white.withValues(
                                             alpha: 0.85,
                                           ),
                                           fontWeight: FontWeight.w800,
                                           fontSize: 15,
+                                          letterSpacing: 0.6,
                                         ),
                                       ),
                                       const Spacer(),
