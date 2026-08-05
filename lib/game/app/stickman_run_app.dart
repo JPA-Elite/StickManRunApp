@@ -62,8 +62,7 @@ class _StickmanRunAppState extends State<StickmanRunApp>
       home: ListenableBuilder(
         listenable: ScoreHistoryController.instance,
         builder: (context, _) => Scaffold(
-          body: SafeArea(
-          child: Stack(
+          body: Stack(
             children: [
               Positioned.fill(
                 child: CustomPaint(
@@ -77,14 +76,21 @@ class _StickmanRunAppState extends State<StickmanRunApp>
                   ),
                 ),
               ),
+              SafeArea(
+                child: Stack(
+                  children: [
+                    // Brand card pinned at top (level select page only)
+                    if (_showLevelSelect)
+                      Positioned(
+                        top: 12,
+                        left: 16,
+                        right: 16,
+                        child: _BrandCard(),
+                      ),
 
-              // Brand card pinned at top (level select page only)
-              if (_showLevelSelect)
-                Positioned(top: 12, left: 16, right: 16, child: _BrandCard()),
-
-              // Main content — fills the screen so cards can grow as large
-              // as possible.
-              Positioned.fill(
+                    // Main content — fills the screen so cards can grow as
+                    // large as possible.
+                    Positioned.fill(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Column(
@@ -291,12 +297,14 @@ class _StickmanRunAppState extends State<StickmanRunApp>
                   ),
                 ),
               ),
-            ],
+              ],
+            ),
           ),
-        ),
+        ],
       ),
-        ),
-    );
+    ),
+  ),
+);
   }
 }
 
