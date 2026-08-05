@@ -79,15 +79,6 @@ class _StickmanRunAppState extends State<StickmanRunApp>
               SafeArea(
                 child: Stack(
                   children: [
-                    // Brand card pinned at top (level select page only)
-                    if (_showLevelSelect)
-                      Positioned(
-                        top: 12,
-                        left: 16,
-                        right: 16,
-                        child: _BrandCard(),
-                      ),
-
                     // Main content — fills the screen so cards can grow as
                     // large as possible.
                     Positioned.fill(
@@ -173,8 +164,11 @@ class _StickmanRunAppState extends State<StickmanRunApp>
                         ),
                         const Spacer(flex: 4),
                       ] else ...[
-                        // Level select area
-                        const SizedBox(height: 76),
+                        // Level select header lives in the column flow so the
+                        // card sits naturally between it and the play button,
+                        // with equal top & bottom margins.
+                        _BrandCard(),
+                        const SizedBox(height: 8),
                         Expanded(
                           child: Stack(
                             alignment: Alignment.center,
@@ -291,7 +285,7 @@ class _StickmanRunAppState extends State<StickmanRunApp>
                             ),
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 8),
                       ],
                     ],
                   ),
@@ -363,21 +357,7 @@ class _BrandCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Expanded(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: const Text(
-                'LEVEL SELECT',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 10,
-                  letterSpacing: 1,
-                ),
-              ),
-            ),
-          ),
+          const Spacer(),
           IconButton(
             icon: const Icon(Icons.emoji_events, color: Colors.yellow, size: 24),
             tooltip: 'Score History',
@@ -417,10 +397,43 @@ class _CarouselLevelCard extends StatelessWidget {
     required this.starCount,
   });
 
+  /// Corner radius applied to the card background images so their tips match
+  /// the card's rounded corners (the card itself uses BorderRadius.circular(20)).
+  static const double _imageRadius = 20;
+
+  /// Maps a level to its background image asset. Level 6 (ENDLESS) reuses the
+  /// volcano scene as its representative backdrop.
+  static const List<String> _endlessBackdrops = [
+    'assets/images/forest_background.png',
+    'assets/images/desert_background.png',
+    'assets/images/nightcity_background.png',
+    'assets/images/darkcave_background.png',
+    'assets/images/volcano_background.png',
+  ];
+
+  static const List<String> _endlessLabels = [
+    'FOREST',
+    'DESERT',
+    'NIGHT CITY',
+    'DARK CAVE',
+    'VOLCANO',
+  ];
+
+  /// Per-strip horizontal sampling so each narrow strip shows a different part
+  /// of its (landscape) background image instead of the same centered crop.
+  static const List<Alignment> _endlessAlignments = [
+    Alignment(-0.9, 0),
+    Alignment(-0.45, 0),
+    Alignment(0.0, 0),
+    Alignment(0.45, 0),
+    Alignment(0.9, 0),
+  ];
+
+  static String _levelBackdropAsset(int levelIndex) =>
+      _endlessBackdrops[(levelIndex - 1).clamp(0, _endlessBackdrops.length - 1)];
+
   @override
   Widget build(BuildContext context) {
-    final stripeTop = Color(level.visuals.topColor);
-    final stripeBottom = Color(level.visuals.bottomColor);
     final border = isActive ? Colors.yellow : Colors.white;
     final scale = isActive ? 1.0 : 0.92;
 
@@ -430,167 +443,231 @@ class _CarouselLevelCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         child: Container(
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             border: Border.all(color: border, width: isActive ? 4 : 3),
             borderRadius: BorderRadius.circular(20),
-            color: Colors.black.withOpacity(0.35),
           ),
-          padding: const EdgeInsets.all(16),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.center,
-                child: SizedBox(
-                  width: constraints.maxWidth,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (level.levelIndex == 6)
+                // Clip the whole strip row once so all five backdrops share one
+                // smooth rounded outline (top AND bottom) instead of each strip
+                // being rounded individually.
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(_imageRadius),
+                  child: Row(
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.white, width: 3),
-                              borderRadius: BorderRadius.circular(14),
-                              color: Colors.white.withOpacity(0.06),
-                            ),
-                            child: Text(
-                              level.visuals.themeTag,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 18,
-                              ),
-                            ),
+                      for (var i = 0; i < _endlessBackdrops.length; i++) ...[
+                        if (i > 0)
+                          const SizedBox(
+                            width: 2,
+                            height: double.infinity,
+                            child: ColoredBox(color: Color(0xFF0B0E13)),
                           ),
-                          const Spacer(),
-                          if (level.levelIndex == 6)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
+                        Expanded(
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Image.asset(
+                                _endlessBackdrops[i],
+                                fit: BoxFit.cover,
+                                alignment: _endlessAlignments[i],
+                                gaplessPlayback: true,
                               ),
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: Colors.redAccent,
-                                  width: 2,
-                                ),
-                                borderRadius: BorderRadius.circular(10),
-                                color: Colors.redAccent.withOpacity(0.15),
-                              ),
-                              child: const Text(
-                                'HARDEST',
-                                style: TextStyle(
-                                  color: Colors.redAccent,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 14,
-                                  letterSpacing: 1,
+                              Align(
+                                alignment: Alignment.bottomCenter,
+                                child: Container(
+                                  margin: const EdgeInsets.only(bottom: 3),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 1,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.6),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      _endlessLabels[i],
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 8,
+                                        letterSpacing: 0.3,
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                          const SizedBox(width: 8),
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.black, width: 3),
-                              borderRadius: BorderRadius.circular(12),
-                              color: Colors.yellow.withOpacity(0.15),
-                            ),
-                            child: Icon(
-                              level.levelIndex == 6
-                                  ? Icons.casino
-                                  : Icons.star,
-                              color: Colors.yellow,
-                              size: 24,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          height: 12,
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.black, width: 3),
-                            color: stripeTop,
-                          ),
-                          foregroundDecoration: BoxDecoration(
-                            border: Border.all(color: Colors.black, width: 3),
-                            color: stripeBottom.withOpacity(0.65),
+                            ],
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        level.visuals.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 24,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: List.generate(5, (i) {
-                          final filled = i < starCount;
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 3),
-                            child: Icon(
-                              Icons.star,
-                              size: 24,
-                              color: filled
-                                  ? Colors.yellow
-                                  : Colors.white.withOpacity(0.25),
-                            ),
-                          );
-                        }),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.bolt,
-                            size: 20,
-                            color: Colors.yellow,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Shield + Magnet',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.8),
-                              fontWeight: FontWeight.w800,
-                              fontSize: 15,
-                            ),
-                          ),
-                          const Spacer(),
-                          const Icon(
-                            Icons.emoji_events,
-                            size: 18,
-                            color: Colors.yellow,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            bestScore > 0 ? 'BEST $bestScore' : 'NO RECORD',
-                            style: const TextStyle(
-                              color: Colors.yellow,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
+                      ],
                     ],
                   ),
+                )
+              else
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(_imageRadius),
+                  child: Image.asset(
+                    _levelBackdropAsset(level.levelIndex),
+                    fit: BoxFit.cover,
+                    gaplessPlayback: true,
+                  ),
                 ),
-              );
-            },
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.center,
+                    child: SizedBox(
+                      width: constraints.maxWidth,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 3,
+                                    ),
+                                    borderRadius: BorderRadius.circular(14),
+                                    color: Colors.black.withValues(alpha: 0.25),
+                                  ),
+                                  child: Text(
+                                    level.visuals.themeTag,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                ),
+                                const Spacer(),
+                                const SizedBox(width: 8),
+                                Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: Colors.black,
+                                      width: 3,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                    color: Colors.yellow.withValues(alpha: 0.25),
+                                  ),
+                                  child: Icon(
+                                    level.levelIndex == 6
+                                        ? Icons.casino
+                                        : Icons.star,
+                                    color: Colors.yellow,
+                                    size: 24,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.55),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: Colors.white24),
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    level.visuals.name,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 24,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: List.generate(5, (i) {
+                                      final filled = i < starCount;
+                                      return Padding(
+                                        padding: const EdgeInsets.only(
+                                          right: 3,
+                                        ),
+                                        child: Icon(
+                                          Icons.star,
+                                          size: 24,
+                                          color: filled
+                                              ? Colors.yellow
+                                              : Colors.white.withValues(
+                                                  alpha: 0.25,
+                                                ),
+                                        ),
+                                      );
+                                    }),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.bolt,
+                                        size: 20,
+                                        color: Colors.yellow,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Shield + Magnet',
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.85,
+                                          ),
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      const Icon(
+                                        Icons.emoji_events,
+                                        size: 18,
+                                        color: Colors.yellow,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        bestScore > 0
+                                            ? 'BEST $bestScore'
+                                            : 'NO RECORD',
+                                        style: const TextStyle(
+                                          color: Colors.yellow,
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
         ),
       ),
