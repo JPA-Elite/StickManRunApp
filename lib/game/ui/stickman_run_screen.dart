@@ -29,8 +29,6 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     with SingleTickerProviderStateMixin {
   late final StickmanRunEngine _engine;
   late final AnimationController _controller;
-  double _buttonBottom = 16;
-  double _jumpSpacing = 60;
 
   bool _paused = false;
   bool _showPauseCard = false;
@@ -588,10 +586,10 @@ child: RepaintBoundary(
                 ),
                 _buildOverlay(),
                 _buildTopButtons(),
-                _buildPauseOverlay(),
                 _buildSmashButton(width: width, height: height),
-                _buildJumpButton(),
-                _buildCrawlButton(),
+                _buildJumpButton(width: width, height: height),
+                _buildCrawlButton(width: width, height: height),
+                _buildPauseOverlay(),
               ],
             ),
           ),
@@ -786,49 +784,63 @@ child: RepaintBoundary(
     );
   }
 
-  Widget _buildJumpButton() {
+  Widget _buildJumpButton({required double width, required double height}) {
     if (_settings.controlScheme == ControlScheme.gestures) {
       return const SizedBox.shrink();
     }
     final isRunning = _snapshot.status == GameStatus.running;
+    final btn = 52.0 * _settings.jumpButtonScale;
+    final left = (_settings.jumpButtonDx * width - btn / 2)
+        .clamp(0.0, width - btn);
+    final top =
+        (_settings.jumpButtonDy * height - btn / 2).clamp(0.0, height - btn);
     return Positioned(
-      right: 30 + 52 + 14,
-      bottom: _buttonBottom,
+      left: left,
+      top: top,
       child: SizedBox(
-        width: 52,
-        height: 52,
+        width: btn,
+        height: btn,
         child: ElevatedButton(
           onPressed: isRunning && !_paused ? _onJump : null,
           style: _circleBtnStyle(
             isRunning: isRunning,
             activeColor: Colors.yellow,
           ),
-          child: const Icon(Icons.arrow_upward, size: 28, weight: 900),
+          child: Icon(
+            Icons.arrow_upward,
+            size: 28 * _settings.jumpButtonScale,
+            weight: 900,
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildCrawlButton() {
+  Widget _buildCrawlButton({required double width, required double height}) {
     if (_settings.controlScheme == ControlScheme.gestures) {
       return const SizedBox.shrink();
     }
     final isRunning = _snapshot.status == GameStatus.running;
+    final btn = 52.0 * _settings.crawlButtonScale;
+    final left = (_settings.crawlButtonDx * width - btn / 2)
+        .clamp(0.0, width - btn);
+    final top =
+        (_settings.crawlButtonDy * height - btn / 2).clamp(0.0, height - btn);
     return Positioned(
-      right: 30,
-      bottom: _buttonBottom,
+      left: left,
+      top: top,
       child: SizedBox(
-        width: 52,
-        height: 52,
+        width: btn,
+        height: btn,
         child: ElevatedButton(
           onPressed: isRunning && !_paused ? _onCrawl : null,
           style: _circleBtnStyle(
             isRunning: isRunning,
             activeColor: Colors.cyanAccent,
           ),
-          child: const Icon(
+          child: Icon(
             Icons.subdirectory_arrow_left,
-            size: 26,
+            size: 26 * _settings.crawlButtonScale,
             weight: 900,
           ),
         ),
@@ -844,22 +856,26 @@ child: RepaintBoundary(
     final canSmash = isRunning && _snapshot.smashCooldownSec <= 0;
     final activeRed = const Color.fromARGB(255, 220, 50, 50);
     final glowRed = const Color.fromARGB(180, 255, 80, 80);
+    final s = _settings.attackButtonScale;
+    final sw = 64.0 * s;
+    final sh = 72.0 * s;
 
     return Positioned(
-      left: 30,
-      bottom: _buttonBottom,
+      left: (_settings.attackButtonDx * width - sw / 2).clamp(0.0, width - sw),
+      top: (_settings.attackButtonDy * height - sh / 2)
+          .clamp(0.0, height - sh),
       child: SizedBox(
-        width: 64,
-        height: 72,
+        width: sw,
+        height: sh,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             // Cooldown bar — thick, rounded, with glow when ready.
             SizedBox(
-              width: 58,
-              height: 6,
+              width: 58 * s,
+              height: 6 * s,
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(3),
+                borderRadius: BorderRadius.circular(3 * s),
                 child: LinearProgressIndicator(
                   value: isRunning ? (1 - _snapshot.smashCooldownSec / 1.2) : 1,
                   backgroundColor: Colors.white.withOpacity(0.08),
@@ -869,11 +885,11 @@ child: RepaintBoundary(
                 ),
               ),
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: 4 * s),
             // Glowing outer ring.
             Container(
-              width: 60,
-              height: 60,
+              width: 60 * s,
+              height: 60 * s,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 boxShadow: canSmash
@@ -908,7 +924,7 @@ child: RepaintBoundary(
                       color: canSmash
                           ? Colors.white.withOpacity(0.7)
                           : Colors.white.withOpacity(0.1),
-                      width: 3,
+                      width: 3 * s,
                     ),
                   ),
                   elevation: canSmash ? 12 : 2,
@@ -922,7 +938,7 @@ child: RepaintBoundary(
                     ..scale(-1.0, 1.0, 1.0),
                   child: Icon(
                     Icons.sports_mma,
-                    size: 30,
+                    size: 30 * s,
                     weight: 900,
                     color: canSmash
                         ? Colors.white

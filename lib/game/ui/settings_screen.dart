@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../settings/game_settings.dart';
 import '../settings/settings_controller.dart';
+import 'button_customize_screen.dart';
 import 'haptics.dart';
 
 /// Arcade-Console style settings screen.
@@ -73,6 +74,11 @@ class SettingsScreen extends StatelessWidget {
                                   .setControlScheme,
                             ),
                           ),
+                           const _RowDivider(),
+                           _ButtonPlacementSection(
+                             enabled: settings.controlScheme ==
+                                 ControlScheme.buttons,
+                           ),
                            const _RowDivider(),
                            _SettingRow(
                              label: 'VIBRATIONS',
@@ -394,6 +400,53 @@ class _RowDivider extends StatelessWidget {
     return const Padding(
       padding: EdgeInsets.symmetric(vertical: 8),
       child: Divider(color: Colors.white12, height: 1),
+    );
+  }
+}
+
+/// Button placement editor for BUTTONS mode. Opens the full-screen layout
+/// editor where each button can be moved and resized independently. Greyed
+/// out in gestures mode (only usable in buttons mode).
+class _ButtonPlacementSection extends StatelessWidget {
+  final bool enabled;
+
+  const _ButtonPlacementSection({required this.enabled});
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: enabled ? 1.0 : 0.35,
+      child: IgnorePointer(
+        ignoring: !enabled,
+        child: SizedBox(
+          width: double.infinity,
+          height: 44,
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.tune, size: 20),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const ButtonCustomizeScreen(),
+              ),
+            ),
+            label: const Text(
+              'CUSTOMIZE',
+              style: TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.yellow,
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 4,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -126,6 +126,27 @@ class GameSettings {
   /// When true, the device vibrates on smash and on hitting an obstacle.
   final bool vibrationsEnabled;
 
+  /// Normalized (0..1, 0..1) position of the SMASH (attack) button center
+  /// within the play area (origin = top-left). Only used in BUTTONS mode.
+  final double attackButtonDx;
+  final double attackButtonDy;
+
+  /// Normalized (0..1, 0..1) position of the JUMP button center.
+  /// Only used in BUTTONS mode.
+  final double jumpButtonDx;
+  final double jumpButtonDy;
+
+  /// Normalized (0..1, 0..1) position of the CRAWL button center.
+  /// Only used in BUTTONS mode.
+  final double crawlButtonDx;
+  final double crawlButtonDy;
+
+  /// Per-button size multipliers (0.5..1.5) applied to each on-screen button
+  /// (SMASH, JUMP, CRAWL). Only used in BUTTONS mode.
+  final double attackButtonScale;
+  final double jumpButtonScale;
+  final double crawlButtonScale;
+
   const GameSettings({
     this.difficulty = GameDifficulty.normal,
     this.stickmanColor = 0xFFFFFFFF,
@@ -133,6 +154,15 @@ class GameSettings {
     this.highContrast = false,
     this.controlScheme = ControlScheme.buttons,
     this.vibrationsEnabled = false,
+    this.attackButtonDx = 0.07,
+    this.attackButtonDy = 0.865,
+    this.jumpButtonDx = 0.855,
+    this.jumpButtonDy = 0.89,
+    this.crawlButtonDx = 0.935,
+    this.crawlButtonDy = 0.89,
+    this.attackButtonScale = 1.0,
+    this.jumpButtonScale = 1.0,
+    this.crawlButtonScale = 1.0,
   });
 
   GameSettings copyWith({
@@ -142,6 +172,15 @@ class GameSettings {
     bool? highContrast,
     ControlScheme? controlScheme,
     bool? vibrationsEnabled,
+    double? attackButtonDx,
+    double? attackButtonDy,
+    double? jumpButtonDx,
+    double? jumpButtonDy,
+    double? crawlButtonDx,
+    double? crawlButtonDy,
+    double? attackButtonScale,
+    double? jumpButtonScale,
+    double? crawlButtonScale,
   }) {
     return GameSettings(
       difficulty: difficulty ?? this.difficulty,
@@ -150,6 +189,15 @@ class GameSettings {
       highContrast: highContrast ?? this.highContrast,
       controlScheme: controlScheme ?? this.controlScheme,
       vibrationsEnabled: vibrationsEnabled ?? this.vibrationsEnabled,
+      attackButtonDx: attackButtonDx ?? this.attackButtonDx,
+      attackButtonDy: attackButtonDy ?? this.attackButtonDy,
+      jumpButtonDx: jumpButtonDx ?? this.jumpButtonDx,
+      jumpButtonDy: jumpButtonDy ?? this.jumpButtonDy,
+      crawlButtonDx: crawlButtonDx ?? this.crawlButtonDx,
+      crawlButtonDy: crawlButtonDy ?? this.crawlButtonDy,
+      attackButtonScale: attackButtonScale ?? this.attackButtonScale,
+      jumpButtonScale: jumpButtonScale ?? this.jumpButtonScale,
+      crawlButtonScale: crawlButtonScale ?? this.crawlButtonScale,
     );
   }
 }
