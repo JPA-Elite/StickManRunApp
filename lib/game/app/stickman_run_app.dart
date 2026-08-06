@@ -424,9 +424,9 @@ class _BrandCard extends StatelessWidget {
   }
 }
 
-/// Total score accumulated across all recorded runs.
-int _totalScore(ScoreHistoryController history) =>
-    history.records.fold(0, (sum, r) => sum + r.score);
+/// Lifetime total score accumulated across all recorded runs (survives
+/// clearing the score history).
+int _totalScore(ScoreHistoryController history) => history.accumulatedScore;
 
 /// Fires [onReturnToHome] whenever a pushed route is popped and the homepage
 /// becomes current again, so the level-up celebration can trigger after a run

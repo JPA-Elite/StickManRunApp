@@ -48,10 +48,18 @@ class ScoreHistoryController extends ChangeNotifier {
 
   static const String _keyRecords = 'score_history_v1';
   static const String _keyLastCelebratedTier = 'last_celebrated_tier';
+  static const String _keyAccumulatedScore = 'accumulated_score_v1';
   static const int maxRecords = 20;
 
   List<ScoreRecord> _records = [];
   List<ScoreRecord> get records => List.unmodifiable(_records);
+
+  int _accumulatedScore = 0;
+
+  /// Lifetime total score accumulated across all runs. Unlike [records], this
+  /// survives [clear] so the homepage rank tier is not reset when history is
+  /// wiped.
+  int get accumulatedScore => _accumulatedScore;
 
   int _lastCelebratedTier = 0;
 
@@ -92,6 +100,7 @@ class ScoreHistoryController extends ChangeNotifier {
       }
     }
     _lastCelebratedTier = prefs.getInt(_keyLastCelebratedTier) ?? 0;
+    _accumulatedScore = prefs.getInt(_keyAccumulatedScore) ?? 0;
     _loaded = true;
     notifyListeners();
   }
@@ -102,6 +111,7 @@ class ScoreHistoryController extends ChangeNotifier {
       _keyRecords,
       jsonEncode(_records.map((r) => r.toJson()).toList()),
     );
+    await prefs.setInt(_keyAccumulatedScore, _accumulatedScore);
   }
 
   /// Appends a finished run at the front, caps at [maxRecords], persists.
@@ -110,11 +120,13 @@ class ScoreHistoryController extends ChangeNotifier {
     if (_records.length > maxRecords) {
       _records = _records.sublist(0, maxRecords);
     }
+    _accumulatedScore += record.score;
     await _save();
     notifyListeners();
   }
 
-  /// Empties all history and persists.
+  /// Empties all history and persists. The accumulated score (which drives
+  /// the homepage rank tier) is intentionally preserved.
   Future<void> clear() async {
     _records = [];
     await _save();
