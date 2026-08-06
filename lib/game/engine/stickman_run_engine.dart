@@ -205,17 +205,28 @@ class StickmanRunEngine {
   /// Duration of the cinematic theme-change transition.
   static const double themeTransitionDurationSec = 1.4;
 
+  /// Last 500m milestone crossed for the RANDOM/endless level. A change here
+  /// (independent of the drawn theme index) triggers exactly one theme draw.
+  int _randomThemeBand = 0;
+
   /// Shuffled "bag" of the five visual themes (0..4) for the RANDOM/endless
-  /// level. Consumed one per 500m milestone; refilled with a fresh shuffle so
-  /// no theme repeats until all five have been shown.
+  /// level. Consumed one per milestone; refilled with a fresh shuffle so no
+  /// theme repeats until all five have been shown. The currently displayed
+  /// theme is never inside the bag.
   final List<int> _randomThemeBag = [];
 
   /// Draws the next endless theme from the shuffled bag, refilling (and
-  /// reshuffling) the bag whenever it runs dry.
+  /// reshuffling) the bag whenever it runs dry. A freshly-refilled bag never
+  /// yields the currently displayed theme as its first draw, so the same scene
+  /// never shows twice in a row across a cycle boundary.
   int _nextRandomTheme() {
     if (_randomThemeBag.isEmpty) {
       _randomThemeBag.addAll([0, 1, 2, 3, 4]);
       _randomThemeBag.shuffle(_rng);
+      while (_randomThemeBag.isNotEmpty &&
+          _randomThemeBag.first == _randomThemeIndex) {
+        _randomThemeBag.shuffle(_rng);
+      }
     }
     return _randomThemeBag.removeAt(0);
   }
@@ -336,9 +347,16 @@ class StickmanRunEngine {
     _levelTimeSec = 0;
 
     _timeSec = 0;
+    _randomThemeBand = 0;
     _randomThemeIndex = 0;
     _randomThemeIndexPrev = 0;
-    _randomThemeBag.clear();
+    // The starting scene (theme 0) is already displayed, so the first bag
+    // holds the other four themes. Once it runs dry all five have been shown
+    // and the next refill draws a full new shuffle.
+    _randomThemeBag
+      ..clear()
+      ..addAll([1, 2, 3, 4])
+      ..shuffle(_rng);
     _themeTransitionSec = 0;
     _hitCount = 0;
 
@@ -586,8 +604,15 @@ class StickmanRunEngine {
     // shuffle of all five scenes) so no theme repeats until the whole set has
     // been shown.
     if (_level.levelIndex == 6) {
-      final band = (_distanceMeters / 500.0).floor();
-      if (band != _randomThemeIndex) {
+      // Scene duration scales by 2x each scene: scene 1 = 2, scene 2 = 4,
+      // scene 3 = 6, scene 4 = 8 ... multipliers of a 250m base, i.e.
+      // 500m, 1000m, 1500m, 2000m, ... The next milestone is the cumulative
+      // sum of those intervals. Themes are drawn from a shuffled bag (a fresh
+      // shuffle of all five scenes) so no theme repeats until all are shown.
+      final nextScene = _randomThemeBand + 1;
+      final nextMilestoneMeters = 100 * (nextScene * (nextScene + 1) ~/ 2);
+      if (_distanceMeters >= nextMilestoneMeters) {
+        _randomThemeBand = nextScene;
         _randomThemeIndexPrev = _randomThemeIndex;
         _randomThemeIndex = _nextRandomTheme();
         _themeTransitionSec = themeTransitionDurationSec;
@@ -624,13 +649,13 @@ class StickmanRunEngine {
     }
   }
 
-  /// Running speed rises only at each 500-meter milestone reached, for every
-  /// level — no continuous per-coin creep. Bumped +5% per step, capped so
-  /// endless runs don't spiral out of control.
+  /// Running speed rises at each 100-meter milestone reached, for every level —
+  /// matching the endless scene cadence. Bumped +5% per step, capped so endless
+  /// runs don't spiral out of control.
   double _steppedSpeed() {
-    final step = (_distanceMeters / 500.0).floor().clamp(0, 12);
+    final step = (_distanceMeters / 200.0).floor().clamp(0, 12);
     final base = _level.tuning.speed;
-    return base * (1 + step * 0.05);
+    return base * (1 + step * 0.1);
   }
 
   void _recomputeSpawnCadence() {
