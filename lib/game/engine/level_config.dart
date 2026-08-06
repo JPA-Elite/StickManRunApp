@@ -159,10 +159,18 @@ class LevelConfig {
         ),
         obstacleRules: [
           ObstacleSpawnRule(
-            obstacleTypes: const [ObstacleType.spike, ObstacleType.cactus, ObstacleType.stalagmite],
+            obstacleTypes: const [
+              ObstacleType.spike,
+              ObstacleType.cactus,
+              ObstacleType.stalagmite,
+            ],
             weight: 1.0,
             spawnCoins: true,
-            powerUps: const [PowerUpType.shield, PowerUpType.heal25, PowerUpType.heal50],
+            powerUps: const [
+              PowerUpType.shield,
+              PowerUpType.heal25,
+              PowerUpType.heal50,
+            ],
           ),
           ObstacleSpawnRule(
             obstacleTypes: const [ObstacleType.bat, ObstacleType.drone],
@@ -198,10 +206,18 @@ class LevelConfig {
         ),
         obstacleRules: [
           ObstacleSpawnRule(
-            obstacleTypes: const [ObstacleType.cactus, ObstacleType.spike, ObstacleType.pendulumMine],
+            obstacleTypes: const [
+              ObstacleType.cactus,
+              ObstacleType.spike,
+              ObstacleType.pendulumMine,
+            ],
             weight: 1.1,
             spawnCoins: true,
-            powerUps: const [PowerUpType.shield, PowerUpType.magnet, PowerUpType.heal50],
+            powerUps: const [
+              PowerUpType.shield,
+              PowerUpType.magnet,
+              PowerUpType.heal50,
+            ],
           ),
           ObstacleSpawnRule(
             obstacleTypes: const [ObstacleType.rollingRock],
@@ -237,10 +253,18 @@ class LevelConfig {
         ),
         obstacleRules: [
           ObstacleSpawnRule(
-            obstacleTypes: const [ObstacleType.drone, ObstacleType.laser, ObstacleType.bat],
+            obstacleTypes: const [
+              ObstacleType.drone,
+              ObstacleType.laser,
+              ObstacleType.bat,
+            ],
             weight: 1.2,
             spawnCoins: true,
-            powerUps: const [PowerUpType.magnet, PowerUpType.heal25, PowerUpType.heal50],
+            powerUps: const [
+              PowerUpType.magnet,
+              PowerUpType.heal25,
+              PowerUpType.heal50,
+            ],
           ),
           ObstacleSpawnRule(
             obstacleTypes: const [ObstacleType.spike, ObstacleType.cactus],
@@ -276,10 +300,18 @@ class LevelConfig {
         ),
         obstacleRules: [
           ObstacleSpawnRule(
-            obstacleTypes: const [ObstacleType.stalagmite, ObstacleType.pendulumMine, ObstacleType.spike],
+            obstacleTypes: const [
+              ObstacleType.stalagmite,
+              ObstacleType.pendulumMine,
+              ObstacleType.spike,
+            ],
             weight: 1.15,
             spawnCoins: true,
-            powerUps: const [PowerUpType.shield, PowerUpType.heal25, PowerUpType.heal50],
+            powerUps: const [
+              PowerUpType.shield,
+              PowerUpType.heal25,
+              PowerUpType.heal50,
+            ],
           ),
           ObstacleSpawnRule(
             obstacleTypes: const [ObstacleType.bat, ObstacleType.drone],
@@ -303,7 +335,8 @@ class LevelConfig {
           topColor: _c(0xFF8A1F1B),
           bottomColor: _c(0xFF2B0808),
           groundColor: _c(0xFF992611),
-        ),        tuning: LevelTuning(
+        ),
+        tuning: LevelTuning(
           speed: 460,
           gravity: 3050,
           jumpVelocity: -840,
@@ -314,10 +347,20 @@ class LevelConfig {
         ),
         obstacleRules: [
           ObstacleSpawnRule(
-            obstacleTypes: const [ObstacleType.fireJet, ObstacleType.fireball, ObstacleType.spike, ObstacleType.rollingRock],
+            obstacleTypes: const [
+              ObstacleType.fireJet,
+              ObstacleType.fireball,
+              ObstacleType.spike,
+              ObstacleType.rollingRock,
+            ],
             weight: 1.35,
             spawnCoins: true,
-            powerUps: const [PowerUpType.shield, PowerUpType.magnet, PowerUpType.heal25, PowerUpType.heal50],
+            powerUps: const [
+              PowerUpType.shield,
+              PowerUpType.magnet,
+              PowerUpType.heal25,
+              PowerUpType.heal50,
+            ],
           ),
           ObstacleSpawnRule(
             obstacleTypes: const [ObstacleType.laser, ObstacleType.drone],
@@ -337,7 +380,7 @@ class LevelConfig {
         levelIndex: 6,
         visuals: LevelVisuals(
           name: 'RANDOM',
-          themeTag: 'ENDLESS',
+          themeTag: 'LEVEL 6',
           // Placeholder theme; the painter cycles through the other five
           // level palettes while this endless level runs.
           topColor: _c(0xFF202020),

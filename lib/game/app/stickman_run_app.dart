@@ -457,7 +457,7 @@ class _CarouselLevelCard extends StatelessWidget {
     'MEDIUM',
     'HARD',
     'EXTREME',
-    'ENDLESS',
+    'NIGHTMARE',
   ];
 
   static String _difficultyLabel(int levelIndex) =>
