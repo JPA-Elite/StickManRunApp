@@ -22,7 +22,7 @@ class StickmanRunApp extends StatefulWidget {
 class _StickmanRunAppState extends State<StickmanRunApp>
     with SingleTickerProviderStateMixin {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
-  final PageController _pageController = PageController(viewportFraction: 0.88);
+  final PageController _pageController = PageController(viewportFraction: 0.6);
   int _selectedLevel = 1;
   bool _showLevelSelect = false;
 
@@ -185,78 +185,91 @@ class _StickmanRunAppState extends State<StickmanRunApp>
                             alignment: Alignment.center,
                             children: [
                               Positioned.fill(
-                                child: PageView.builder(
-                                  controller: _pageController,
-                                  itemCount: levels.length,
-                                  onPageChanged: (index) {
-                                    setState(
-                                      () => _selectedLevel =
-                                          levels[index].levelIndex,
-                                    );
-                                  },
-                                  itemBuilder: (context, index) {
-                                    final l = levels[index];
-                                    final isActive =
-                                        l.levelIndex == _selectedLevel;
-                                    return _CarouselLevelCard(
-                                      level: l,
-                                      isActive: isActive,
-                                      bestScore: ScoreHistoryController
-                                          .instance
-                                          .bestForLevel(l.levelIndex),
-                                      starCount: (l.levelIndex.clamp(1, 5)),
-                                    );
-                                  },
-                                ),
-                              ),
+                                child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+                                   child: PageView.builder(
+                                     controller: _pageController,
+                                     itemCount: levels.length,
+                                     onPageChanged: (index) {
+                                       setState(
+                                         () => _selectedLevel =
+                                             levels[index].levelIndex,
+                                       );
+                                     },
+                                     itemBuilder: (context, index) {
+                                       final l = levels[index];
+                                       final isActive =
+                                           l.levelIndex == _selectedLevel;
+                                       return _CarouselLevelCard(
+                                         level: l,
+                                         isActive: isActive,
+                                         bestScore: ScoreHistoryController
+                                             .instance
+                                             .bestForLevel(l.levelIndex),
+                                         starCount: (l.levelIndex.clamp(1, 5)),
+                                       );
+                                     },
+                                    ),
+                                 ),
+                               ),
                               Positioned(
                                 left: 0,
-                                child: _ArrowButton(
-                                  icon: Icons.arrow_left,
-                                  onTap: () {
-                                    final idx = levels.indexWhere(
-                                      (l) => l.levelIndex == _selectedLevel,
-                                    );
-                                    final prev = (idx > 0)
-                                        ? idx - 1
-                                        : levels.length - 1;
-                                    setState(
-                                      () => _selectedLevel =
-                                          levels[prev].levelIndex,
-                                    );
-                                    _pageController.animateToPage(
-                                      prev,
-                                      duration: const Duration(
-                                        milliseconds: 300,
-                                      ),
-                                      curve: Curves.easeInOut,
-                                    );
-                                  },
+                                child: Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(left: 32),
+                                    child: _ArrowButton(
+                                      icon: Icons.arrow_left,
+                                      onTap: () {
+                                        final idx = levels.indexWhere(
+                                          (l) => l.levelIndex == _selectedLevel,
+                                        );
+                                        final prev = (idx > 0)
+                                            ? idx - 1
+                                            : levels.length - 1;
+                                        setState(
+                                          () => _selectedLevel =
+                                              levels[prev].levelIndex,
+                                        );
+                                        _pageController.animateToPage(
+                                          prev,
+                                          duration: const Duration(
+                                            milliseconds: 300,
+                                          ),
+                                          curve: Curves.easeInOut,
+                                        );
+                                      },
+                                    ),
+                                  ),
                                 ),
                               ),
                               Positioned(
                                 right: 0,
-                                child: _ArrowButton(
-                                  icon: Icons.arrow_right,
-                                  onTap: () {
-                                    final idx = levels.indexWhere(
-                                      (l) => l.levelIndex == _selectedLevel,
-                                    );
-                                    final next = (idx < levels.length - 1)
-                                        ? idx + 1
-                                        : 0;
-                                    setState(
-                                      () => _selectedLevel =
-                                          levels[next].levelIndex,
-                                    );
-                                    _pageController.animateToPage(
-                                      next,
-                                      duration: const Duration(
-                                        milliseconds: 300,
-                                      ),
-                                      curve: Curves.easeInOut,
-                                    );
-                                  },
+                                child: Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(right: 32),
+                                    child: _ArrowButton(
+                                      icon: Icons.arrow_right,
+                                      onTap: () {
+                                        final idx = levels.indexWhere(
+                                          (l) => l.levelIndex == _selectedLevel,
+                                        );
+                                        final next = (idx < levels.length - 1)
+                                            ? idx + 1
+                                            : 0;
+                                        setState(
+                                          () => _selectedLevel =
+                                              levels[next].levelIndex,
+                                        );
+                                        _pageController.animateToPage(
+                                          next,
+                                          duration: const Duration(
+                                            milliseconds: 300,
+                                          ),
+                                          curve: Curves.easeInOut,
+                                        );
+                                      },
+                                    ),
+                                  ),
                                 ),
                               ),
                             ],
@@ -365,17 +378,20 @@ class _ArrowButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 42,
-        height: 42,
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.1),
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 2),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.1),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+          ),
+          child: Icon(icon, color: Colors.white, size: 28),
         ),
-        child: Icon(icon, color: Colors.white, size: 28),
       ),
     );
   }
@@ -570,7 +586,7 @@ class _CarouselLevelCard extends StatelessWidget {
       scale: scale,
       duration: const Duration(milliseconds: 250),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
         child: Container(
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
