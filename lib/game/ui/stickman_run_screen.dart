@@ -475,17 +475,23 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   /// or swipe gestures to jump.
   bool get _canTapToJump => false;
 
+  /// True while the cinematic entrance transition is playing (bloom + theme
+  /// banner). The game HUD stays hidden until it finishes.
+  bool get _cinematicActive => _snapshot.themeTransitionSec > 0;
+
   /// In gestures mode a single tap smashes (cooldown handled by the engine).
   bool get _canTapToSmash =>
       _settings.controlScheme == ControlScheme.gestures &&
       _snapshot.status == GameStatus.running &&
-      !_paused;
+      !_paused &&
+      !_cinematicActive;
 
   /// True when swipe gestures control jump/crawl (running and not paused).
   bool get _gesturesActive =>
       _settings.controlScheme == ControlScheme.gestures &&
       _snapshot.status == GameStatus.running &&
-      !_paused;
+      !_paused &&
+      !_cinematicActive;
 
   /// Velocity (px/s) a swipe must exceed to count as jump or crawl.
   static const double _swipeVelocityThreshold = 400;
@@ -615,7 +621,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   /// Pause + guide buttons, centered at the top. Visible only while running.
   Widget _buildTopButtons() {
     final isRunning = _snapshot.status == GameStatus.running;
-    if (!isRunning || _paused) return const SizedBox.shrink();
+    if (!isRunning || _paused || _cinematicActive) return const SizedBox.shrink();
 
     return Positioned(
       top: 0,
@@ -725,6 +731,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   }
 
   Widget _buildSmashIndicator({required double width, required double height}) {
+    if (_snapshot.status != GameStatus.running) return const SizedBox.shrink();
     final isRunning = _snapshot.status == GameStatus.running;
     final canSmash = isRunning && _snapshot.smashCooldownSec <= 0;
     final ready = canSmash && !_paused;
@@ -803,6 +810,8 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     if (_settings.controlScheme == ControlScheme.gestures) {
       return const SizedBox.shrink();
     }
+    if (_cinematicActive) return const SizedBox.shrink();
+    if (_snapshot.status != GameStatus.running) return const SizedBox.shrink();
     final isRunning = _snapshot.status == GameStatus.running;
     final btn = 52.0 * _settings.jumpButtonScale;
     final left = (_settings.jumpButtonDx * width - btn / 2).clamp(
@@ -839,6 +848,8 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     if (_settings.controlScheme == ControlScheme.gestures) {
       return const SizedBox.shrink();
     }
+    if (_cinematicActive) return const SizedBox.shrink();
+    if (_snapshot.status != GameStatus.running) return const SizedBox.shrink();
     final isRunning = _snapshot.status == GameStatus.running;
     final btn = 52.0 * _settings.crawlButtonScale;
     final left = (_settings.crawlButtonDx * width - btn / 2).clamp(
@@ -872,6 +883,8 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   }
 
   Widget _buildSmashButton({required double width, required double height}) {
+    if (_cinematicActive) return const SizedBox.shrink();
+    if (_snapshot.status != GameStatus.running) return const SizedBox.shrink();
     if (_settings.controlScheme == ControlScheme.gestures) {
       return _buildSmashIndicator(width: width, height: height);
     }

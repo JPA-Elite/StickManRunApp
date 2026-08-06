@@ -196,7 +196,7 @@ class StickmanRunPainter extends CustomPainter {
     // HUD ornaments (top-right).
     // Hide HUD when the overlay is showing (ready/game-over/level-complete)
     // to prevent SCORE/COINS from overlapping the overlay card.
-    if (snapshot.status == GameStatus.running) {
+    if (snapshot.status == GameStatus.running && snapshot.themeTransitionSec <= 0) {
       _drawHud(canvas, groundY: groundY);
       _drawLifeBar(canvas, groundY: groundY);
     }
