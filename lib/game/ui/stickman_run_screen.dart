@@ -526,6 +526,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   void _restartLevel() {
     _engine.start(levelIndex: _levelIndex);
     _engine.startRunning();
+    _engine.triggerCinematic();
     _paused = false;
     _showPauseCard = false;
     _lastTime = 0;
@@ -1144,6 +1145,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                                               levelIndex: _levelIndex,
                                             );
                                             _engine.startRunning();
+                                            _engine.triggerCinematic();
                                             setState(() {
                                               _snapshot = _engine.snapshot();
                                             });
@@ -1174,6 +1176,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                                             _engine.startRunning();
                                             _engine.jump();
                                             _engine.tick(1 / 60.0);
+                                            _engine.triggerCinematic();
                                             if (_settings.vibrationsEnabled) {
                                               vibrate(HapticIntensity.heavy);
                                             }

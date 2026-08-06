@@ -33,7 +33,12 @@ class MenuBackdropPainter extends CustomPainter {
         ..shader = const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFF0B0620), Color(0xFF2A1240), Color(0xFF5A2050), Color(0xFFE0703C)],
+          colors: [
+            Color(0xFF0B0620),
+            Color(0xFF2A1240),
+            Color(0xFF5A2050),
+            Color(0xFFE0703C),
+          ],
           stops: [0.0, 0.42, 0.7, 1.0],
         ).createShader(Rect.fromLTWH(0, 0, w, h)),
     );
@@ -46,15 +51,16 @@ class MenuBackdropPainter extends CustomPainter {
       Offset(sunX, sunY),
       sunR,
       Paint()
-        ..shader = RadialGradient(
-          colors: [
-            const Color(0xFFFFE2AE).withValues(alpha: 0.9),
-            const Color(0xFFE0703C).withValues(alpha: 0.35),
-            const Color(0xFFE0703C).withValues(alpha: 0.0),
-          ],
-        ).createShader(
-          Rect.fromCircle(center: Offset(sunX, sunY), radius: sunR),
-        ),
+        ..shader =
+            RadialGradient(
+              colors: [
+                const Color(0xFFFFE2AE).withValues(alpha: 0.9),
+                const Color(0xFFE0703C).withValues(alpha: 0.35),
+                const Color(0xFFE0703C).withValues(alpha: 0.0),
+              ],
+            ).createShader(
+              Rect.fromCircle(center: Offset(sunX, sunY), radius: sunR),
+            ),
     );
 
     // 3) Twinkling stars in the upper sky.
@@ -109,8 +115,10 @@ class MenuBackdropPainter extends CustomPainter {
     for (var i = 0; i < 12; i++) {
       final mw = 80 + mistRng.nextDouble() * 180;
       final mh = 8 + mistRng.nextDouble() * 14;
-      final mx = (mistRng.nextDouble() * (w + mw * 2) - mw * 2 +
-              t * (12 + mistRng.nextDouble() * 16)) %
+      final mx =
+          (mistRng.nextDouble() * (w + mw * 2) -
+              mw * 2 +
+              t * (4 + mistRng.nextDouble() * 6)) %
           (w + mw);
       final my = horizon + 4 + mistRng.nextDouble() * (h - horizon - 10);
       final mop = 0.05 + 0.06 * sin(t * 0.8 + i);
@@ -123,7 +131,11 @@ class MenuBackdropPainter extends CustomPainter {
       );
     }
 
-    // 8) Vignette for a cinematic frame.
+    // 8) Cinematic highway running beneath the skyline — same design as the
+    //    in-game road: dark asphalt band + animated dashed center line.
+    _drawHighway(canvas, w, h, t);
+
+    // 9) Vignette for a cinematic frame.
     canvas.drawRect(
       Rect.fromLTWH(0, 0, w, h),
       Paint()
@@ -136,6 +148,46 @@ class MenuBackdropPainter extends CustomPainter {
     );
   }
 
+  /// Draws the animated asphalt highway at the bottom of the backdrop. The
+  /// dashed center line scrolls with [t] so it feels like the road is moving
+  /// forward in the same cinematic style as during gameplay.
+  void _drawHighway(Canvas canvas, double w, double h, double t) {
+    final roadTop = h * 0.82;
+    final roadRect = Rect.fromLTWH(0, roadTop, w, h - roadTop);
+    final groundPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFF333333), Color(0xFF161616)],
+      ).createShader(roadRect);
+    canvas.drawRect(roadRect, groundPaint);
+
+    // Center road marking (dashed, real-road style).
+    final dashPaint = Paint()
+      ..color = const Color(0xFFFFCF4D).withValues(alpha: 0.5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5;
+
+    final yLine = roadTop + 20;
+
+    const dashLen = 26.0;
+    const gapLen = 26.0;
+    const period = dashLen + gapLen;
+
+    // Animate dashes with time so the road feels like it's moving forward.
+    final speedPx = 60.0;
+    final shift = (t * speedPx) % period;
+
+    for (double x = -period; x < w + period; x += period) {
+      final startX = x - shift;
+      canvas.drawLine(
+        Offset(startX, yLine),
+        Offset(startX + dashLen, yLine),
+        dashPaint,
+      );
+    }
+  }
+
   List<_Layer> _buildLayers(double w, double horizon) {
     final tileW = w + 260.0;
     final baseRng = Random(levelCount * 7919 + 11);
@@ -145,7 +197,7 @@ class MenuBackdropPainter extends CustomPainter {
         rng: Random(baseRng.nextInt(1 << 30)),
         tileW: tileW,
         horizon: horizon,
-        speed: 7,
+        speed: 2,
         color: const Color(0xFF2A1240),
         heightScale: 0.55,
       ),
@@ -153,7 +205,7 @@ class MenuBackdropPainter extends CustomPainter {
       _Layer.buildings(
         rng: Random(baseRng.nextInt(1 << 30)),
         tileW: tileW,
-        speed: 18,
+        speed: 5,
         color: const Color(0xFF1E0E33),
         windowColor: const Color(0xFFF2A65A),
         windowChance: 0.12,
@@ -165,7 +217,7 @@ class MenuBackdropPainter extends CustomPainter {
       _Layer.buildings(
         rng: Random(baseRng.nextInt(1 << 30)),
         tileW: tileW,
-        speed: 42,
+        speed: 12,
         color: const Color(0xFF120826),
         windowColor: const Color(0xFFFFE9A8),
         windowChance: 0.3,
@@ -232,7 +284,8 @@ class _Layer {
     while (x <= tileW) {
       final y =
           horizon -
-          amp * (0.35 + 0.65 * sin(x * 0.012 + rng.nextDouble() * 6.28)) *
+          amp *
+              (0.35 + 0.65 * sin(x * 0.012 + rng.nextDouble() * 6.28)) *
               heightScale;
       path.lineTo(x, y);
       x += step;
@@ -254,14 +307,7 @@ class _Layer {
     while (x < tileW) {
       final bw = (20 + rng.nextDouble() * 46) * widthScale;
       final bh = (70 + rng.nextDouble() * 150) * heightScale;
-      list.add(
-        _Building(
-          x: x,
-          w: bw,
-          h: bh,
-          seed: rng.nextInt(1 << 30),
-        ),
-      );
+      list.add(_Building(x: x, w: bw, h: bh, seed: rng.nextInt(1 << 30)));
       x += bw + 6 + rng.nextDouble() * 26;
     }
     return list;
@@ -293,28 +339,32 @@ class _Layer {
     final offset = (t * speed) % tileW;
     final fill = Paint()..color = color;
     final window = Paint();
-    for (final b in buildings) {
-      var bx = b.x - offset;
-      if (bx < -b.w) bx += tileW;
-      if (bx + b.w < 0 || bx > w) continue;
-      final top = horizon - b.h;
-      canvas.drawRect(Rect.fromLTWH(bx, top, b.w, b.h), fill);
+    // Draw two copies of the skyline side by side so the scroll is seamless
+    // and continuous to the far edge — no per-building snap/repeat in view.
+    for (var dup = 0; dup < 2; dup++) {
+      final shift = dup * tileW - offset;
+      for (final b in buildings) {
+        final bx = b.x + shift;
+        if (bx + b.w < 0 || bx > w) continue;
+        final top = horizon - b.h;
+        canvas.drawRect(Rect.fromLTWH(bx, top, b.w, b.h), fill);
 
-      // Neon windows (lit probabilistically, seeded per building).
-      final cols = (b.w / 7).floor().clamp(1, 20);
-      final rows = (b.h / 11).floor().clamp(1, 20);
-      final rng = Random(b.seed);
-      for (var r = 0; r < rows; r++) {
-        for (var c = 0; c < cols; c++) {
-          if (rng.nextDouble() > windowChance) continue;
-          final wl = bx + 2 + c * (b.w - 4) / cols;
-          final wt = top + 3 + r * (b.h - 6) / rows;
-          final pulse = 0.5 + 0.5 * sin(t * 3 + r * 0.7 + c);
-          window.color = windowColor.withValues(alpha: 0.3 + pulse * 0.55);
-          canvas.drawRect(
-            Rect.fromLTWH(wl, wt, windowSize, windowSize),
-            window,
-          );
+        // Neon windows (lit probabilistically, seeded per building).
+        final cols = (b.w / 7).floor().clamp(1, 20);
+        final rows = (b.h / 11).floor().clamp(1, 20);
+        final rng = Random(b.seed);
+        for (var r = 0; r < rows; r++) {
+          for (var c = 0; c < cols; c++) {
+            if (rng.nextDouble() > windowChance) continue;
+            final wl = bx + 2 + c * (b.w - 4) / cols;
+            final wt = top + 3 + r * (b.h - 6) / rows;
+            final pulse = 0.5 + 0.5 * sin(t * 3 + r * 0.7 + c);
+            window.color = windowColor.withValues(alpha: 0.3 + pulse * 0.55);
+            canvas.drawRect(
+              Rect.fromLTWH(wl, wt, windowSize, windowSize),
+              window,
+            );
+          }
         }
       }
     }

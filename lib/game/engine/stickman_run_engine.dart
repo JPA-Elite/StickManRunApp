@@ -231,6 +231,12 @@ class StickmanRunEngine {
     return _randomThemeBag.removeAt(0);
   }
 
+  /// Triggers the cinematic bloom + theme-name banner transition on demand
+  /// (e.g. when the player starts or restarts a run).
+  void triggerCinematic() {
+    _themeTransitionSec = themeTransitionDurationSec;
+  }
+
   StickmanRunSnapshot snapshot() {
     return StickmanRunSnapshot(
       status: _status,
@@ -1056,7 +1062,7 @@ class StickmanRunEngine {
       if (_damageGraceSec > 0) continue;
 
       _lifePercent = max(0, _lifePercent - _obstacleDamage(o.type));
-      _damageGraceSec = 1.0;
+      _damageGraceSec = 0.5;
       _damageFlashSec = 0.35;
       _hitCount += 1;
       _smashScorePopups.add(

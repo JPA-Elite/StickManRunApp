@@ -31,6 +31,10 @@ class _StickmanRunAppState extends State<StickmanRunApp>
     duration: const Duration(seconds: 1),
   )..repeat();
 
+  /// Monotonic clock (seconds) for the backdrop so parallax scrolls forward
+  /// continuously instead of looping back each tick.
+  final Stopwatch _backdropClock = Stopwatch()..start();
+
   @override
   void dispose() {
     _pageController.dispose();
@@ -72,10 +76,7 @@ class _StickmanRunAppState extends State<StickmanRunApp>
                 child: CustomPaint(
                   painter: MenuBackdropPainter(
                     levelCount: levels.length,
-                    timeNow: () =>
-                        _backdropController.value *
-                        _backdropController.duration!.inMicroseconds /
-                        1e6,
+                    timeNow: () => _backdropClock.elapsedMilliseconds / 1000.0,
                     repaint: _backdropController,
                   ),
                 ),

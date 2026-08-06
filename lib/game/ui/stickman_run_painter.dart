@@ -16,7 +16,7 @@ class StickmanRunPainter extends CustomPainter {
   final double width;
   final double height;
   final Color stickmanColor;
-final bool highContrast;
+  final bool highContrast;
   final Map<String, ui.Image> sprites;
   final Map<String, Color> spriteColors;
 
@@ -61,8 +61,7 @@ final bool highContrast;
   /// corresponding level index so existing per-level branch logic works.
   int _seedIndexFor(int idx) {
     if (level.levelIndex == 6) {
-      return _cycleThemes[0].levelIndex +
-          idx.clamp(0, _cycleThemes.length - 1);
+      return _cycleThemes[0].levelIndex + idx.clamp(0, _cycleThemes.length - 1);
     }
     return level.levelIndex;
   }
@@ -77,15 +76,14 @@ final bool highContrast;
   void paint(Canvas canvas, Size size) {
     // Cinematic screen shake around the punch impact.
     if (snapshot.smashActive && snapshot.smashRemainingSec > 0) {
-      final p = (1 - snapshot.smashRemainingSec / _smashWindowSec)
-          .clamp(0.0, 1.0);
+      final p = (1 - snapshot.smashRemainingSec / _smashWindowSec).clamp(
+        0.0,
+        1.0,
+      );
       final impact = (1 - (p - 0.35).abs() / 0.35).clamp(0.0, 1.0);
       if (impact > 0.05) {
         final t = snapshot.timeSec * 130.0;
-        canvas.translate(
-          sin(t) * impact * 6.0,
-          cos(t * 0.8) * impact * 3.5,
-        );
+        canvas.translate(sin(t) * impact * 6.0, cos(t * 0.8) * impact * 3.5);
       }
     }
 
@@ -93,10 +91,7 @@ final bool highContrast;
     if (snapshot.damageFlashSec > 0) {
       final p = (snapshot.damageFlashSec / 0.35).clamp(0.0, 1.0);
       final t = snapshot.timeSec * 90.0;
-      canvas.translate(
-        sin(t) * p * 5.0,
-        cos(t * 0.7) * p * 3.0,
-      );
+      canvas.translate(sin(t) * p * 5.0, cos(t * 0.7) * p * 3.0);
     }
 
     final groundY = height * 0.78;
@@ -170,7 +165,8 @@ final bool highContrast;
     // Stickman. During post-hit invulnerability the body fades in and out
     // (flicker) to communicate the grace window.
     if (snapshot.damageGraceSec > 0) {
-      final flickerAlpha = 0.25 + 0.6 * (0.5 + 0.5 * sin(snapshot.timeSec * 24));
+      final flickerAlpha =
+          0.25 + 0.6 * (0.5 + 0.5 * sin(snapshot.timeSec * 24));
       // Generous clip region that also covers the power-up aura + countdown
       // badges above the head, so the flicker never cuts them in half.
       final stickmanW = _stickmanWidthPx();
@@ -224,7 +220,7 @@ final bool highContrast;
     }
 
     // Cinematic theme-change transition: soft bloom + incoming theme banner.
-    if (level.levelIndex == 6 && snapshot.themeTransitionSec > 0) {
+    if (snapshot.themeTransitionSec > 0) {
       _drawThemeTransition(canvas);
     }
   }
@@ -256,8 +252,9 @@ final bool highContrast;
 
     // Incoming theme name fading in center-screen with a gentle lift.
     final name = _visualsFor(snapshot.randomThemeIndex).name;
-    final accentBase =
-        _flutterColor(_visualsFor(snapshot.randomThemeIndex).topColor);
+    final accentBase = _flutterColor(
+      _visualsFor(snapshot.randomThemeIndex).topColor,
+    );
     final hsl = HSLColor.fromColor(accentBase);
     final accent = hsl
         .withLightness((hsl.lightness * 0.55 + 0.6).clamp(0.0, 1.0))
@@ -303,11 +300,17 @@ final bool highContrast;
     if (level.levelIndex == 6 && snapshot.themeTransitionSec > 0) {
       final p = 1 - snapshot.themeTransitionSec / _themeTransitionDurationSec;
       if (snapshot.randomThemeIndexPrev != snapshot.randomThemeIndex) {
-        _drawBackdrop(canvas, _seedIndexFor(snapshot.randomThemeIndexPrev),
-            opacity: 1 - p);
+        _drawBackdrop(
+          canvas,
+          _seedIndexFor(snapshot.randomThemeIndexPrev),
+          opacity: 1 - p,
+        );
       }
       _drawBackdrop(
-          canvas, _seedIndexFor(snapshot.randomThemeIndex), opacity: p);
+        canvas,
+        _seedIndexFor(snapshot.randomThemeIndex),
+        opacity: p,
+      );
       return;
     }
 
@@ -337,12 +340,7 @@ final bool highContrast;
         final scale = max(width / iw, dstH / ih);
         final sw = width / scale;
         final sh = dstH / scale;
-        final src = Rect.fromLTWH(
-          (iw - sw) / 2,
-          (ih - sh) / 2,
-          sw,
-          sh,
-        );
+        final src = Rect.fromLTWH((iw - sw) / 2, (ih - sh) / 2, sw, sh);
         canvas.drawImageRect(
           backdrop,
           src,
@@ -749,11 +747,23 @@ final bool highContrast;
         default:
           icon = Icons.flash_on;
       }
-      _drawNeonIcon(canvas, icon: icon, rect: iconRect, accent: accent, pulse: pulse);
+      _drawNeonIcon(
+        canvas,
+        icon: icon,
+        rect: iconRect,
+        accent: accent,
+        pulse: pulse,
+      );
     }
 
     // Distance readout tucked below the title (live-updates every frame).
-    _drawDistanceLabel(canvas, left: left, top: top + textPainter.height + 6, accent: accent, pulse: pulse);
+    _drawDistanceLabel(
+      canvas,
+      left: left,
+      top: top + textPainter.height + 6,
+      accent: accent,
+      pulse: pulse,
+    );
   }
 
   /// Small neon "distance" line under the level title, e.g. "⇔ 123 M".
@@ -804,7 +814,10 @@ final bool highContrast;
 
     valuePainter.paint(
       canvas,
-      Offset(left + iconRect.width + 6, top + (iconH - valuePainter.height) / 2 + 0.5),
+      Offset(
+        left + iconRect.width + 6,
+        top + (iconH - valuePainter.height) / 2 + 0.5,
+      ),
     );
   }
 
@@ -817,7 +830,10 @@ final bool highContrast;
     required double pulse,
   }) {
     final iconH = rect.height;
-    canvas.saveLayer(rect.inflate(18), Paint()..color = const Color(0x00FFFFFF));
+    canvas.saveLayer(
+      rect.inflate(18),
+      Paint()..color = const Color(0x00FFFFFF),
+    );
     final glowIcon = TextPainter(
       text: TextSpan(
         text: String.fromCharCode(icon.codePoint),
@@ -913,7 +929,12 @@ final bool highContrast;
     // Left wing.
     final leftWing = Path()
       ..moveTo(c.dx, c.dy)
-      ..quadraticBezierTo(rect.left, rect.top + rect.height * 0.2, c.dx - wingW, c.dy - wingH)
+      ..quadraticBezierTo(
+        rect.left,
+        rect.top + rect.height * 0.2,
+        c.dx - wingW,
+        c.dy - wingH,
+      )
       ..quadraticBezierTo(c.dx - wingW * 0.5, c.dy, c.dx, c.dy)
       ..close();
     canvas.drawPath(leftWing, glow);
@@ -921,14 +942,24 @@ final bool highContrast;
     // Right wing.
     final rightWing = Path()
       ..moveTo(c.dx, c.dy)
-      ..quadraticBezierTo(rect.right, rect.top + rect.height * 0.2, c.dx + wingW, c.dy - wingH)
+      ..quadraticBezierTo(
+        rect.right,
+        rect.top + rect.height * 0.2,
+        c.dx + wingW,
+        c.dy - wingH,
+      )
       ..quadraticBezierTo(c.dx + wingW * 0.5, c.dy, c.dx, c.dy)
       ..close();
     canvas.drawPath(rightWing, glow);
     canvas.drawPath(rightWing, fill);
     // Body.
     final body = RRect.fromRectAndRadius(
-      Rect.fromLTWH(c.dx - rect.width * 0.1, c.dy, rect.width * 0.2, rect.height * 0.4),
+      Rect.fromLTWH(
+        c.dx - rect.width * 0.1,
+        c.dy,
+        rect.width * 0.2,
+        rect.height * 0.4,
+      ),
       Radius.circular(rect.width * 0.05),
     );
     canvas.drawRRect(body, fill);
@@ -993,8 +1024,8 @@ final bool highContrast;
     // briefly, then recoils. This reads as a sharp, punchy strike.
     final punchExtend = smashActive
         ? (smashProgress < 0.35
-            ? smashProgress / 0.35
-            : ((1 - smashProgress) / 0.65).clamp(0.0, 1.0))
+              ? smashProgress / 0.35
+              : ((1 - smashProgress) / 0.65).clamp(0.0, 1.0))
         : 0.0;
 
     // Body leans into the punch (smash) and tilts into the run.
@@ -1003,14 +1034,14 @@ final bool highContrast;
     final hipX = bodyCx - runLeanPx * 0.5;
 
     // Head.
-    canvas.drawCircle(Offset(shoulderX, headCenterY), effectiveH * 0.09, fillPaint);
+    canvas.drawCircle(
+      Offset(shoulderX, headCenterY),
+      effectiveH * 0.09,
+      fillPaint,
+    );
 
     // Body: torso tilts forward while running.
-    canvas.drawLine(
-      Offset(shoulderX, torsoTop),
-      Offset(hipX, hipY),
-      outline,
-    );
+    canvas.drawLine(Offset(shoulderX, torsoTop), Offset(hipX, hipY), outline);
 
     // --- Arms (2 segments) — boxing guard: both fists up & forward,
     // elbows bent and tucked. Sized relative to the smaller of width/height
@@ -1037,11 +1068,7 @@ final bool highContrast;
       canvas.drawLine(rearElbow, rearFist, outline);
 
       // Glove: filled circle at the striking fist.
-      canvas.drawCircle(
-        leadFist,
-        s * (0.10 + punchExtend * 0.04),
-        fillPaint,
-      );
+      canvas.drawCircle(leadFist, s * (0.10 + punchExtend * 0.04), fillPaint);
 
       // Impact burst when the fist is fully extended.
       if (punchExtend > 0.55) {
@@ -1059,14 +1086,8 @@ final bool highContrast;
     } else {
       final rearElbow = Offset(cx - w * 0.03, shoulderY + s * 0.26);
       final leadElbow = Offset(cx + w * 0.08, shoulderY + s * 0.20);
-      final rearFist = Offset(
-        cx + w * 0.18,
-        shoulderY + s * 0.12 + guardBob,
-      );
-      final leadFist = Offset(
-        cx + w * 0.32,
-        shoulderY + s * 0.04 - guardBob,
-      );
+      final rearFist = Offset(cx + w * 0.18, shoulderY + s * 0.12 + guardBob);
+      final leadFist = Offset(cx + w * 0.32, shoulderY + s * 0.04 - guardBob);
 
       canvas.drawLine(Offset(shoulderX, shoulderY), rearElbow, outline);
       canvas.drawLine(rearElbow, rearFist, outline);
@@ -1110,11 +1131,13 @@ final bool highContrast;
         final scale = rawD > 1.0 ? min(1.0, maxReach / rawD) : 1.0;
         final fx = hip.dx + dx * scale;
         final fy = hip.dy + dy * scale;
-        final d2 = (fx - hip.dx) * (fx - hip.dx) + (fy - hip.dy) * (fy - hip.dy);
+        final d2 =
+            (fx - hip.dx) * (fx - hip.dx) + (fy - hip.dy) * (fy - hip.dy);
         final D = max(1.0, sqrt(d2));
-        final cosA = ((thighLen * thighLen + D * D - shinLen * shinLen) /
-                (2 * thighLen * D))
-            .clamp(-1.0, 1.0);
+        final cosA =
+            ((thighLen * thighLen + D * D - shinLen * shinLen) /
+                    (2 * thighLen * D))
+                .clamp(-1.0, 1.0);
         final a = acos(cosA);
         final base = atan2(fy - hip.dy, fx - hip.dx);
         final knee1 = Offset(
@@ -1184,8 +1207,10 @@ final bool highContrast;
     // Clamp vertically so the badge is never clipped when the stickman jumps
     // high (or during screen shake) and would otherwise leave the canvas top.
     const badgeRadius = 11.0;
-    final badgeY = (headCenterY - effectiveH * 0.09 - badgeRadius - 5)
-        .clamp(badgeRadius + 6.0, height);
+    final badgeY = (headCenterY - effectiveH * 0.09 - badgeRadius - 5).clamp(
+      badgeRadius + 6.0,
+      height,
+    );
     final showShield = snapshot.shieldActive && snapshot.shieldRemainingSec > 0;
     final showMagnet = snapshot.magnetActive && snapshot.magnetRemainingSec > 0;
 
@@ -1242,10 +1267,7 @@ final bool highContrast;
       final a = -pi / 2 + i * (2 * pi / rays) + 0.35;
       canvas.drawLine(
         center,
-        Offset(
-          center.dx + cos(a) * size,
-          center.dy + sin(a) * size,
-        ),
+        Offset(center.dx + cos(a) * size, center.dy + sin(a) * size),
         rayPaint,
       );
     }
@@ -1358,8 +1380,16 @@ final bool highContrast;
     final halfW = size / 2;
     final legTop = c.dy - size / 2;
     final legBottom = c.dy + size * 0.05;
-    canvas.drawLine(Offset(c.dx - halfW, legTop), Offset(c.dx - halfW, legBottom), paint);
-    canvas.drawLine(Offset(c.dx + halfW, legTop), Offset(c.dx + halfW, legBottom), paint);
+    canvas.drawLine(
+      Offset(c.dx - halfW, legTop),
+      Offset(c.dx - halfW, legBottom),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(c.dx + halfW, legTop),
+      Offset(c.dx + halfW, legBottom),
+      paint,
+    );
     canvas.drawArc(
       Rect.fromCenter(center: c, width: size, height: size * 0.55),
       pi,
@@ -1410,11 +1440,7 @@ final bool highContrast;
     for (int i = 0; i < 3; i++) {
       final y = fist.dy + (i - 1) * 9.0;
       final len = 18 + i * 8.0;
-      canvas.drawLine(
-        Offset(fist.dx - len, y),
-        Offset(fist.dx - 3, y),
-        paint,
-      );
+      canvas.drawLine(Offset(fist.dx - len, y), Offset(fist.dx - 3, y), paint);
     }
   }
 
@@ -1555,15 +1581,14 @@ final bool highContrast;
       final bump = o.type == ObstacleType.rollingRock
           ? 1.25
           : o.type == ObstacleType.cactus || o.type == ObstacleType.stalagmite
-              ? 1.08
-              : 1.04;
+          ? 1.08
+          : 1.04;
       drawH = boxH * bump;
       drawW = src.width * (drawH / src.height);
     } else {
       // Center the whole sprite, but bump its size so flying obstacles read
       // larger than their (deliberately forgiving) gameplay hitbox.
-      final bump = o.type == ObstacleType.bat ||
-              o.type == ObstacleType.drone
+      final bump = o.type == ObstacleType.bat || o.type == ObstacleType.drone
           ? 1.25
           : 1.0;
       var scale = min(boxW / src.width, boxH / src.height) * 1.35 * bump;
@@ -1582,10 +1607,10 @@ final bool highContrast;
     final dst = Rect.fromLTWH(
       o.x + (boxW - drawW) / 2,
       ground
-          ? o.y + boxH - drawH +
-              (o.type == ObstacleType.rollingRock
-                  ? boxH * 0.12
-                  : boxH * 0.1)
+          ? o.y +
+                boxH -
+                drawH +
+                (o.type == ObstacleType.rollingRock ? boxH * 0.12 : boxH * 0.1)
           : o.y + (boxH - drawH) / 2,
       drawW,
       drawH,
@@ -1921,12 +1946,7 @@ final bool highContrast;
       final isBig = p.type == PowerUpType.heal50;
       final r = s * (isBig ? 0.5 : 0.34);
       _drawHeart(canvas, center: Offset(cx, cy), radius: r, paint: fill);
-      _drawHeart(
-        canvas,
-        center: Offset(cx, cy),
-        radius: r,
-        paint: outline,
-      );
+      _drawHeart(canvas, center: Offset(cx, cy), radius: r, paint: outline);
       // Highlight glint on both hearts so they read as collectible.
       _drawSparkleGlint(
         canvas,
@@ -2052,7 +2072,8 @@ final bool highContrast;
       ..strokeWidth = 3;
 
     // Leaderboard plates: darker fill so the icon chip + values pop.
-    final badgeFill = Paint()..color = const Color(0xCC000000).withValues(alpha: 0.45);
+    final badgeFill = Paint()
+      ..color = const Color(0xCC000000).withValues(alpha: 0.45);
 
     double y = 14;
     double x = width - 160;
@@ -2211,7 +2232,11 @@ final bool highContrast;
   }
 
   /// Draws a gold coin: filled circle with an inner ring.
-  void _drawCoinIcon(Canvas canvas, {required Offset center, required double radius}) {
+  void _drawCoinIcon(
+    Canvas canvas, {
+    required Offset center,
+    required double radius,
+  }) {
     canvas.drawCircle(center, radius, Paint()..color = const Color(0xFFFFBF00));
     canvas.drawCircle(
       center,
@@ -2249,10 +2274,7 @@ final bool highContrast;
       Rect.fromLTWH(left, top, barW, barH),
       Radius.circular(barH / 2),
     );
-    canvas.drawRRect(
-      container,
-      Paint()..color = const Color(0x99000000),
-    );
+    canvas.drawRRect(container, Paint()..color = const Color(0x99000000));
     canvas.drawRRect(
       container,
       Paint()
@@ -2263,7 +2285,9 @@ final bool highContrast;
 
     // Low-HP pulse: bar + text steady once life < 30%.
     final lowHp = life < 30;
-    final pulse = lowHp ? (0.6 + 0.4 * (0.5 + 0.5 * sin(snapshot.timeSec * 8))) : 1.0;
+    final pulse = lowHp
+        ? (0.6 + 0.4 * (0.5 + 0.5 * sin(snapshot.timeSec * 8)))
+        : 1.0;
 
     // Left: circular stickman head avatar.
     final headRadius = 16.0 * s;
@@ -2416,17 +2440,23 @@ final bool highContrast;
     )..layout();
     tp.paint(
       canvas,
-      Offset(
-        barX + barW0 / 2 - tp.width / 2,
-        top + barH / 2 - tp.height / 2,
-      ),
+      Offset(barX + barW0 / 2 - tp.width / 2, top + barH / 2 - tp.height / 2),
     );
   }
 
   Color _hpColor(double life) {
     if (life < 25) return const Color(0xFFE74C3C);
-    if (life < 50) return Color.lerp(const Color(0xFFF1C40F), const Color(0xFFE74C3C), (50 - life) / 25)!;
-    return Color.lerp(const Color(0xFF2ECC71), const Color(0xFFF1C40F), (100 - life) / 50)!;
+    if (life < 50)
+      return Color.lerp(
+        const Color(0xFFF1C40F),
+        const Color(0xFFE74C3C),
+        (50 - life) / 25,
+      )!;
+    return Color.lerp(
+      const Color(0xFF2ECC71),
+      const Color(0xFFF1C40F),
+      (100 - life) / 50,
+    )!;
   }
 
   Color _spriteFill(ObstacleType type) {
@@ -2567,7 +2597,11 @@ final bool highContrast;
       // Use position-based seed so rotation stays stable for each particle.
       canvas.rotate(((d.x * 1000 + d.y * 1000).toInt() % 628) / 100.0);
       canvas.drawRect(
-        Rect.fromCenter(center: Offset.zero, width: d.size, height: d.size * 0.6),
+        Rect.fromCenter(
+          center: Offset.zero,
+          width: d.size,
+          height: d.size * 0.6,
+        ),
         paint,
       );
       canvas.restore();
