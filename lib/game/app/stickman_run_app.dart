@@ -522,72 +522,89 @@ class _CarouselLevelCard extends StatelessWidget {
                 // being rounded individually.
                 ClipRRect(
                   borderRadius: BorderRadius.circular(_imageRadius),
-                  child: Row(
+                  child: Stack(
+                    fit: StackFit.expand,
                     children: [
-                      for (var i = 0; i < _endlessBackdrops.length; i++) ...[
-                        if (i > 0)
-                          const SizedBox(
-                            width: 2,
-                            height: double.infinity,
-                            child: ColoredBox(color: Color(0xFF0B0E13)),
-                          ),
-                        Expanded(
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              Image.asset(
-                                _endlessBackdrops[i],
-                                fit: BoxFit.cover,
-                                alignment: _endlessAlignments[i],
-                                gaplessPlayback: true,
+                      Row(
+                        children: [
+                          for (
+                            var i = 0;
+                            i < _endlessBackdrops.length;
+                            i++
+                          ) ...[
+                            if (i > 0)
+                              const SizedBox(
+                                width: 2,
+                                height: double.infinity,
+                                child: ColoredBox(color: Color(0xFF0B0E13)),
                               ),
-                              Align(
-                                alignment: Alignment.bottomCenter,
-                                child: Container(
-                                  margin: const EdgeInsets.only(bottom: 3),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 4,
-                                    vertical: 1,
+                            Expanded(
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  Image.asset(
+                                    _endlessBackdrops[i],
+                                    fit: BoxFit.cover,
+                                    alignment: _endlessAlignments[i],
+                                    gaplessPlayback: true,
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withValues(alpha: 0.6),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Text(
-                                      _endlessLabels[i],
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 8,
-                                        letterSpacing: 0.3,
+                                  Align(
+                                    alignment: Alignment.bottomCenter,
+                                    child: Container(
+                                      margin: const EdgeInsets.only(bottom: 3),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                        vertical: 1,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.6,
+                                        ),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Text(
+                                          _endlessLabels[i],
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 8,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
+                                ],
                               ),
-                            ],
-                          ),
-                        ),
-                      ],
+                            ),
+                          ],
+                        ],
+                      ),
+                      const Positioned.fill(
+                        child: ColoredBox(color: Color(0x59000000)),
+                      ),
                     ],
                   ),
                 )
               else
                 ClipRRect(
                   borderRadius: BorderRadius.circular(_imageRadius),
-                  child: Image.asset(
-                    _levelBackdropAsset(level.levelIndex),
-                    fit: BoxFit.cover,
-                    gaplessPlayback: true,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.asset(
+                        _levelBackdropAsset(level.levelIndex),
+                        fit: BoxFit.cover,
+                        gaplessPlayback: true,
+                      ),
+                      const Positioned.fill(
+                        child: ColoredBox(color: Color(0x59000000)),
+                      ),
+                    ],
                   ),
                 ),
-              // Slightly darken the background image so the level info reads
-              // clearly on top of it.
-              Positioned.fill(
-                child: ColoredBox(color: Colors.black.withValues(alpha: 0.35)),
-              ),
               LayoutBuilder(
                 builder: (context, constraints) {
                   return FittedBox(
