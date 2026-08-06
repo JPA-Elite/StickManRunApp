@@ -47,10 +47,17 @@ class ScoreHistoryController extends ChangeNotifier {
   static final ScoreHistoryController instance = ScoreHistoryController._();
 
   static const String _keyRecords = 'score_history_v1';
+  static const String _keyLastCelebratedTier = 'last_celebrated_tier';
   static const int maxRecords = 20;
 
   List<ScoreRecord> _records = [];
   List<ScoreRecord> get records => List.unmodifiable(_records);
+
+  int _lastCelebratedTier = 0;
+
+  /// Highest rank tier (level) whose "level up" celebration has already been
+  /// shown. 0 means none yet. Used so the celebration fires once per tier.
+  int get lastCelebratedTier => _lastCelebratedTier;
 
   bool _loaded = false;
   bool get loaded => _loaded;
@@ -84,6 +91,7 @@ class ScoreHistoryController extends ChangeNotifier {
         _records = [];
       }
     }
+    _lastCelebratedTier = prefs.getInt(_keyLastCelebratedTier) ?? 0;
     _loaded = true;
     notifyListeners();
   }
@@ -110,6 +118,16 @@ class ScoreHistoryController extends ChangeNotifier {
   Future<void> clear() async {
     _records = [];
     await _save();
+    notifyListeners();
+  }
+
+  /// Records that the "level up" celebration has been shown for [tier] and
+  /// persists it, so it never fires twice for the same tier.
+  Future<void> setLastCelebratedTier(int tier) async {
+    if (tier <= _lastCelebratedTier) return;
+    _lastCelebratedTier = tier;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_keyLastCelebratedTier, tier);
     notifyListeners();
   }
 }

@@ -20,11 +20,17 @@ class StickmanRunApp extends StatefulWidget {
 }
 
 class _StickmanRunAppState extends State<StickmanRunApp>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   final PageController _pageController = PageController(viewportFraction: 0.6);
   int _selectedLevel = 1;
   bool _showLevelSelect = false;
+
+  /// Fires the level-up check whenever a pushed route (e.g. a finished run)
+  /// is popped back to the homepage, where [initState] would not re-run.
+  late final NavigatorObserver _levelUpObserver = _LevelUpObserver(
+    onReturnToHome: _maybeCelebrateLevelUp,
+  );
 
   late final AnimationController _backdropController = AnimationController(
     vsync: this,
@@ -35,10 +41,37 @@ class _StickmanRunAppState extends State<StickmanRunApp>
   /// continuously instead of looping back each tick.
   final Stopwatch _backdropClock = Stopwatch()..start();
 
+  /// Drives the one-time "level up" cinematic celebration overlay.
+  late final AnimationController _celebrationController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2800),
+  );
+
+  /// Rank tier to celebrate (1-based). Null when no celebration is pending.
+  int? _pendingCelebrationTier;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeCelebrateLevelUp());
+  }
+
+  void _maybeCelebrateLevelUp() {
+    final history = ScoreHistoryController.instance;
+    final total = _totalScore(history);
+    final tier = _rankForScore(total).level;
+    if (tier > history.lastCelebratedTier) {
+      history.setLastCelebratedTier(tier);
+      setState(() => _pendingCelebrationTier = tier);
+      _celebrationController.forward(from: 0);
+    }
+  }
+
   @override
   void dispose() {
     _pageController.dispose();
     _backdropController.dispose();
+    _celebrationController.dispose();
     super.dispose();
   }
 
@@ -67,6 +100,7 @@ class _StickmanRunAppState extends State<StickmanRunApp>
       debugShowCheckedModeBanner: false,
       theme: theme,
       navigatorKey: _navigatorKey,
+      navigatorObservers: [_levelUpObserver],
       home: ListenableBuilder(
         listenable: ScoreHistoryController.instance,
         builder: (context, _) => Scaffold(
@@ -97,8 +131,7 @@ class _StickmanRunAppState extends State<StickmanRunApp>
                       child: Column(
                         children: [
                           if (!_showLevelSelect) ...[
-                            const Spacer(flex: 3),
-                            // Big title (no brand card in way)
+                            const Spacer(flex: 3),                            // Big title (no brand card in way)
                             const Text(
                               'STICKMAN\nRUN',
                               textAlign: TextAlign.center,
@@ -307,6 +340,13 @@ class _StickmanRunAppState extends State<StickmanRunApp>
                   ),
                 ],
               ),
+              if (_pendingCelebrationTier != null)
+                _LevelUpCelebration(
+                  tier: _pendingCelebrationTier!,
+                  controller: _celebrationController,
+                  onDismiss: () =>
+                      setState(() => _pendingCelebrationTier = null),
+                ),
             ],
           ),
         ),
@@ -327,24 +367,8 @@ class _BrandCard extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.max,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.white, width: 3),
-              borderRadius: BorderRadius.circular(14),
-              color: Colors.black.withOpacity(0.35),
-            ),
-            child: const Text(
-              'STICKMAN RUN',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.1,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
+          const _RunnerProfile(),
+          const SizedBox(width: 12),
           const Spacer(),
           IconButton(
             icon: const Icon(Icons.help_outline, color: Colors.white, size: 24),
@@ -393,10 +417,449 @@ class _BrandCard extends StatelessWidget {
               ).push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
             },
           ),
-          const SizedBox(width: 9),
+          const SizedBox(width: 9          ),
         ],
       ),
     );
+  }
+}
+
+/// Total score accumulated across all recorded runs.
+int _totalScore(ScoreHistoryController history) =>
+    history.records.fold(0, (sum, r) => sum + r.score);
+
+/// Fires [onReturnToHome] whenever a pushed route is popped and the homepage
+/// becomes current again, so the level-up celebration can trigger after a run
+/// finishes (initState only runs once at app launch).
+class _LevelUpObserver extends NavigatorObserver {
+  final VoidCallback onReturnToHome;
+
+  _LevelUpObserver({required this.onReturnToHome});
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    if (previousRoute != null && previousRoute.isCurrent) {
+      // Defer past the locked navigation transition; calling setState from
+      // didPop synchronously would rebuild the Navigator while it is locked.
+      WidgetsBinding.instance.addPostFrameCallback((_) => onReturnToHome());
+    }
+    super.didPop(route, previousRoute);
+  }
+}
+
+/// Cinematic rank tiers, driven by total accumulated score.
+/// L1 = <10k, L2 = 10k–20k, L3 = 20k–30k, and so on.
+class _RankTier {
+  final int level;
+  final String name;
+  final int nextMilestone;
+
+  const _RankTier({
+    required this.level,
+    required this.name,
+    required this.nextMilestone,
+  });
+}
+
+const List<String> _tierNames = [
+  'ROOKIE',
+  'RUNNER',
+  'SPRINTER',
+  'DASHER',
+  'ACROBAT',
+  'LEGEND',
+];
+
+_RankTier _rankForScore(int total) {
+  final level = (total ~/ 10000 + 1).clamp(1, _tierNames.length);
+  final name = _tierNames[level - 1];
+  return _RankTier(
+    level: level,
+    name: name,
+    nextMilestone: level * 10000,
+  );
+}
+
+/// Header profile chip: stickman avatar + rank label + neon progress bar +
+/// accumulated score caption. Replaces the old "STICKMAN RUN" brand badge.
+class _RunnerProfile extends StatelessWidget {
+  const _RunnerProfile();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: ScoreHistoryController.instance,
+      builder: (context, _) {
+        final history = ScoreHistoryController.instance;
+        final total = _totalScore(history);
+        final tier = _rankForScore(total);
+        final prevMilestone = (tier.level - 1) * 10000;
+        final progress =
+            tier.level >= _tierNames.length
+                ? 1.0
+                : ((total - prevMilestone) / 10000).clamp(0.0, 1.0);
+
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const _StickmanAvatar(size: 46),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${tier.name} LV ${tier.level}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.1,
+                    color: Color(0xFFFFD700),
+                    shadows: [
+                      Shadow(color: Colors.black, blurRadius: 6),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 3),
+                SizedBox(
+                  width: 92,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 6,
+                      backgroundColor: Colors.white.withValues(alpha: 0.12),
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        Color(0xFF4DD8FF),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${total} / ${tier.nextMilestone}',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white.withValues(alpha: 0.7),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Circular avatar that redraws the in-game boxing-guard stickman pose using
+/// the user's chosen stickman color, framed by a neon cyan ring.
+class _StickmanAvatar extends StatelessWidget {
+  final double size;
+
+  const _StickmanAvatar({required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: const Color(0xAA000000),
+        border: Border.all(
+          color: const Color(0xFF4DD8FF),
+          width: 2.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF4DD8FF).withValues(alpha: 0.45),
+            blurRadius: 12,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: ClipOval(
+        child: CustomPaint(
+          size: Size.square(size),
+          painter: _StickmanAvatarPainter(
+            color: Color(SettingsController.instance.settings.stickmanColor),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StickmanAvatarPainter extends CustomPainter {
+  final Color color;
+
+  _StickmanAvatarPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * 0.075
+      ..strokeCap = StrokeCap.round;
+
+    final cx = size.width / 2;
+    final ground = size.height * 0.86;
+    final h = size.height * 0.62;
+    final bob = size.height * 0.02;
+
+    // Head circle (matches game proportion: radius ≈ h * 0.09 → scaled).
+    final headR = h * 0.13;
+    final headCy = ground - h * 0.78 + bob;
+    canvas.drawCircle(Offset(cx, headCy), headR, stroke);
+
+    // Torso tilted forward.
+    final shoulderX = cx + size.width * 0.03;
+    final hipX = cx - size.width * 0.03;
+    final torsoTop = headCy + headR * 0.9;
+    final hipY = ground - h * 0.38 + bob;
+    canvas.drawLine(
+      Offset(shoulderX, torsoTop),
+      Offset(hipX, hipY),
+      stroke,
+    );
+
+    // Boxing guard: both fists up & forward (two segments per arm).
+    final s = min(size.width, size.height) * 0.28;
+    final leadElbow = Offset(cx + size.width * 0.10, torsoTop + s * 0.30);
+    final leadFist = Offset(cx + size.width * 0.20, torsoTop + s * 0.06);
+    final rearElbow = Offset(cx - size.width * 0.05, torsoTop + s * 0.34);
+    final rearFist = Offset(cx + size.width * 0.04, torsoTop + s * 0.12);
+    canvas.drawLine(Offset(shoulderX, torsoTop), leadElbow, stroke);
+    canvas.drawLine(leadElbow, leadFist, stroke);
+    canvas.drawLine(Offset(shoulderX, torsoTop), rearElbow, stroke);
+    canvas.drawLine(rearElbow, rearFist, stroke);
+
+    // Legs.
+    final kneeY = ground - h * 0.18 + bob;
+    canvas.drawLine(Offset(hipX, hipY), Offset(hipX - size.width * 0.06, kneeY), stroke);
+    canvas.drawLine(
+      Offset(hipX - size.width * 0.06, kneeY),
+      Offset(hipX - size.width * 0.02, ground),
+      stroke,
+    );
+    canvas.drawLine(
+      Offset(hipX, hipY),
+      Offset(hipX + size.width * 0.05, kneeY),
+      stroke,
+    );
+    canvas.drawLine(
+      Offset(hipX + size.width * 0.05, kneeY),
+      Offset(hipX + size.width * 0.09, ground),
+      stroke,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _StickmanAvatarPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
+/// One-time cinematic "LEVEL UP" celebration shown on the homepage when the
+/// player's rank tier increases. Bloom + banner + confetti, auto-dismisses.
+class _LevelUpCelebration extends StatelessWidget {
+  final int tier;
+  final AnimationController controller;
+  final VoidCallback onDismiss;
+
+  const _LevelUpCelebration({
+    required this.tier,
+    required this.controller,
+    required this.onDismiss,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final rank = _rankForScore((tier - 1) * 10000);
+
+    return Positioned.fill(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onDismiss,
+        child: AnimatedBuilder(
+          animation: controller,
+          builder: (context, _) {
+            final p = controller.value;
+            final appear = Curves.easeOutCubic.transform(
+              ((p - 0.0) / 0.25).clamp(0.0, 1.0),
+            );
+            final fadeOut = ((p - 0.75) / 0.25).clamp(0.0, 1.0);
+            final opacity = (1.0 - fadeOut).clamp(0.0, 1.0);
+
+            if (p >= 1.0) {
+              WidgetsBinding.instance.addPostFrameCallback((_) => onDismiss());
+            }
+
+            return Opacity(
+              opacity: opacity,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Cinematic bloom.
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: RadialGradient(
+                        center: const Alignment(0, -0.2),
+                        radius: 1.0,
+                        colors: [
+                          const Color(0xFFFFD700).withValues(
+                            alpha: 0.45 * appear,
+                          ),
+                          Colors.black.withValues(alpha: 0.75 * appear),
+                        ],
+                        stops: const [0.0, 1.0],
+                      ),
+                    ),
+                  ),
+                  // Confetti.
+                  IgnorePointer(
+                    child: CustomPaint(
+                      painter: _ConfettiPainter(progress: p),
+                    ),
+                  ),
+                  // Banner.
+                  Center(
+                    child: Transform.scale(
+                      scale: 0.6 + 0.4 * appear,
+                      child: Opacity(
+                        opacity: appear,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'LEVEL UP',
+                              style: TextStyle(
+                                fontSize: 46,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 6,
+                                color: Colors.white,
+                                shadows: [
+                                  Shadow(
+                                    color: const Color(0xFFFFD700).withValues(
+                                      alpha: 0.9,
+                                    ),
+                                    blurRadius: 30,
+                                  ),
+                                  Shadow(
+                                    color: const Color(0xFF4DD8FF).withValues(
+                                      alpha: 0.8,
+                                    ),
+                                    blurRadius: 12,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              '${rank.name} LV ${tier}',
+                              style: TextStyle(
+                                fontSize: 30,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 2,
+                                color: const Color(0xFFFFD700),
+                                shadows: [
+                                  Shadow(
+                                    color: Colors.black,
+                                    blurRadius: 10,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 18,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: const Color(0xFF4DD8FF),
+                                  width: 2,
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                color: Colors.black.withValues(alpha: 0.5),
+                              ),
+                              child: Text(
+                                'TAP TO CONTINUE',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 2,
+                                  color: Colors.white.withValues(alpha: 0.85),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _ConfettiPainter extends CustomPainter {
+  final double progress;
+  final _Random _rng = _Random(1337);
+
+  _ConfettiPainter({required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0.01 || progress >= 1.0) return;
+    final paint = Paint();
+    const colors = [
+      Color(0xFFFFD700),
+      Color(0xFF4DD8FF),
+      Color(0xFFFF6B6B),
+      Color(0xFF9B5DE5),
+      Color(0xFF00F5A0),
+    ];
+    for (var i = 0; i < 60; i++) {
+      final x = _rng.nextDouble() * size.width;
+      final fall = ((progress + _rng.nextDouble() * 0.2) % 1.0) * size.height;
+      final sway = sin((progress + i) * 6) * size.width * 0.03;
+      final w = 4 + _rng.nextDouble() * 5;
+      final h = 2 + _rng.nextDouble() * 3;
+      paint.color = colors[i % colors.length];
+      canvas.save();
+      canvas.translate(x + sway, fall);
+      canvas.rotate(progress * 8 + i);
+      canvas.drawRect(
+        Rect.fromCenter(center: Offset.zero, width: w, height: h),
+        paint,
+      );
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ConfettiPainter oldDelegate) =>
+      oldDelegate.progress != progress;
+}
+
+/// Tiny seeded RNG so confetti is stable across frames.
+class _Random {
+  int _seed;
+
+  _Random(this._seed);
+
+  double nextDouble() {
+    _seed = (_seed * 1103515245 + 12345) & 0x7fffffff;
+    return _seed / 0x7fffffff;
   }
 }
 
