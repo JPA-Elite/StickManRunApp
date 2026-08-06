@@ -136,7 +136,8 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     try {
       final data = await rootBundle.load(asset);
       final bytes = data.buffer.asUint8List();
-      final isBackground = asset == 'assets/images/forest_background.png' ||
+      final isBackground =
+          asset == 'assets/images/forest_background.png' ||
           asset == 'assets/images/desert_background.png' ||
           asset == 'assets/images/nightcity_background.png' ||
           asset == 'assets/images/darkcave_background.png' ||
@@ -168,7 +169,8 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
       // art reads as a soft cartoon during play. The laser and the level
       // background keep their original look.
       var sprite = frame.image;
-      final cartoonized = asset != 'assets/images/laser_obstacle.png' &&
+      final cartoonized =
+          asset != 'assets/images/laser_obstacle.png' &&
           asset != 'assets/images/cactus_obstacle.png' &&
           asset != 'assets/images/forest_background.png' &&
           asset != 'assets/images/desert_background.png' &&
@@ -188,7 +190,11 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
         // Slightly darken the cactus/stalagmite art while keeping its
         // original colors.
         try {
-          final darkened = await _darken(frame.image, factor: 0.72);
+          final darkened = await _darken(
+            frame.image,
+            factor: 0.72,
+            alphaFactor: 0.9,
+          );
           if (!identical(darkened, frame.image)) {
             sprite = darkened;
             frame.image.dispose();
@@ -290,7 +296,11 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   /// Multiplies the RGB of every opaque pixel by [factor] (0..1 darkens,
   /// >1 brightens) while leaving the alpha untouched. Used to gently darken
   /// sprites that keep their original detail.
-  Future<ui.Image> _darken(ui.Image image, {required double factor}) async {
+  Future<ui.Image> _darken(
+    ui.Image image, {
+    required double factor,
+    double alphaFactor = 1.0,
+  }) async {
     final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
     if (data == null) return image;
     final src = data.buffer.asUint8List();
@@ -301,7 +311,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
       out[i] = (src[i] * factor).round().clamp(0, 255);
       out[i + 1] = (src[i + 1] * factor).round().clamp(0, 255);
       out[i + 2] = (src[i + 2] * factor).round().clamp(0, 255);
-      out[i + 3] = src[i + 3];
+      out[i + 3] = (src[i + 3] * alphaFactor).round().clamp(0, 255);
     }
     final buffer = await ui.ImmutableBuffer.fromUint8List(out);
     final descriptor = ui.ImageDescriptor.raw(
@@ -318,12 +328,16 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   (int, int)? _pngSize(Uint8List bytes) {
     if (bytes.length < 24) return null;
     // PNG signature + IHDR length/type, then 4-byte big-endian width/height.
-    if (bytes[0] != 0x89 || bytes[1] != 0x50 || bytes[2] != 0x4E ||
+    if (bytes[0] != 0x89 ||
+        bytes[1] != 0x50 ||
+        bytes[2] != 0x4E ||
         bytes[3] != 0x47) {
       return null;
     }
     int readInt(int o) =>
-        (bytes[o] << 24) | (bytes[o + 1] << 16) | (bytes[o + 2] << 8) |
+        (bytes[o] << 24) |
+        (bytes[o + 1] << 16) |
+        (bytes[o + 2] << 8) |
         bytes[o + 3];
     return (readInt(16), readInt(20));
   }
@@ -532,9 +546,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
       setState(() {});
     }
     await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const ObstacleGuideScreen(),
-      ),
+      MaterialPageRoute<void>(builder: (_) => const ObstacleGuideScreen()),
     );
     if (!_showPauseCard) _resume();
   }
@@ -559,8 +571,10 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                     onTap: _canTapToJump
                         ? _onJump
                         : (_canTapToSmash ? _onSmash : null),
-                    onVerticalDragEnd: _gesturesActive ? _onVerticalSwipe : null,
-child: RepaintBoundary(
+                    onVerticalDragEnd: _gesturesActive
+                        ? _onVerticalSwipe
+                        : null,
+                    child: RepaintBoundary(
                       child: CustomPaint(
                         painter: StickmanRunPainter(
                           snapshot: _snapshot,
@@ -568,11 +582,10 @@ child: RepaintBoundary(
                               _engine.snapshot().levelIndex ==
                                   _snapshot.levelIndex
                               ? _engine.levels[_levelIndex - 1]
-                              : _engine.levels[
-                                  (_snapshot.levelIndex - 1).clamp(
-                                    0,
-                                    _engine.levels.length - 1,
-                                  )],
+                              : _engine.levels[(_snapshot.levelIndex - 1).clamp(
+                                  0,
+                                  _engine.levels.length - 1,
+                                )],
                           width: width,
                           height: height,
                           stickmanColor: Color(_settings.stickmanColor),
@@ -691,9 +704,7 @@ child: RepaintBoundary(
                     label: 'SETTINGS',
                     icon: Icons.settings,
                     onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const SettingsScreen(),
-                      ),
+                      MaterialPageRoute(builder: (_) => const SettingsScreen()),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -722,7 +733,10 @@ child: RepaintBoundary(
     final stickmanX = _snapshot.stickman.x;
     final groundY = height * 0.78;
     const indicatorWidth = 86.0;
-    final left = (stickmanX - indicatorWidth / 2).clamp(4.0, width - indicatorWidth - 4.0);
+    final left = (stickmanX - indicatorWidth / 2).clamp(
+      4.0,
+      width - indicatorWidth - 4.0,
+    );
     final top = groundY + 8;
 
     return Positioned(
@@ -790,10 +804,14 @@ child: RepaintBoundary(
     }
     final isRunning = _snapshot.status == GameStatus.running;
     final btn = 52.0 * _settings.jumpButtonScale;
-    final left = (_settings.jumpButtonDx * width - btn / 2)
-        .clamp(0.0, width - btn);
-    final top =
-        (_settings.jumpButtonDy * height - btn / 2).clamp(0.0, height - btn);
+    final left = (_settings.jumpButtonDx * width - btn / 2).clamp(
+      0.0,
+      width - btn,
+    );
+    final top = (_settings.jumpButtonDy * height - btn / 2).clamp(
+      0.0,
+      height - btn,
+    );
     return Positioned(
       left: left,
       top: top,
@@ -822,10 +840,14 @@ child: RepaintBoundary(
     }
     final isRunning = _snapshot.status == GameStatus.running;
     final btn = 52.0 * _settings.crawlButtonScale;
-    final left = (_settings.crawlButtonDx * width - btn / 2)
-        .clamp(0.0, width - btn);
-    final top =
-        (_settings.crawlButtonDy * height - btn / 2).clamp(0.0, height - btn);
+    final left = (_settings.crawlButtonDx * width - btn / 2).clamp(
+      0.0,
+      width - btn,
+    );
+    final top = (_settings.crawlButtonDy * height - btn / 2).clamp(
+      0.0,
+      height - btn,
+    );
     return Positioned(
       left: left,
       top: top,
@@ -862,8 +884,7 @@ child: RepaintBoundary(
 
     return Positioned(
       left: (_settings.attackButtonDx * width - sw / 2).clamp(0.0, width - sw),
-      top: (_settings.attackButtonDy * height - sh / 2)
-          .clamp(0.0, height - sh),
+      top: (_settings.attackButtonDy * height - sh / 2).clamp(0.0, height - sh),
       child: SizedBox(
         width: sw,
         height: sh,
@@ -983,7 +1004,8 @@ child: RepaintBoundary(
         ? 'GAME OVER'
         : 'LEVEL COMPLETE';
 
-    final flicker = 0.55 +
+    final flicker =
+        0.55 +
         0.45 *
             sin(
               (_controller.lastElapsedDuration?.inMicroseconds.toDouble() ??
@@ -1029,210 +1051,217 @@ child: RepaintBoundary(
             child: ColoredBox(color: Colors.black),
           ),
           LayoutBuilder(
-        builder: (context, constraints) {
-          return SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _canTapToJump ? _onJump : null,
-                child: Center(
-                  child: SizedBox(
-                    width: min(340.0, MediaQuery.of(context).size.width - 32),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      clipBehavior: Clip.none,
-                      children: [
-                        // The main overlay card.
-                        GestureDetector(
-                          onTap: _canTapToJump ? _onJump : null,
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 14,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.6),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.9),
-                                width: 3,
-                              ),
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            child: SingleChildScrollView(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    title,
-                                    style: TextStyle(
-                                      fontSize: 32,
-                                      fontWeight: FontWeight.w900,
-                                      color: Colors.white,
-                                      letterSpacing: 1,
-                                      shadows: [
-                                        const Shadow(
-                                          color: Colors.black,
-                                          blurRadius: 8,
-                                        ),
-                                        Shadow(
-                                          color: isReady
-                                              ? Colors.yellowAccent
-                                              : Colors.redAccent,
-                                          blurRadius: 18,
-                                        ),
-                                      ],
-                                    ),
-                                    textAlign: TextAlign.center,
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _canTapToJump ? _onJump : null,
+                    child: Center(
+                      child: SizedBox(
+                        width: min(
+                          340.0,
+                          MediaQuery.of(context).size.width - 32,
+                        ),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          clipBehavior: Clip.none,
+                          children: [
+                            // The main overlay card.
+                            GestureDetector(
+                              onTap: _canTapToJump ? _onJump : null,
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 14,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.6),
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.9),
+                                    width: 3,
                                   ),
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    subtitle,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white.withOpacity(
-                                        isReady ? flicker : 1.0,
-                                      ),
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  const SizedBox(height: 14),
-                                  if (!isReady)
-                                    ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.white
-                                            .withOpacity(0.9),
-                                        foregroundColor: Colors.black,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            14,
-                                          ),
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 20,
-                                          vertical: 12,
-                                        ),
-                                      ),
-                                      onPressed: () {
-                                        _engine.start(levelIndex: _levelIndex);
-                                        _engine.startRunning();
-                                        setState(() {
-                                          _snapshot = _engine.snapshot();
-                                        });
-                                      },
-                                      child: const Text(
-                                        'RETRY LEVEL',
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                                child: SingleChildScrollView(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        title,
                                         style: TextStyle(
+                                          fontSize: 32,
                                           fontWeight: FontWeight.w900,
-                                        ),
-                                      ),
-                                    ),
-                                  if (isReady)
-                                    ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.white
-                                            .withOpacity(0.9),
-                                        foregroundColor: Colors.black,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            14,
-                                          ),
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 20,
-                                          vertical: 12,
-                                        ),
-                                      ),
-                                      onPressed: () {
-                                          _engine.startRunning();
-                                          _engine.jump();
-                                          _engine.tick(1 / 60.0);
-                                          if (_settings.vibrationsEnabled) {
-                                            vibrate(HapticIntensity.heavy);
-                                          }
-                                          setState(() {
-                                            _snapshot = _engine.snapshot();
-                                          });
-                                        },
-                                      child: const Text(
-                                        'START RUN',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w900,
-                                        ),
-                                      ),
-                                    ),
-                                  // EXIT button.
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 6),
-                                    child: ElevatedButton.icon(
-                                      icon: const Icon(
-                                        Icons.exit_to_app,
-                                        color: Colors.black,
-                                      ),
-                                      onPressed: () =>
-                                          Navigator.of(context).pop(),
-                                      label: const Text(
-                                        'EXIT',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w900,
-                                        ),
-                                      ),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color.fromARGB(
-                                          255,
-                                          230,
-                                          70,
-                                          70,
-                                        ),
-                                        foregroundColor: Colors.black,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            14,
-                                          ),
-                                          side: const BorderSide(
-                                            color: Colors.white,
-                                            width: 2,
-                                          ),
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 22,
-                                          vertical: 10,
-                                        ),
-                                        elevation: 6,
-                                        shadowColor: Colors.redAccent
-                                            .withOpacity(0.5),
-                                      ),
-                                    ),
-                                  ),
-                                  if (isComplete)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 10),
-                                      child: Text(
-                                        'Tap to start the next run (same level for now)',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.white.withOpacity(0.85),
-                                          fontWeight: FontWeight.w700,
+                                          color: Colors.white,
+                                          letterSpacing: 1,
+                                          shadows: [
+                                            const Shadow(
+                                              color: Colors.black,
+                                              blurRadius: 8,
+                                            ),
+                                            Shadow(
+                                              color: isReady
+                                                  ? Colors.yellowAccent
+                                                  : Colors.redAccent,
+                                              blurRadius: 18,
+                                            ),
+                                          ],
                                         ),
                                         textAlign: TextAlign.center,
                                       ),
-                                    ),
-                                ],
+                                      const SizedBox(height: 10),
+                                      Text(
+                                        subtitle,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.white.withOpacity(
+                                            isReady ? flicker : 1.0,
+                                          ),
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                      const SizedBox(height: 14),
+                                      if (!isReady)
+                                        ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.white
+                                                .withOpacity(0.9),
+                                            foregroundColor: Colors.black,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 20,
+                                              vertical: 12,
+                                            ),
+                                          ),
+                                          onPressed: () {
+                                            _engine.start(
+                                              levelIndex: _levelIndex,
+                                            );
+                                            _engine.startRunning();
+                                            setState(() {
+                                              _snapshot = _engine.snapshot();
+                                            });
+                                          },
+                                          child: const Text(
+                                            'RETRY LEVEL',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                          ),
+                                        ),
+                                      if (isReady)
+                                        ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.white
+                                                .withOpacity(0.9),
+                                            foregroundColor: Colors.black,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 20,
+                                              vertical: 12,
+                                            ),
+                                          ),
+                                          onPressed: () {
+                                            _engine.startRunning();
+                                            _engine.jump();
+                                            _engine.tick(1 / 60.0);
+                                            if (_settings.vibrationsEnabled) {
+                                              vibrate(HapticIntensity.heavy);
+                                            }
+                                            setState(() {
+                                              _snapshot = _engine.snapshot();
+                                            });
+                                          },
+                                          child: const Text(
+                                            'START RUN',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                          ),
+                                        ),
+                                      // EXIT button.
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 6),
+                                        child: ElevatedButton.icon(
+                                          icon: const Icon(
+                                            Icons.exit_to_app,
+                                            color: Colors.black,
+                                          ),
+                                          onPressed: () =>
+                                              Navigator.of(context).pop(),
+                                          label: const Text(
+                                            'EXIT',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                          ),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                const Color.fromARGB(
+                                                  255,
+                                                  230,
+                                                  70,
+                                                  70,
+                                                ),
+                                            foregroundColor: Colors.black,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
+                                              side: const BorderSide(
+                                                color: Colors.white,
+                                                width: 2,
+                                              ),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 22,
+                                              vertical: 10,
+                                            ),
+                                            elevation: 6,
+                                            shadowColor: Colors.redAccent
+                                                .withOpacity(0.5),
+                                          ),
+                                        ),
+                                      ),
+                                      if (isComplete)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            top: 10,
+                                          ),
+                                          child: Text(
+                                            'Tap to start the next run (same level for now)',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.white.withOpacity(
+                                                0.85,
+                                              ),
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              ),
-            );
-        },
-      ),
+              );
+            },
+          ),
         ],
       ),
     );
@@ -1295,7 +1324,10 @@ class _PauseActionButton extends StatelessWidget {
         onPressed: onTap,
         label: Text(
           label,
-          style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.8),
+          style: const TextStyle(
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.8,
+          ),
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: red
@@ -1304,7 +1336,10 @@ class _PauseActionButton extends StatelessWidget {
           foregroundColor: Colors.black,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
-            side: BorderSide(color: red ? Colors.white : Colors.yellow, width: 2),
+            side: BorderSide(
+              color: red ? Colors.white : Colors.yellow,
+              width: 2,
+            ),
           ),
           elevation: 4,
         ),

@@ -6,12 +6,7 @@ import '../settings/game_settings.dart';
 import 'entities.dart';
 import 'level_config.dart';
 
-enum GameStatus {
-  ready,
-  running,
-  levelComplete,
-  gameOver,
-}
+enum GameStatus { ready, running, levelComplete, gameOver }
 
 @immutable
 class StickmanRunSnapshot {
@@ -109,10 +104,13 @@ class StickmanRunEngine {
   final Random _rng;
   GameSettings _settings;
 
-  StickmanRunEngine({List<LevelConfig>? levels, int? seed, GameSettings? settings})
-      : levels = levels ?? LevelConfig.all(),
-        _rng = Random(seed),
-        _settings = settings ?? const GameSettings();
+  StickmanRunEngine({
+    List<LevelConfig>? levels,
+    int? seed,
+    GameSettings? settings,
+  }) : levels = levels ?? LevelConfig.all(),
+       _rng = Random(seed),
+       _settings = settings ?? const GameSettings();
 
   late LevelConfig _level;
 
@@ -207,6 +205,21 @@ class StickmanRunEngine {
   /// Duration of the cinematic theme-change transition.
   static const double themeTransitionDurationSec = 1.4;
 
+  /// Shuffled "bag" of the five visual themes (0..4) for the RANDOM/endless
+  /// level. Consumed one per 500m milestone; refilled with a fresh shuffle so
+  /// no theme repeats until all five have been shown.
+  final List<int> _randomThemeBag = [];
+
+  /// Draws the next endless theme from the shuffled bag, refilling (and
+  /// reshuffling) the bag whenever it runs dry.
+  int _nextRandomTheme() {
+    if (_randomThemeBag.isEmpty) {
+      _randomThemeBag.addAll([0, 1, 2, 3, 4]);
+      _randomThemeBag.shuffle(_rng);
+    }
+    return _randomThemeBag.removeAt(0);
+  }
+
   StickmanRunSnapshot snapshot() {
     return StickmanRunSnapshot(
       status: _status,
@@ -289,8 +302,10 @@ class StickmanRunEngine {
         obstacleSpawnEvery:
             t.obstacleSpawnEvery * difficulty.spawnIntervalMultiplier,
         coinChance: (t.coinChance * difficulty.coinMultiplier).clamp(0.0, 1.0),
-        powerUpChance:
-            (t.powerUpChance * difficulty.powerUpMultiplier).clamp(0.0, 1.0),
+        powerUpChance: (t.powerUpChance * difficulty.powerUpMultiplier).clamp(
+          0.0,
+          1.0,
+        ),
       ),
     );
 
@@ -323,15 +338,12 @@ class StickmanRunEngine {
     _timeSec = 0;
     _randomThemeIndex = 0;
     _randomThemeIndexPrev = 0;
+    _randomThemeBag.clear();
     _themeTransitionSec = 0;
     _hitCount = 0;
 
     // Place stickman at ground.
-    _stickman = Stickman(
-      x: _stickmanX,
-      y: _groundY,
-      vy: 0,
-    );
+    _stickman = Stickman(x: _stickmanX, y: _groundY, vy: 0);
     _airJumpsLeft = 1;
 
     _recomputeSpawnCadence();
@@ -353,8 +365,10 @@ class StickmanRunEngine {
         obstacleSpawnEvery:
             t.obstacleSpawnEvery * difficulty.spawnIntervalMultiplier,
         coinChance: (t.coinChance * difficulty.coinMultiplier).clamp(0.0, 1.0),
-        powerUpChance:
-            (t.powerUpChance * difficulty.powerUpMultiplier).clamp(0.0, 1.0),
+        powerUpChance: (t.powerUpChance * difficulty.powerUpMultiplier).clamp(
+          0.0,
+          1.0,
+        ),
       ),
     );
 
@@ -365,9 +379,12 @@ class StickmanRunEngine {
   }
 
   void startRunning() {
-    if (_status == GameStatus.ready || _status == GameStatus.levelComplete || _status == GameStatus.gameOver) {
+    if (_status == GameStatus.ready ||
+        _status == GameStatus.levelComplete ||
+        _status == GameStatus.gameOver) {
       // If game over/complete, treat startRunning as “restart current level”.
-      if (_status == GameStatus.gameOver || _status == GameStatus.levelComplete) {
+      if (_status == GameStatus.gameOver ||
+          _status == GameStatus.levelComplete) {
         start(levelIndex: _level.levelIndex);
       }
 
@@ -417,9 +434,7 @@ class StickmanRunEngine {
     } else if (_airJumpsLeft > 0) {
       // Mid-air double jump: heave upward off whatever vertical velocity we
       // currently have so it feels like a distinct second impulse.
-      _stickman = _stickman.copyWith(
-        vy: _level.tuning.jumpVelocity,
-      );
+      _stickman = _stickman.copyWith(vy: _level.tuning.jumpVelocity);
       _airJumpsLeft = 0;
     }
   }
@@ -567,13 +582,14 @@ class StickmanRunEngine {
     _levelTimeSec += dtSec;
 
     // RANDOM/endless level: rotate the visual theme every 500 meters, with a
-    // cinematic transition. The band is computed from distance traveled; a
-    // change records the previous theme and starts the transition timer.
+    // cinematic transition. Themes are drawn from a shuffled bag (a fresh
+    // shuffle of all five scenes) so no theme repeats until the whole set has
+    // been shown.
     if (_level.levelIndex == 6) {
-      final band = (_distanceMeters / 500.0).floor().clamp(0, 4);
+      final band = (_distanceMeters / 500.0).floor();
       if (band != _randomThemeIndex) {
         _randomThemeIndexPrev = _randomThemeIndex;
-        _randomThemeIndex = band;
+        _randomThemeIndex = _nextRandomTheme();
         _themeTransitionSec = themeTransitionDurationSec;
       }
     }
@@ -726,8 +742,14 @@ class StickmanRunEngine {
 
   void _spawnObstacleColumn() {
     // Choose a rule index using ruleOrder progression.
-    final ruleIndex = _level.ruleOrder[(_spawnTick ~/ 3) % _level.ruleOrder.length];
-    final candidateRuleIndices = _level.obstacleRules.asMap().entries.where((e) => e.key == ruleIndex).map((e) => e.key).toList();
+    final ruleIndex =
+        _level.ruleOrder[(_spawnTick ~/ 3) % _level.ruleOrder.length];
+    final candidateRuleIndices = _level.obstacleRules
+        .asMap()
+        .entries
+        .where((e) => e.key == ruleIndex)
+        .map((e) => e.key)
+        .toList();
 
     final chosenRule = candidateRuleIndices.isEmpty
         ? _pickWeightedRule()
@@ -749,16 +771,26 @@ class StickmanRunEngine {
     }
 
     // Spawn power-ups.
-    if (chosenRule.powerUps.isNotEmpty && _rng.nextDouble() <= _level.tuning.powerUpChance) {
-      _spawnPowerUpNearColumn(colX: colX, bottomY: stickmanBottom, available: chosenRule.powerUps);
+    if (chosenRule.powerUps.isNotEmpty &&
+        _rng.nextDouble() <= _level.tuning.powerUpChance) {
+      _spawnPowerUpNearColumn(
+        colX: colX,
+        bottomY: stickmanBottom,
+        available: chosenRule.powerUps,
+      );
     }
 
     // Spawn 1-2 obstacles depending on spawnTick & difficulty.
     final obstacleCount = (_spawnTick % 8 == 0) ? 2 : 1;
 
     for (var j = 0; j < obstacleCount; j++) {
-      final obstacleType = chosenRule.obstacleTypes[_rng.nextInt(chosenRule.obstacleTypes.length)];
-      final obstacle = _makeObstacle(type: obstacleType, x: colX + j * 30, bottomY: stickmanBottom);
+      final obstacleType = chosenRule
+          .obstacleTypes[_rng.nextInt(chosenRule.obstacleTypes.length)];
+      final obstacle = _makeObstacle(
+        type: obstacleType,
+        x: colX + j * 30,
+        bottomY: stickmanBottom,
+      );
       _obstacles.add(obstacle);
     }
   }
@@ -832,9 +864,12 @@ class StickmanRunEngine {
     // Add slight y wobble.
     y += laneSkew * 0.15;
 
-    final needsForeground = type == ObstacleType.rollingRock || type == ObstacleType.pendulumMine;
+    final needsForeground =
+        type == ObstacleType.rollingRock || type == ObstacleType.pendulumMine;
 
-    final rotation = (type == ObstacleType.pendulumMine) ? (_rng.nextDouble() - 0.5) * 0.6 : 0.0;
+    final rotation = (type == ObstacleType.pendulumMine)
+        ? (_rng.nextDouble() - 0.5) * 0.6
+        : 0.0;
     final phase = _rng.nextDouble() * 10;
 
     return Obstacle(
@@ -850,7 +885,10 @@ class StickmanRunEngine {
   }
 
   ObstacleSpawnRule _pickWeightedRule() {
-    final total = _level.obstacleRules.fold<double>(0, (sum, r) => sum + r.weight);
+    final total = _level.obstacleRules.fold<double>(
+      0,
+      (sum, r) => sum + r.weight,
+    );
     final target = _rng.nextDouble() * (total == 0 ? 1 : total);
 
     double acc = 0;
@@ -861,7 +899,10 @@ class StickmanRunEngine {
     return _level.obstacleRules.last;
   }
 
-  void _spawnCoinsAroundColumn({required double colX, required double bottomY}) {
+  void _spawnCoinsAroundColumn({
+    required double colX,
+    required double bottomY,
+  }) {
     // Spawn 1-3 coins.
     final count = 1 + _rng.nextInt(3);
     final baseY = bottomY - (80 + _rng.nextDouble() * 110);
@@ -905,7 +946,9 @@ class StickmanRunEngine {
     final stickmanW = _stickmanWidthPx();
     final baseStickmanH = _stickmanHeightPx();
     // While crawling, lower head -> reduce collision box height.
-    final stickmanH = _crawlRemainingSec > 0 ? baseStickmanH * 0.58 : baseStickmanH;
+    final stickmanH = _crawlRemainingSec > 0
+        ? baseStickmanH * 0.58
+        : baseStickmanH;
 
     // Magnet: if active, coins become easier to collect and are pulled
     // toward the stickman within a wide radius (50% of the screen).
@@ -919,19 +962,18 @@ class StickmanRunEngine {
         if (dx > magnetRange) return false;
 
         final coinRect = c.collisionRect();
-        final stickRect = _stickman.collisionRect(width: stickmanW, height: stickmanH);
-        final hit = coinRect.intersects(stickRect) || dx < 18 && _stickman.y < c.y + 18;
+        final stickRect = _stickman.collisionRect(
+          width: stickmanW,
+          height: stickmanH,
+        );
+        final hit =
+            coinRect.intersects(stickRect) || dx < 18 && _stickman.y < c.y + 18;
 
         if (hit) {
           _coinsCollected += 1;
           _score += 10;
           _smashScorePopups.add(
-            SmashScorePopup(
-              x: c.x,
-              y: c.y,
-              remainingSec: 0.8,
-              score: 10,
-            ),
+            SmashScorePopup(x: c.x, y: c.y, remainingSec: 0.8, score: 10),
           );
           return true;
         }
