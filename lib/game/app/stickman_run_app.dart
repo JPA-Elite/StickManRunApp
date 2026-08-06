@@ -26,9 +26,10 @@ class _StickmanRunAppState extends State<StickmanRunApp>
   int _selectedLevel = 1;
   bool _showLevelSelect = false;
 
-  late final AnimationController _backdropController =
-      AnimationController(vsync: this, duration: const Duration(seconds: 1))
-        ..repeat();
+  late final AnimationController _backdropController = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 1),
+  )..repeat();
 
   @override
   void dispose() {
@@ -84,313 +85,229 @@ class _StickmanRunAppState extends State<StickmanRunApp>
               // asymmetric system padding).
               Stack(
                 children: [
-                    // Full-width header bar (level select page only).
-                    if (_showLevelSelect)
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        child: _BrandCard(),
-                      ),
-                    // Main content — fills the screen so cards can grow as
-                    // large as possible.
-                    Positioned.fill(
-                child: Padding(
-                  padding: EdgeInsets.zero,
-                  child: Column(
-                    children: [
-                      if (!_showLevelSelect) ...[
-                        const Spacer(flex: 3),
-                        // Big title (no brand card in way)
-                        const Text(
-                          'STICKMAN\nRUN',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 52,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                            letterSpacing: 2,
-                            height: 1.1,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black,
-                                blurRadius: 10,
-                              ),
-                              Shadow(
-                                color: Color(0xFF4DD8FF),
-                                blurRadius: 26,
-                              ),
-                              Shadow(
-                                color: Colors.yellowAccent,
-                                blurRadius: 14,
-                                offset: Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Jump obstacles • Collect coins',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white.withOpacity(0.7),
-                          ),
-                        ),
-                        const SizedBox(height: 28),
-                        GestureDetector(
-                          onTap: () => setState(() => _showLevelSelect = true),
-                          child: AnimatedBuilder(
-                            animation: _backdropController,
-                            builder: (context, _) {
-                              final t =
-                                  _backdropController.value * 2 * pi;
-                              final pulse = 0.5 + 0.5 * sin(t);
-                              return Container(
-                                width: 100 + pulse * 6,
-                                height: 100 + pulse * 6,
-                                decoration: BoxDecoration(
-                                  color: Colors.yellow,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 4,
+                  // Full-width header bar (level select page only).
+                  if (_showLevelSelect)
+                    Positioned(top: 0, left: 0, right: 0, child: _BrandCard()),
+                  // Main content — fills the screen so cards can grow as
+                  // large as possible.
+                  Positioned.fill(
+                    child: Padding(
+                      padding: EdgeInsets.zero,
+                      child: Column(
+                        children: [
+                          if (!_showLevelSelect) ...[
+                            const Spacer(flex: 3),
+                            // Big title (no brand card in way)
+                            const Text(
+                              'STICKMAN\nRUN',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 52,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white,
+                                letterSpacing: 2,
+                                height: 1.1,
+                                shadows: [
+                                  Shadow(color: Colors.black, blurRadius: 10),
+                                  Shadow(
+                                    color: Color(0xFF4DD8FF),
+                                    blurRadius: 26,
                                   ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.yellow.withOpacity(
-                                        0.35 + pulse * 0.3,
+                                  Shadow(
+                                    color: Colors.yellowAccent,
+                                    blurRadius: 14,
+                                    offset: Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Jump obstacles • Collect coins',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white.withOpacity(0.7),
+                              ),
+                            ),
+                            const SizedBox(height: 28),
+                            GestureDetector(
+                              onTap: () =>
+                                  setState(() => _showLevelSelect = true),
+                              child: AnimatedBuilder(
+                                animation: _backdropController,
+                                builder: (context, _) {
+                                  final t = _backdropController.value * 2 * pi;
+                                  final pulse = 0.5 + 0.5 * sin(t);
+                                  return Container(
+                                    width: 100 + pulse * 6,
+                                    height: 100 + pulse * 6,
+                                    decoration: BoxDecoration(
+                                      color: Colors.yellow,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 4,
                                       ),
-                                      blurRadius: 24 + pulse * 14,
-                                      spreadRadius: 2 + pulse * 3,
-                                    ),
-                                  ],
-                                ),
-                                child: const Icon(
-                                  Icons.play_arrow,
-                                  size: 56,
-                                  color: Colors.black,
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                        const Spacer(flex: 4),
-                      ] else ...[
-                        // Room for the full-width header bar rendered above.
-                        const SizedBox(height: 64),
-                        const SizedBox(height: 8),
-                        Expanded(
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              Positioned.fill(
-                                child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-                                   child: PageView.builder(
-                                     controller: _pageController,
-                                     itemCount: levels.length,
-                                     onPageChanged: (index) {
-                                       setState(
-                                         () => _selectedLevel =
-                                             levels[index].levelIndex,
-                                       );
-                                     },
-                                     itemBuilder: (context, index) {
-                                       final l = levels[index];
-                                       final isActive =
-                                           l.levelIndex == _selectedLevel;
-                                       return _CarouselLevelCard(
-                                         level: l,
-                                         isActive: isActive,
-                                         bestScore: ScoreHistoryController
-                                             .instance
-                                             .bestForLevel(l.levelIndex),
-                                         starCount: (l.levelIndex.clamp(1, 5)),
-                                       );
-                                     },
-                                    ),
-                                 ),
-                               ),
-                              Positioned(
-                                left: 0,
-                                child: Center(
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(left: 32),
-                                    child: _ArrowButton(
-                                      icon: Icons.arrow_left,
-                                      onTap: () {
-                                        final idx = levels.indexWhere(
-                                          (l) => l.levelIndex == _selectedLevel,
-                                        );
-                                        final prev = (idx > 0)
-                                            ? idx - 1
-                                            : levels.length - 1;
-                                        setState(
-                                          () => _selectedLevel =
-                                              levels[prev].levelIndex,
-                                        );
-                                        _pageController.animateToPage(
-                                          prev,
-                                          duration: const Duration(
-                                            milliseconds: 300,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.yellow.withOpacity(
+                                            0.35 + pulse * 0.3,
                                           ),
-                                          curve: Curves.easeInOut,
-                                        );
-                                      },
+                                          blurRadius: 24 + pulse * 14,
+                                          spreadRadius: 2 + pulse * 3,
+                                        ),
+                                      ],
                                     ),
-                                  ),
-                                ),
-                              ),
-                              Positioned(
-                                right: 0,
-                                child: Center(
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(right: 32),
-                                    child: _ArrowButton(
-                                      icon: Icons.arrow_right,
-                                      onTap: () {
-                                        final idx = levels.indexWhere(
-                                          (l) => l.levelIndex == _selectedLevel,
-                                        );
-                                        final next = (idx < levels.length - 1)
-                                            ? idx + 1
-                                            : 0;
-                                        setState(
-                                          () => _selectedLevel =
-                                              levels[next].levelIndex,
-                                        );
-                                        _pageController.animateToPage(
-                                          next,
-                                          duration: const Duration(
-                                            milliseconds: 300,
-                                          ),
-                                          curve: Curves.easeInOut,
-                                        );
-                                      },
+                                    child: const Icon(
+                                      Icons.play_arrow,
+                                      size: 56,
+                                      color: Colors.black,
                                     ),
-                                  ),
-                                ),
+                                  );
+                                },
                               ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
+                            ),
+                            const Spacer(flex: 4),
+                          ] else ...[
+                            // Room for the full-width header bar rendered above.
+                            const SizedBox(height: 64),
+                            const SizedBox(height: 8),
                             Expanded(
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: IconButton(
-                                  icon: const Icon(
-                                    Icons.emoji_events,
-                                    color: Colors.yellow,
-                                    size: 28,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  Positioned.fill(
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 24,
+                                      ),
+                                      child: PageView.builder(
+                                        controller: _pageController,
+                                        itemCount: levels.length,
+                                        onPageChanged: (index) {
+                                          setState(
+                                            () => _selectedLevel =
+                                                levels[index].levelIndex,
+                                          );
+                                        },
+                                        itemBuilder: (context, index) {
+                                          final l = levels[index];
+                                          final isActive =
+                                              l.levelIndex == _selectedLevel;
+                                          return _CarouselLevelCard(
+                                            level: l,
+                                            isActive: isActive,
+                                            bestScore: ScoreHistoryController
+                                                .instance
+                                                .bestForLevel(l.levelIndex),
+                                            starCount: (l.levelIndex.clamp(
+                                              1,
+                                              5,
+                                            )),
+                                          );
+                                        },
+                                      ),
+                                    ),
                                   ),
-                                  tooltip: 'Score History',
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(left: 24),
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: IconButton(
+                                        icon: const Icon(
+                                          Icons.emoji_events,
+                                          color: Colors.yellow,
+                                          size: 28,
+                                        ),
+                                        tooltip: 'Score History',
+                                        onPressed: () {
+                                          Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  const ScoreHistoryScreen(),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                ElevatedButton.icon(
                                   onPressed: () {
-                                    Navigator.of(context).push(
+                                    _navigatorKey.currentState!.push(
                                       MaterialPageRoute(
-                                        builder: (_) =>
-                                            const ScoreHistoryScreen(),
+                                        builder: (_) => StickmanRunScreen(
+                                          initialLevel: _selectedLevel,
+                                        ),
                                       ),
                                     );
                                   },
-                                ),
-                              ),
-                            ),
-                            ElevatedButton.icon(
-                              onPressed: () {
-                                _navigatorKey.currentState!.push(
-                                  MaterialPageRoute(
-                                    builder: (_) => StickmanRunScreen(
-                                      initialLevel: _selectedLevel,
+                                  icon: const Icon(
+                                    Icons.play_arrow,
+                                    color: Colors.black,
+                                  ),
+                                  label: const Text(
+                                    'PLAY LEVEL',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 18,
                                     ),
                                   ),
-                                );
-                              },
-                              icon: const Icon(
-                                Icons.play_arrow,
-                                color: Colors.black,
-                              ),
-                              label: const Text(
-                                'PLAY LEVEL',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 18,
-                                ),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.yellow,
-                                foregroundColor: Colors.black,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 32,
-                                  vertical: 10,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Align(
-                                alignment: Alignment.centerRight,
-                                child: IconButton(
-                                  icon: const Icon(
-                                    Icons.menu_book,
-                                    color: Colors.white,
-                                    size: 28,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.yellow,
+                                    foregroundColor: Colors.black,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 32,
+                                      vertical: 10,
+                                    ),
                                   ),
-                                  tooltip: 'Skills',
-                                  onPressed: () {
-                                    TopToast.show(
-                                      context,
-                                      message: 'Skills – coming soon',
-                                    );
-                                  },
                                 ),
-                              ),
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(right: 24),
+                                    child: Align(
+                                      alignment: Alignment.centerRight,
+                                      child: IconButton(
+                                        icon: const Icon(
+                                          Icons.menu_book,
+                                          color: Colors.white,
+                                          size: 28,
+                                        ),
+                                        tooltip: 'Skills',
+                                        onPressed: () {
+                                          TopToast.show(
+                                            context,
+                                            message: 'Skills – coming soon',
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
+                            const SizedBox(height: 8),
                           ],
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                    ],
+                        ],
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
-              ],
-            ),
-        ],
+            ],
           ),
-      ),
-    ),
-);
-  }
-}
-
-class _ArrowButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _ArrowButton({required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 2),
-          ),
-          child: Icon(icon, color: Colors.white, size: 28),
         ),
       ),
     );
@@ -433,18 +350,15 @@ class _BrandCard extends StatelessWidget {
             tooltip: 'How to Play',
             onPressed: () {
               Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const ObstacleGuideScreen(),
-                ),
+                MaterialPageRoute(builder: (_) => const ObstacleGuideScreen()),
               );
             },
           ),
           ListenableBuilder(
             listenable: SettingsController.instance,
             builder: (context, _) {
-              final muted = !SettingsController.instance
-                  .settings
-                  .vibrationsEnabled;
+              final muted =
+                  !SettingsController.instance.settings.vibrationsEnabled;
               return IconButton(
                 icon: Icon(
                   muted ? Icons.volume_off : Icons.volume_up,
@@ -531,7 +445,10 @@ class _CarouselLevelCard extends StatelessWidget {
   ];
 
   static String _levelBackdropAsset(int levelIndex) =>
-      _endlessBackdrops[(levelIndex - 1).clamp(0, _endlessBackdrops.length - 1)];
+      _endlessBackdrops[(levelIndex - 1).clamp(
+        0,
+        _endlessBackdrops.length - 1,
+      )];
 
   /// Difficulty tier shown on each card (mirrors the level's difficulty ramp).
   static const List<String> _difficultyLabels = [
@@ -544,7 +461,10 @@ class _CarouselLevelCard extends StatelessWidget {
   ];
 
   static String _difficultyLabel(int levelIndex) =>
-      _difficultyLabels[(levelIndex - 1).clamp(0, _difficultyLabels.length - 1)];
+      _difficultyLabels[(levelIndex - 1).clamp(
+        0,
+        _difficultyLabels.length - 1,
+      )];
 
   /// Thematic icon shown in each card's top-right corner, matching the icon the
   /// game draws next to the level title during play (see _drawLevelLabel).
@@ -666,9 +586,7 @@ class _CarouselLevelCard extends StatelessWidget {
               // Slightly darken the background image so the level info reads
               // clearly on top of it.
               Positioned.fill(
-                child: ColoredBox(
-                  color: Colors.black.withValues(alpha: 0.35),
-                ),
+                child: ColoredBox(color: Colors.black.withValues(alpha: 0.35)),
               ),
               LayoutBuilder(
                 builder: (context, constraints) {
