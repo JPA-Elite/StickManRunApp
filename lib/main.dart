@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'game/app/stickman_run_app.dart';
 import 'game/settings/score_history.dart';
 import 'game/settings/settings_controller.dart';
+import 'game/settings/skill_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,5 +17,6 @@ Future<void> main() async {
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   await SettingsController.instance.load();
   await ScoreHistoryController.instance.load();
+  await SkillController.instance.load();
   runApp(const StickmanRunApp());
 }

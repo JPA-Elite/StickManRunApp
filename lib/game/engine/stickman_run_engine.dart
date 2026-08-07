@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import '../settings/game_settings.dart';
+import '../settings/skill_defs.dart';
 import 'entities.dart';
 import 'level_config.dart';
 
@@ -66,6 +67,17 @@ class StickmanRunSnapshot {
   /// transition is playing).
   final double themeTransitionSec;
 
+  /// Seconds remaining of the entrance cinematic (start/retry/restart) during
+  /// which the HUD and controls are hidden (0 when none). Mid-run scene
+  /// changes leave this at 0 so gameplay stays fully responsive.
+  final double entranceCinematicSec;
+
+  /// Current combo chain count (consecutive smashes without taking a hit).
+  final int combo;
+
+  /// Current score multiplier from an active combo (1.0 when no combo).
+  final double comboMult;
+
   const StickmanRunSnapshot({
     required this.status,
     required this.levelIndex,
@@ -96,6 +108,9 @@ class StickmanRunSnapshot {
     required this.randomThemeIndex,
     required this.randomThemeIndexPrev,
     required this.themeTransitionSec,
+    this.entranceCinematicSec = 0,
+    this.combo = 0,
+    this.comboMult = 1.0,
   });
 }
 
@@ -104,13 +119,18 @@ class StickmanRunEngine {
   final Random _rng;
   GameSettings _settings;
 
+  /// Active skill effects (always-on once owned).
+  SkillConfig _skills;
+
   StickmanRunEngine({
     List<LevelConfig>? levels,
     int? seed,
     GameSettings? settings,
+    SkillConfig? skills,
   }) : levels = levels ?? LevelConfig.all(),
        _rng = Random(seed),
-       _settings = settings ?? const GameSettings();
+       _settings = settings ?? const GameSettings(),
+       _skills = skills ?? const SkillConfig();
 
   late LevelConfig _level;
 
@@ -161,7 +181,17 @@ class StickmanRunEngine {
   double _smashActiveSec = 0;
   double _smashCooldownSecRemaining = 0;
   static const double _smashDurationSec = 0.18;
-  static const double _smashCooldownTimeSec = 0.5;
+
+  // --- Skill-driven combo / buff state ---
+  int _comboCount = 0;
+  double _comboWindowSec = 0;
+  double _comboMult = 1.0;
+  double _perfectLandingBoostSec = 0;
+  double _shieldChargeMeters = 0;
+  double _overdriveSec = 0;
+  int _coinStreak = 0;
+  double _coinStreakBurstSec = 0;
+  bool _wasAirborne = false;
 
   // Prevent “instant death” from the very first spawn right after START RUN.
   // (First obstacle column can overlap slightly due to resize/layout rounding.)
@@ -202,6 +232,11 @@ class StickmanRunEngine {
   /// Seconds remaining of the cinematic theme-change transition (0 = none).
   double _themeTransitionSec = 0;
 
+  /// Seconds remaining of the entrance cinematic (0 = none). Set only by
+  /// [triggerCinematic] (start/retry/restart), so mid-run scene changes stay
+  /// purely visual and never suppress input.
+  double _entranceCinematicSec = 0;
+
   /// Duration of the cinematic theme-change transition.
   static const double themeTransitionDurationSec = 1.4;
 
@@ -235,6 +270,7 @@ class StickmanRunEngine {
   /// (e.g. when the player starts or restarts a run).
   void triggerCinematic() {
     _themeTransitionSec = themeTransitionDurationSec;
+    _entranceCinematicSec = themeTransitionDurationSec;
   }
 
   StickmanRunSnapshot snapshot() {
@@ -268,6 +304,9 @@ class StickmanRunEngine {
       randomThemeIndex: _randomThemeIndex,
       randomThemeIndexPrev: _randomThemeIndexPrev,
       themeTransitionSec: _themeTransitionSec,
+      entranceCinematicSec: _entranceCinematicSec,
+      combo: _comboCount,
+      comboMult: _comboMult,
     );
   }
 
@@ -282,8 +321,6 @@ class StickmanRunEngine {
 
     // Keep stickman aligned to the resized ground.
     // If we're resting (or not running yet), snap to ground so tap jump works reliably.
-    final stickmanBottom = _groundY;
-
     // Ground snap:
     // - When NOT running: be forgiving to make taps/jumps consistent.
     // - When running: be strict; otherwise it cancels the first frames of a jump
@@ -338,7 +375,7 @@ class StickmanRunEngine {
     _score = 0;
     _coinsCollected = 0;
     _distanceMeters = 0;
-    _lifePercent = 100.0;
+    _lifePercent = _skills.startLife;
     _damageGraceSec = 0;
     _damageFlashSec = 0;
     _healFlashSec = 0;
@@ -364,7 +401,17 @@ class StickmanRunEngine {
       ..addAll([1, 2, 3, 4])
       ..shuffle(_rng);
     _themeTransitionSec = 0;
+    _entranceCinematicSec = 0;
     _hitCount = 0;
+
+    _comboCount = 0;
+    _comboWindowSec = 0;
+    _comboMult = 1.0;
+    _perfectLandingBoostSec = 0;
+    _shieldChargeMeters = 0;
+    _overdriveSec = 0;
+    _coinStreak = 0;
+    _coinStreakBurstSec = 0;
 
     // Place stickman at ground.
     _stickman = Stickman(x: _stickmanX, y: _groundY, vy: 0);
@@ -416,6 +463,12 @@ class StickmanRunEngine {
 
       // Short invulnerability window for the first spawn.
       _collisionGraceSec = 0.25;
+
+      // Extra safety window when the player has the endless-stamina skill.
+      if (_level.levelIndex == 6 && _skills.endlessStamina > 0) {
+        _collisionGraceSec =
+            max(_collisionGraceSec, _skills.endlessStartGraceSec);
+      }
 
       // Delay the very first obstacle/coin/power-up column so it is
       // visible for at least ~3 seconds after the run begins.
@@ -483,7 +536,7 @@ class StickmanRunEngine {
     if (_smashCooldownSecRemaining > 0) return;
 
     _smashActiveSec = _smashDurationSec;
-    _smashCooldownSecRemaining = _smashCooldownTimeSec;
+    _smashCooldownSecRemaining = _skills.smashCooldownSec;
 
     // The attack range matches the farthest extent of the punch animation's
     // impact spark: body lean + fully extended fist + burst radius.
@@ -517,13 +570,28 @@ class StickmanRunEngine {
 
     // Only award points and show a popup when an obstacle was actually defeated.
     if (hitCount > 0) {
-      _score += 5 * hitCount;
+      // Combo: consecutive smash streaks without taking a hit amplify score.
+      if (_skills.comboRamp > 0) {
+        _comboWindowSec = _skills.comboWindowSec;
+        _comboCount = min(_comboCount + 1, _skills.comboCap);
+        final k = _comboCount;
+        _comboMult = 1.0 + (0.5 * _skills.comboRamp) * (k - 1);
+      }
+
+      // Overdrive: a brief invulnerability window after striking.
+      if (_skills.overdrive > 0) {
+        _overdriveSec = max(_overdriveSec, _skills.overdriveWindowSec);
+      }
+
+      final mult = _comboMult;
+      final gained = (5 * hitCount * mult).round();
+      _score += gained;
       _smashScorePopups.add(
         SmashScorePopup(
           x: firstHitX!,
           y: firstHitY!,
           remainingSec: 0.8,
-          score: 5 * hitCount,
+          score: gained,
         ),
       );
     }
@@ -625,6 +693,7 @@ class StickmanRunEngine {
       }
     }
     _themeTransitionSec = max(0, _themeTransitionSec - dtSec);
+    _entranceCinematicSec = max(0, _entranceCinematicSec - dtSec);
 
     _collisionGraceSec = max(0, _collisionGraceSec - dtSec);
     _postJumpCollisionGraceSec = max(0, _postJumpCollisionGraceSec - dtSec);
@@ -635,6 +704,25 @@ class StickmanRunEngine {
     _crawlRemainingSec = max(0, _crawlRemainingSec - dtSec);
     _smashActiveSec = max(0, _smashActiveSec - dtSec);
     _smashCooldownSecRemaining = max(0, _smashCooldownSecRemaining - dtSec);
+
+    // Decay temporary skill-driven buffs.
+    _overdriveSec = max(0, _overdriveSec - dtSec);
+    _perfectLandingBoostSec = max(0, _perfectLandingBoostSec - dtSec);
+    _coinStreakBurstSec = max(0, _coinStreakBurstSec - dtSec);
+
+    // End a combo chain when it has been inactive past its window.
+    if (_comboWindowSec > 0) {
+      _comboWindowSec -= dtSec;
+      if (_comboWindowSec <= 0) {
+        _comboWindowSec = 0;
+        _comboCount = 0;
+        _comboMult = 1.0;
+      }
+    }
+    if (_magnetRemainingSec <= 0 && _coinStreakBurstSec > 0) {
+      _magnetRemainingSec = _coinStreakBurstSec;
+      _coinStreakBurstSec = 0;
+    }
 
     _initialObstacleDelaySec = max(0, _initialObstacleDelaySec - dtSec);
 
@@ -661,7 +749,12 @@ class StickmanRunEngine {
   double _steppedSpeed() {
     final step = (_distanceMeters / 200.0).floor().clamp(0, 12);
     final base = _level.tuning.speed;
-    return base * (1 + step * 0.1);
+    final rampMult = _level.levelIndex == 6
+        ? _skills.speedRampMult
+        : 1.0;
+    final boosted =
+        _perfectLandingBoostSec > 0 ? _skills.perfectLandingBoostPx : 0.0;
+    return base * (1 + step * 0.1 * rampMult) + boosted;
   }
 
   void _recomputeSpawnCadence() {
@@ -698,9 +791,15 @@ class StickmanRunEngine {
     if (nextY >= _groundY && _stickman.vy >= 0) {
       _stickman = _stickman.copyWith(y: _groundY, vy: 0);
       _airJumpsLeft = 1;
+      // Perfect landing: coming down after a jump grants a speed burst.
+      if (_skills.perfectLanding > 0 && _wasAirborne) {
+        _perfectLandingBoostSec = _skills.perfectLandingDurationSec;
+      }
+      _wasAirborne = false;
       return;
     }
 
+    _wasAirborne = true;
     _stickman = _stickman.copyWith(y: nextY, vy: nextVy);
   }
 
@@ -738,7 +837,7 @@ class StickmanRunEngine {
     // Magnet pull: attract coins toward the stickman's head, moving diagonally
     // anywhere on screen (50% of the screen) — no ground forcing.
     if (_magnetRemainingSec > 0 && _coins.isNotEmpty) {
-      final magnetRange = max(_width, _height) * 0.5;
+      final magnetRange = max(_width, _height) * 0.5 * _skills.magnetRangeMult;
       final targetX = _stickman.x;
       final targetY = _stickman.y - _stickmanHeightPx() / 2;
       const double pullStrength = 500.0;
@@ -763,6 +862,15 @@ class StickmanRunEngine {
     }
 
     _distanceMeters += dx / 100.0;
+
+    // Shield charge skill: regenerate a partial shield over distance.
+    if (_skills.shieldCharge > 0 && _shieldRemainingSec <= 0) {
+      _shieldChargeMeters += dx / 100.0;
+      if (_shieldChargeMeters >= _skills.shieldChargeEveryMeters) {
+        _shieldChargeMeters = 0;
+        _shieldRemainingSec = max(_shieldRemainingSec, _skills.shieldChargeAmount);
+      }
+    }
 
     // Remove out-of-screen entities.
     final leftKill = -140.0;
@@ -987,7 +1095,8 @@ class StickmanRunEngine {
 
     // Coin collection.
     if (_coins.isNotEmpty) {
-      final magnetRange = magnetPull ? max(_width, _height) * 0.5 : 42.0;
+      final magnetRange =
+          magnetPull ? max(_width, _height) * 0.5 * _skills.magnetRangeMult : 42.0;
       _coins.removeWhere((c) {
         final dx = (c.x - _stickman.x).abs();
         if (dx > magnetRange) return false;
@@ -1002,9 +1111,19 @@ class StickmanRunEngine {
 
         if (hit) {
           _coinsCollected += 1;
-          _score += 10;
+          final coinGain = (10 * _skills.coinValueMult).round();
+          var scoreGain = (coinGain * _skills.scoreMult).round();
+          // Skill: coin streak triggers a magnet burst.
+          if (_skills.coinStreak > 0) {
+            _coinStreak += 1;
+            if (_coinStreak % _skills.coinStreakEvery == 0) {
+              _coinStreakBurstSec = _skills.coinStreakBurstSec;
+            }
+          }
+          scoreGain = (scoreGain * _comboMult).round();
+          _score += scoreGain;
           _smashScorePopups.add(
-            SmashScorePopup(x: c.x, y: c.y, remainingSec: 0.8, score: 10),
+            SmashScorePopup(x: c.x, y: c.y, remainingSec: 0.8, score: scoreGain),
           );
           return true;
         }
@@ -1021,17 +1140,20 @@ class StickmanRunEngine {
 
         if (p.type == PowerUpType.shield) {
           _shieldRemainingSec = max(_shieldRemainingSec, 6.0);
-          _score += 25;
+          _score += (25 * _skills.scoreMult).round();
         } else if (p.type == PowerUpType.magnet) {
-          _magnetRemainingSec = max(_magnetRemainingSec, 6.0);
-          _score += 25;
+          _magnetRemainingSec = max(
+            _magnetRemainingSec,
+            6.0 * _skills.magnetDurationMult,
+          );
+          _score += (25 * _skills.scoreMult).round();
         } else if (p.type == PowerUpType.heal25) {
-          _lifePercent = min(100.0, _lifePercent + 25);
-          _score += 15;
+          _lifePercent = min(100.0, _lifePercent + 25 + _skills.healBonus);
+          _score += (15 * _skills.scoreMult).round();
           _healFlashSec = max(_healFlashSec, 0.35);
         } else if (p.type == PowerUpType.heal50) {
-          _lifePercent = min(100.0, _lifePercent + 50);
-          _score += 15;
+          _lifePercent = min(100.0, _lifePercent + 50 + _skills.healBonus);
+          _score += (15 * _skills.scoreMult).round();
           _healFlashSec = max(_healFlashSec, 0.45);
         }
 
@@ -1061,10 +1183,16 @@ class StickmanRunEngine {
       // touching column can't drain all life at once.
       if (_damageGraceSec > 0) continue;
 
+      // Overdrive window: invulnerable right after a smash.
+      if (_overdriveSec > 0) continue;
+
       _lifePercent = max(0, _lifePercent - _obstacleDamage(o.type));
-      _damageGraceSec = 0.5;
+      _damageGraceSec = 0.5 + _skills.damageGraceBonus;
       _damageFlashSec = 0.35;
       _hitCount += 1;
+      // Getting hit resets the combo chain.
+      _comboCount = 0;
+      _comboMult = 1.0;
       _smashScorePopups.add(
         SmashScorePopup(
           x: o.x + o.width / 2,

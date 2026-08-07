@@ -10,6 +10,7 @@ import '../engine/stickman_run_engine.dart';
 import '../settings/game_settings.dart';
 import '../settings/score_history.dart';
 import '../settings/settings_controller.dart';
+import '../settings/skill_controller.dart';
 import 'haptics.dart';
 import 'obstacle_guide.dart';
 import 'menu_backdrop.dart';
@@ -92,7 +93,10 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   void initState() {
     super.initState();
     _settings = SettingsController.instance.settings;
-    _engine = StickmanRunEngine(settings: _settings);
+    _engine = StickmanRunEngine(
+      settings: _settings,
+      skills: SkillController.instance.config,
+    );
     _engine.start(levelIndex: widget.initialLevel);
     _levelIndex = widget.initialLevel;
     SettingsController.instance.addListener(_onSettingsChanged);
@@ -437,6 +441,8 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
           ),
         );
       }
+      // Award collected coins to the skill wallet.
+      SkillController.instance.awardCoins(_snapshot.coins);
     }
   }
 
@@ -477,7 +483,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
 
   /// True while the cinematic entrance transition is playing (bloom + theme
   /// banner). The game HUD stays hidden until it finishes.
-  bool get _cinematicActive => _snapshot.themeTransitionSec > 0;
+  bool get _cinematicActive => _snapshot.entranceCinematicSec > 0;
 
   /// In gestures mode a single tap smashes (cooldown handled by the engine).
   bool get _canTapToSmash =>

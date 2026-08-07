@@ -8,6 +8,7 @@ import '../ui/menu_backdrop.dart';
 import '../ui/obstacle_guide.dart';
 import '../ui/score_history_screen.dart';
 import '../ui/settings_screen.dart';
+import '../ui/skills_screen.dart';
 import '../ui/stickman_run_screen.dart';
 import '../../widgets/top_toast.dart';
 import '../../game/engine/level_config.dart' as engine;
@@ -256,21 +257,24 @@ class _StickmanRunAppState extends State<StickmanRunApp>
                                     padding: const EdgeInsets.only(left: 24),
                                     child: Align(
                                       alignment: Alignment.centerLeft,
-                                      child: IconButton(
-                                        icon: const Icon(
-                                          Icons.emoji_events,
-                                          color: Colors.yellow,
-                                          size: 28,
+                                      child: _CinematicOrbit(
+                                        accent: const Color(0xFFFFD54F),
+                                        child: IconButton(
+                                          icon: const Icon(
+                                            Icons.emoji_events,
+                                            color: Colors.yellow,
+                                            size: 26,
+                                          ),
+                                          tooltip: 'Score History',
+                                          onPressed: () {
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    const ScoreHistoryScreen(),
+                                              ),
+                                            );
+                                          },
                                         ),
-                                        tooltip: 'Score History',
-                                        onPressed: () {
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute(
-                                              builder: (_) =>
-                                                  const ScoreHistoryScreen(),
-                                            ),
-                                          );
-                                        },
                                       ),
                                     ),
                                   ),
@@ -313,19 +317,24 @@ class _StickmanRunAppState extends State<StickmanRunApp>
                                     padding: const EdgeInsets.only(right: 24),
                                     child: Align(
                                       alignment: Alignment.centerRight,
-                                      child: IconButton(
-                                        icon: const Icon(
-                                          Icons.menu_book,
-                                          color: Colors.white,
-                                          size: 28,
+                                      child: _CinematicOrbit(
+                                        accent: const Color(0xFF4DD8FF),
+                                        child: IconButton(
+                                          icon: const Icon(
+                                            Icons.menu_book,
+                                            color: Colors.white,
+                                            size: 26,
+                                          ),
+                                          tooltip: 'Skills',
+                                          onPressed: () {
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    const SkillsScreen(),
+                                              ),
+                                            );
+                                          },
                                         ),
-                                        tooltip: 'Skills',
-                                        onPressed: () {
-                                          TopToast.show(
-                                            context,
-                                            message: 'Skills – coming soon',
-                                          );
-                                        },
                                       ),
                                     ),
                                   ),
@@ -422,6 +431,87 @@ class _BrandCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Cinematic orbit ring that wraps a trailing icon button (e.g. trophy or
+/// skills) with a steady accent ring and a soft glow. Keeps the child's tap
+/// target exactly where it was.
+class _CinematicOrbit extends StatelessWidget {
+  const _CinematicOrbit({
+    required this.child,
+    required this.accent,
+  });
+
+  final Widget child;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    const s = 60.0;
+    return SizedBox(
+      width: s,
+      height: s,
+      child: CustomPaint(
+        painter: _OrbitPainter(accent: accent),
+        child: Center(child: child),
+      ),
+    );
+  }
+}
+
+/// Paints a steady orbit ring with a soft glow for [_CinematicOrbit].
+class _OrbitPainter extends CustomPainter {
+  _OrbitPainter({required this.accent});
+
+  final Color accent;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final ringR = size.width * 0.40;
+
+    // 1) Soft ambient glow under the ring.
+    canvas.drawCircle(
+      center,
+      ringR * 1.15,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [
+            accent.withValues(alpha: 0.20),
+            accent.withValues(alpha: 0.0),
+          ],
+        ).createShader(
+          Rect.fromCircle(center: center, radius: ringR * 1.15),
+        ),
+    );
+
+    // 2) Steady conic-gradient ring (accent + white highlights, no rotation).
+    canvas.drawCircle(
+      center,
+      ringR,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.2
+        ..shader = SweepGradient(
+          startAngle: 0,
+          endAngle: 2 * pi,
+          colors: [
+            accent.withValues(alpha: 0.25),
+            accent,
+            Colors.white.withValues(alpha: 0.95),
+            accent,
+            accent.withValues(alpha: 0.25),
+          ],
+          stops: const [0.0, 0.3, 0.5, 0.7, 1.0],
+        ).createShader(
+          Rect.fromCircle(center: center, radius: ringR),
+        ),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _OrbitPainter oldDelegate) =>
+      oldDelegate.accent != accent;
 }
 
 /// Lifetime total score accumulated across all recorded runs (survives

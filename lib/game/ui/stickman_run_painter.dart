@@ -196,9 +196,10 @@ class StickmanRunPainter extends CustomPainter {
     // HUD ornaments (top-right).
     // Hide HUD when the overlay is showing (ready/game-over/level-complete)
     // to prevent SCORE/COINS from overlapping the overlay card.
-    if (snapshot.status == GameStatus.running && snapshot.themeTransitionSec <= 0) {
+    if (snapshot.status == GameStatus.running && snapshot.entranceCinematicSec <= 0) {
       _drawHud(canvas, groundY: groundY);
       _drawLifeBar(canvas, groundY: groundY);
+      if (snapshot.combo > 1) _drawCombo(canvas, groundY: groundY);
     }
 
     // Red flash overlay while taking damage.
@@ -2108,6 +2109,55 @@ class StickmanRunPainter extends CustomPainter {
       icon: BadgeIcon.coin,
       accent: const Color(0xFFFFBF00),
     );
+  }
+
+  /// Bottom-center combo multiplier plaque, shown while a combo chain is live.
+  void _drawCombo(Canvas canvas, {required double groundY}) {
+    final isRunning = snapshot.status == GameStatus.running;
+    if (!isRunning || snapshot.combo < 2) return;
+
+    final cx = width / 2;
+    final cy = groundY - height * 0.22;
+
+    final pulse = 0.7 + 0.3 * sin(snapshot.timeSec * 6);
+    final bg = Paint()
+      ..color = Colors.black.withValues(alpha: 0.6)
+      ..style = PaintingStyle.fill;
+    final border = Paint()
+      ..color = const Color(0xFFFFD700).withValues(alpha: 0.8 + pulse * 0.2)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5;
+
+    final rect = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: Offset(cx, cy),
+        width: 120,
+        height: 44,
+      ),
+      const Radius.circular(12),
+    );
+    canvas.drawRRect(rect, bg);
+    canvas.drawRRect(rect, border);
+
+    final tp = TextPainter(
+      text: TextSpan(
+        text: '${snapshot.combo}×   COMBO',
+        style: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1.5,
+          color: const Color(0xFFFFD700),
+          shadows: [
+            Shadow(
+              color: const Color(0xFFFFD700).withValues(alpha: 0.6 * pulse),
+              blurRadius: 12,
+            ),
+          ],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, Offset(cx - tp.width / 2, cy - tp.height / 2));
   }
 
   void _drawBadge(
