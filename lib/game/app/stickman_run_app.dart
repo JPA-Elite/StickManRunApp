@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../settings/score_history.dart';
 import '../settings/settings_controller.dart';
+import '../settings/skill_controller.dart';
 import '../ui/menu_backdrop.dart';
 import '../ui/obstacle_guide.dart';
 import '../ui/score_history_screen.dart';
@@ -379,6 +380,51 @@ class _BrandCard extends StatelessWidget {
           const _RunnerProfile(),
           const SizedBox(width: 12),
           const Spacer(),
+          // Permanent coin wallet badge — always visible in the home header.
+          ListenableBuilder(
+            listenable: SkillController.instance,
+            builder: (context, _) {
+              final wallet = SkillController.instance.wallet;
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: const Color(0xFFFFD700).withValues(alpha: 0.45),
+                  ),
+                  color: Colors.white.withValues(alpha: 0.06),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0x1F_D7FF_FF),
+                      Color(0x0A_FFFFFF),
+                    ],
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.monetization_on,
+                      color: Color(0xFFFFD700),
+                      size: 18,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      '$wallet',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.help_outline, color: Colors.white, size: 24),
             tooltip: 'How to Play',

@@ -2281,7 +2281,9 @@ class StickmanRunPainter extends CustomPainter {
     canvas.drawPath(path, Paint()..color = color);
   }
 
-  /// Draws a gold coin: filled circle with an inner ring.
+  /// Draws a gold coin: filled circle with an inner ring and a dollar glyph
+  /// in the center, matching the [Icons.monetization_on] look used in the
+  /// skills page and home header.
   void _drawCoinIcon(
     Canvas canvas, {
     required Offset center,
@@ -2295,6 +2297,23 @@ class StickmanRunPainter extends CustomPainter {
         ..color = const Color(0xFF9A6A00)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2,
+    );
+    // Dollar glyph at the center, matching monetization_on.
+    final glyphPainter = TextPainter(
+      text: const TextSpan(
+        text: '\$',
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w900,
+          color: Color(0xFF9A6A00),
+          height: 1,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    glyphPainter.paint(
+      canvas,
+      center - Offset(glyphPainter.width / 2, glyphPainter.height / 2),
     );
   }
 

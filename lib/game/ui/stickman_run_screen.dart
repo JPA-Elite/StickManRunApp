@@ -734,7 +734,6 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   }
 
   /// Small top HUD showing the current legendary activation state: the
-  /// activation banner, AUTO-STRIKE / TEMPEST countdowns, and REVERSE RUN.
   Widget _buildLegendaryHud({required double width}) {
     final ownedReverse = _engine.owns(LegendarySkill.reverseRun);
     final showReverse = ownedReverse && _snapshot.reversing;
@@ -1342,6 +1341,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                                   child: Column(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
+                                      const SizedBox(height: 10),
                                       Text(
                                         title,
                                         style: TextStyle(
