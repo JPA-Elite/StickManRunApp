@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import '../engine/entities.dart';
 import '../engine/stickman_run_engine.dart';
 import '../settings/game_settings.dart';
+import '../settings/legendary_defs.dart';
 import '../settings/score_history.dart';
 import '../settings/settings_controller.dart';
 import '../settings/skill_controller.dart';
@@ -96,6 +97,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     _engine = StickmanRunEngine(
       settings: _settings,
       skills: SkillController.instance.config,
+      legendaries: SkillController.instance.owned,
     );
     _engine.start(levelIndex: widget.initialLevel);
     _levelIndex = widget.initialLevel;
@@ -390,6 +392,66 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   bool _wasSmashActive = false;
   int _lastHitCount = 0;
 
+  // --- Legendary combo detection (in-memory, reset per run) ---
+  static const int _comboWindowMicros =
+      1300000; // 1.3s window for a 3-input combo
+  static const int _legendaryCooldownMicros =
+      20000000; // 20s between triggers of the same legendary
+  final List<(ComboAction, int)> _comboBuffer = [];
+  final Map<LegendarySkill, int> _lastLegendaryTrigger = {};
+  String _legendaryBanner = '';
+  double _legendaryBannerSec = 0;
+
+  /// Records an input action for legendary combo detection and fires a
+  /// legendary skill when an owned combo is matched.
+  void _recordComboInput(ComboAction action) {
+    final now = DateTime.now().microsecondsSinceEpoch;
+    _comboBuffer.add((action, now));
+    _comboBuffer.removeWhere(
+      (e) => now - e.$2 > _comboWindowMicros,
+    );
+
+    for (final def in LegendaryDef.all) {
+      if (!_engine.owns(def.id)) continue;
+      if (def.combo.isEmpty) continue; // hold-gesture only (REVERSE RUN)
+      if (action != def.combo[def.combo.length - 1]) continue;
+      if (_comboMatches(def.combo)) {
+        _tryTriggerLegendary(def);
+        break;
+      }
+    }
+  }
+
+  bool _comboMatches(List<ComboAction> pattern) {
+    if (_comboBuffer.length < pattern.length) return false;
+    for (var i = 0; i < pattern.length; i++) {
+      if (_comboBuffer[_comboBuffer.length - pattern.length + i].$1 !=
+          pattern[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void _tryTriggerLegendary(LegendaryDef def) {
+    final now = DateTime.now().microsecondsSinceEpoch;
+    final last = _lastLegendaryTrigger[def.id];
+    if (last != null && now - last < _legendaryCooldownMicros) return;
+
+    if (!_engine.triggerLegendary(def.id)) return;
+    _lastLegendaryTrigger[def.id] = now;
+    _comboBuffer.clear();
+
+    if (_settings.vibrationsEnabled) {
+      vibrate(HapticIntensity.heavy);
+    }
+    setState(() {
+      _legendaryBanner = def.name;
+      _legendaryBannerSec = 1.6;
+      _snapshot = _engine.snapshot();
+    });
+  }
+
   void _tick() {
     final now = _controller.lastElapsedDuration?.inMicroseconds.toDouble() ?? 0;
     if (_lastTime == 0) {
@@ -415,6 +477,12 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
       }
     }
     _wasSmashActive = _snapshot.smashActive;
+
+    // Decay the legendary activation banner.
+    if (_legendaryBannerSec > 0) {
+      _legendaryBannerSec -= dtSec;
+      if (_legendaryBannerSec <= 0) _legendaryBanner = '';
+    }
 
     // Vibrate on every obstacle hit (damage taken), not just at game over.
     if (_snapshot.hitCount != _lastHitCount) {
@@ -456,6 +524,8 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     if (nowMicros - _lastJumpMicros < _jumpCooldownMicros) return;
     _lastJumpMicros = nowMicros;
 
+    _recordComboInput(ComboAction.jump);
+
     _engine.startRunning();
     _engine.jump();
     _engine.tick(1 / 60.0);
@@ -472,6 +542,8 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   void _onSmash() {
     if (_snapshot.status != GameStatus.running) return;
     if (_snapshot.smashCooldownSec > 0) return;
+
+    _recordComboInput(ComboAction.smash);
 
     _engine.smash();
     setState(() => _snapshot = _engine.snapshot());
@@ -512,6 +584,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   }
 
   void _onCrawl() {
+    _recordComboInput(ComboAction.crawl);
     _engine.crawl();
     if (_settings.vibrationsEnabled) {
       vibrate(HapticIntensity.light);
@@ -543,6 +616,9 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     _showPauseCard = false;
     _lastTime = 0;
     _lastHitCount = 0;
+    _comboBuffer.clear();
+    _legendaryBanner = '';
+    _legendaryBannerSec = 0;
     _controller.repeat();
     setState(() {
       _snapshot = _engine.snapshot();
@@ -612,6 +688,8 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                 ),
                 _buildOverlay(),
                 _buildTopButtons(),
+                _buildLegendaryHud(width: width),
+                _buildReverseZones(width: width, height: height),
                 _buildSmashButton(width: width, height: height),
                 _buildJumpButton(width: width, height: height),
                 _buildCrawlButton(width: width, height: height),
@@ -653,6 +731,161 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
         ),
       ),
     );
+  }
+
+  /// Small top HUD showing the current legendary activation state: the
+  /// activation banner, AUTO-STRIKE / TEMPEST countdowns, and REVERSE RUN.
+  Widget _buildLegendaryHud({required double width}) {
+    final ownedReverse = _engine.owns(LegendarySkill.reverseRun);
+    final showReverse = ownedReverse && _snapshot.reversing;
+    final showAuto = _snapshot.autoStrikeSec > 0;
+    final showTempest = _snapshot.tempestSec > 0;
+    final showBanner = _legendaryBanner.isNotEmpty;
+    if (!showBanner && !showReverse && !showAuto && !showTempest) {
+      return const SizedBox.shrink();
+    }
+
+    return Positioned(
+      top: 52,
+      left: 0,
+      right: 0,
+      child: IgnorePointer(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (showBanner)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF3D0B22).withValues(alpha: 0.9),
+                    border: Border.all(color: const Color(0xFFFFD700), width: 1.5),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text(
+                    'LEGENDARY!',
+                    style: TextStyle(
+                      color: Color(0xFFFFD700),
+                      fontWeight: FontWeight.w900,
+                      fontSize: 15,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ),
+              if (showAuto || showTempest || showReverse)
+                const SizedBox(height: 6),
+              Builder(
+                builder: (_) {
+                  final parts = <Widget>[];
+                  if (showAuto) {
+                    parts.add(
+                      _hudPill(
+                        text: '★ AUTO-STRIKE ${_snapshot.autoStrikeSec.toStringAsFixed(1)}s',
+                        color: const Color(0xFFFFD700),
+                      ),
+                    );
+                  }
+                  if (showTempest) {
+                    parts.add(
+                      _hudPill(
+                        text: '⚡ TEMPEST ${_snapshot.tempestSec.toStringAsFixed(1)}s',
+                        color: const Color(0xFF4DD8FF),
+                      ),
+                    );
+                  }
+                  if (showReverse) {
+                    parts.add(
+                      _hudPill(
+                        text: '⟲ REVERSING',
+                        color: const Color(0xFFFF8A5C),
+                      ),
+                    );
+                  }
+                  return Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    alignment: WrapAlignment.center,
+                    children: parts,
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _hudPill({required String text, required Color color}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111318).withValues(alpha: 0.85),
+        border: Border.all(color: color, width: 1),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w800,
+          fontSize: 12,
+          letterSpacing: 0.6,
+        ),
+      ),
+    );
+  }
+
+  /// Left/right edge hold zones for the REVERSE RUN legendary. A long-press on
+  /// the left edge unscrolls the world backward; a long-press on the right
+  /// edge gives normal forward (no-op) — but the left hold is the recovery.
+  /// Quick taps still reach the main jump/smash detector underneath.
+  Widget _buildReverseZones({required double width, required double height}) {
+    final canReverse = _engine.owns(LegendarySkill.reverseRun);
+    final isRunning = _snapshot.status == GameStatus.running;
+    if (!canReverse || !isRunning || _paused || _cinematicActive) {
+      return const SizedBox.shrink();
+    }
+
+    final zoneW = width * 0.14;
+    return Stack(
+      children: [
+        // Left edge: hold to reverse the world.
+        Positioned(
+          left: 0,
+          top: height * 0.25,
+          bottom: height * 0.25,
+          width: zoneW,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onLongPressStart: (_) => _setReverse(true),
+            onLongPressEnd: (_) => _setReverse(false),
+            onLongPressCancel: () => _setReverse(false),
+          ),
+        ),
+        // Right edge: held to resume/surge forward (no-op, purely for symmetry).
+        Positioned(
+          right: 0,
+          top: height * 0.25,
+          bottom: height * 0.25,
+          width: zoneW,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onLongPressStart: (_) => _setReverse(false),
+            onLongPressEnd: (_) => _setReverse(false),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _setReverse(bool on) {
+    if (_engine.setReversing(on)) {
+      setState(() => _snapshot = _engine.snapshot());
+    }
   }
 
   /// Full-screen pause card that blocks input while the game is paused.

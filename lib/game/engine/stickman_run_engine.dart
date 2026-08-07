@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import '../settings/game_settings.dart';
+import '../settings/legendary_defs.dart';
 import '../settings/skill_defs.dart';
 import 'entities.dart';
 import 'level_config.dart';
@@ -111,7 +112,19 @@ class StickmanRunSnapshot {
     this.entranceCinematicSec = 0,
     this.combo = 0,
     this.comboMult = 1.0,
+    this.autoStrikeSec = 0,
+    this.tempestSec = 0,
+    this.reversing = false,
   });
+
+  /// Remaining seconds of the AUTO-STRIKE legendary auto-attack window.
+  final double autoStrikeSec;
+
+  /// Remaining seconds of the TEMPEST legendary invincibility window.
+  final double tempestSec;
+
+  /// True while the REVERSE RUN legendary is unscrolling the world.
+  final bool reversing;
 }
 
 class StickmanRunEngine {
@@ -122,15 +135,23 @@ class StickmanRunEngine {
   /// Active skill effects (always-on once owned).
   SkillConfig _skills;
 
+  /// Owned legendary skills (single-purchase, combo/hold-triggered).
+  final Set<LegendarySkill> _legendaries;
+
   StickmanRunEngine({
     List<LevelConfig>? levels,
     int? seed,
     GameSettings? settings,
     SkillConfig? skills,
+    Set<LegendarySkill> legendaries = const {},
   }) : levels = levels ?? LevelConfig.all(),
        _rng = Random(seed),
        _settings = settings ?? const GameSettings(),
-       _skills = skills ?? const SkillConfig();
+       _skills = skills ?? const SkillConfig(),
+       _legendaries = legendaries;
+
+  /// True when the player owns the given legendary skill.
+  bool owns(LegendarySkill id) => _legendaries.contains(id);
 
   late LevelConfig _level;
 
@@ -192,6 +213,16 @@ class StickmanRunEngine {
   int _coinStreak = 0;
   double _coinStreakBurstSec = 0;
   bool _wasAirborne = false;
+
+  // --- Legendary skill state ---
+  /// Remaining seconds of AUTO-STRIKE auto-attack window.
+  double _autoStrikeSec = 0;
+  /// Countdown between automatic strikes during AUTO-STRIKE.
+  double _autoStrikeFireSec = 0;
+  /// Remaining seconds of TEMPEST invincibility + slow-motion window.
+  double _tempestSec = 0;
+  /// True while REVERSE RUN is holding the world backwards.
+  bool _reversing = false;
 
   // Prevent “instant death” from the very first spawn right after START RUN.
   // (First obstacle column can overlap slightly due to resize/layout rounding.)
@@ -307,6 +338,9 @@ class StickmanRunEngine {
       entranceCinematicSec: _entranceCinematicSec,
       combo: _comboCount,
       comboMult: _comboMult,
+      autoStrikeSec: _autoStrikeSec,
+      tempestSec: _tempestSec,
+      reversing: _reversing,
     );
   }
 
@@ -383,6 +417,12 @@ class StickmanRunEngine {
     _shieldRemainingSec = 0;
     _magnetRemainingSec = 0;
     _crawlRemainingSec = 0;
+
+    // Reset legendary skill state between runs.
+    _autoStrikeSec = 0;
+    _autoStrikeFireSec = 0;
+    _tempestSec = 0;
+    _reversing = false;
 
     _initialObstacleDelaySec = 0;
     _spawnTimerSec = 0;
@@ -597,6 +637,114 @@ class StickmanRunEngine {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Legendary skill triggers
+  // ---------------------------------------------------------------------------
+
+  /// Starts REVERSE RUN. When [on] is true and the skill is owned, the world
+  /// unscrolls (entities move right, distance decreases). Returns whether it
+  /// took effect.
+  bool setReversing(bool on) {
+    if (!_legendaries.contains(LegendarySkill.reverseRun)) return false;
+    if (_status != GameStatus.running) return false;
+    _reversing = on;
+    return true;
+  }
+
+  /// Activates a legendary skill that is owned and currently not already
+  /// active. Returns true when the effect started.
+  bool triggerLegendary(LegendarySkill skill) {
+    if (!_legendaries.contains(skill)) return false;
+    if (_status != GameStatus.running) return false;
+
+    switch (skill) {
+      case LegendarySkill.autoStrike:
+        if (_autoStrikeSec > 0) return false;
+        _autoStrikeSec = 5.0;
+        _autoStrikeFireSec = 0;
+        return true;
+      case LegendarySkill.reverseRun:
+        // Reversing is driven by the hold gesture (setReversing), but calling
+        // it here is a no-op guard for combo misfires.
+        return false;
+      case LegendarySkill.roadSweep:
+        if (_obstacles.isEmpty) return false;
+        for (final o in _obstacles) {
+          _spawnSmashDebris(o);
+          _smashScorePopups.add(
+            SmashScorePopup(
+              x: o.x + o.width / 2,
+              y: o.y + o.height / 2,
+              remainingSec: 0.8,
+              score: 5,
+            ),
+          );
+        }
+        _score += 5 * _obstacles.length;
+        _obstacles.clear();
+        return true;
+      case LegendarySkill.tempest:
+        if (_tempestSec > 0) return false;
+        _tempestSec = 4.0;
+        return true;
+      case LegendarySkill.goldRush:
+        if (_obstacles.isEmpty) return false;
+        for (final o in _obstacles) {
+          // Convert each obstacle into a small burst of coins at its center.
+          final cx = o.x + o.width / 2;
+          final cy = o.y + o.height / 2;
+          final radius = (5.5 + _rng.nextDouble() * 2.5) * _coinRadiusMultiplier;
+          for (var i = 0; i < 3; i++) {
+            _coins.add(
+              Coin(
+                x: cx + (i - 1) * 18.0,
+                y: cy + (i % 2 == 0 ? 0 : 18.0),
+                radius: radius,
+                phase: _rng.nextDouble() * 10,
+              ),
+            );
+          }
+        }
+        _obstacles.clear();
+        return true;
+    }
+  }
+
+  /// Auto-strike update: while the AUTO-STRIKE window is active, automatically
+  /// destroy the nearest obstacle ahead every [_autoStrikeFireSec] interval.
+  void _updateAutoStrike(double dtSec) {
+    if (_autoStrikeSec <= 0) return;
+    _autoStrikeFireSec -= dtSec;
+    if (_autoStrikeFireSec > 0) return;
+
+    _autoStrikeFireSec = 0.35;
+
+    // Destroy the nearest obstacle in front within a generous range, with
+    // full vertical reach so flying obstacles are hit too.
+    double bestDist = 1e9;
+    Obstacle? target;
+    for (final o in _obstacles) {
+      final d = o.x - _stickman.x;
+      if (d < 0 || d > bestDist) continue;
+      bestDist = d;
+      target = o;
+    }
+    if (target == null) return;
+
+    _spawnSmashDebris(target);
+    final gained = (5 * _comboMult).round();
+    _score += gained;
+    _smashScorePopups.add(
+      SmashScorePopup(
+        x: target.x + target.width / 2,
+        y: target.y + target.height / 2,
+        remainingSec: 0.8,
+        score: gained,
+      ),
+    );
+    _obstacles.remove(target);
+  }
+
   /// Spawns particle debris at the obstacle's center for the shatter effect.
   /// Debris flies outward in the direction from the stickman toward the obstacle.
   void _spawnSmashDebris(Obstacle o) {
@@ -710,6 +858,10 @@ class StickmanRunEngine {
     _perfectLandingBoostSec = max(0, _perfectLandingBoostSec - dtSec);
     _coinStreakBurstSec = max(0, _coinStreakBurstSec - dtSec);
 
+    // Decay legendary skill timers.
+    _autoStrikeSec = max(0, _autoStrikeSec - dtSec);
+    _tempestSec = max(0, _tempestSec - dtSec);
+
     // End a combo chain when it has been inactive past its window.
     if (_comboWindowSec > 0) {
       _comboWindowSec -= dtSec;
@@ -733,6 +885,7 @@ class StickmanRunEngine {
     _recomputeSpawnCadence();
 
     _updatePowerUps(dtSec);
+    _updateAutoStrike(dtSec);
     _updateStickmanPhysics(dtSec);
     _updateWorld(dtSec);
     _handleCollisionsAndCollect();
@@ -806,14 +959,22 @@ class StickmanRunEngine {
   void _updateWorld(double dtSec) {
     // Move and spawn with world scrolling:
     // Obstacles/coins/powerups move left, stickman stays horizontally.
-    final speed = _steppedSpeed();
+    var speed = _steppedSpeed();
+
+    // TEMPEST legendary: slow the world to ~50% for the window.
+    if (_tempestSec > 0) speed *= 0.5;
+
+    // REVERSE RUN legendary: unscroll the world while held.
+    final reversing = _reversing && _legendaries.contains(LegendarySkill.reverseRun);
+    if (reversing) speed = -speed;
 
     // Convert dt & speed to px delta.
     final dx = speed * dtSec;
 
     // Spawn logic.
-    // Do not spawn obstacle columns during the initial delay window.
-    if (_initialObstacleDelaySec <= 0) {
+    // Do not spawn obstacle columns during the initial delay window or while
+    // reversing (reversing is a recovery window, not a farming tool).
+    if (_initialObstacleDelaySec <= 0 && !reversing) {
       _spawnTimerSec += dtSec;
       while (_spawnTimerSec >= _nextSpawnEverySec) {
         _spawnTimerSec -= _nextSpawnEverySec;
@@ -861,10 +1022,11 @@ class StickmanRunEngine {
       }
     }
 
-    _distanceMeters += dx / 100.0;
+    _distanceMeters = max(0, _distanceMeters + dx / 100.0);
 
-    // Shield charge skill: regenerate a partial shield over distance.
-    if (_skills.shieldCharge > 0 && _shieldRemainingSec <= 0) {
+    // Shield charge skill: regenerate a partial shield over distance (only
+    // while moving forward).
+    if (_skills.shieldCharge > 0 && _shieldRemainingSec <= 0 && dx > 0) {
       _shieldChargeMeters += dx / 100.0;
       if (_shieldChargeMeters >= _skills.shieldChargeEveryMeters) {
         _shieldChargeMeters = 0;
@@ -872,11 +1034,16 @@ class StickmanRunEngine {
       }
     }
 
-    // Remove out-of-screen entities.
+    // Remove out-of-screen entities. When reversing, also cull entities that
+    // scroll back past the right edge.
     final leftKill = -140.0;
-    _obstacles.removeWhere((o) => o.x + o.width < leftKill);
-    _coins.removeWhere((c) => c.x + c.radius < leftKill);
-    _powerUps.removeWhere((p) => p.x + p.size * 0.5 < leftKill);
+    _obstacles.removeWhere(
+      (o) => o.x + o.width < leftKill || o.x > _width + 140,
+    );
+    _coins.removeWhere((c) => c.x + c.radius < leftKill || c.x > _width + 140);
+    _powerUps.removeWhere(
+      (p) => p.x + p.size * 0.5 < leftKill || p.x > _width + 140,
+    );
   }
 
   void _spawnObstacleColumn() {
@@ -1185,6 +1352,12 @@ class StickmanRunEngine {
 
       // Overdrive window: invulnerable right after a smash.
       if (_overdriveSec > 0) continue;
+
+      // TEMPEST legendary: invincible for the whole window.
+      if (_tempestSec > 0) continue;
+
+      // REVERSE RUN legendary: unscrolling is a recovery window — no damage.
+      if (_reversing && _legendaries.contains(LegendarySkill.reverseRun)) continue;
 
       _lifePercent = max(0, _lifePercent - _obstacleDamage(o.type));
       _damageGraceSec = 0.5 + _skills.damageGraceBonus;
