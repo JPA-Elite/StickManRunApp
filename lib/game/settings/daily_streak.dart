@@ -16,6 +16,7 @@ class DailyStreakController extends ChangeNotifier {
   static const String _keyLastCheckIn = 'daily_streak_last_checkin_v1';
   static const String _keyStreakDays = 'daily_streak_days_v1';
   static const String _keyTotalCheckIns = 'daily_streak_total_v1';
+  static const String _keyBestStreak = 'daily_streak_best_v1';
 
   /// Rewards (in coins) granted for completing a streak of this length.
   /// Indexed by streak day count. The player receives the tier corresponding
@@ -39,6 +40,10 @@ class DailyStreakController extends ChangeNotifier {
   int _totalCheckIns = 0;
   int get totalCheckIns => _totalCheckIns;
 
+  /// Longest streak ever achieved (never resets on a broken streak).
+  int _bestStreak = 0;
+  int get bestStreak => _bestStreak;
+
   DateTime? _lastCheckInDate;
 
   /// Current consecutive streak length.
@@ -47,6 +52,32 @@ class DailyStreakController extends ChangeNotifier {
   /// Total coins the player has been awarded from streak rewards.
   int _totalRewarded = 0;
   int get totalRewarded => _totalRewarded;
+
+  /// The next streak milestone key greater than the current streak, or `null`
+  /// when the current streak already exceeds the top milestone.
+  int? get nextMilestoneKey {
+    if (streakRewards.isEmpty) return null;
+    final keys = streakRewards.keys.toList()..sort();
+    for (final k in keys) {
+      if (k > currentStreak) return k;
+    }
+    return null;
+  }
+
+  /// Days left (including today) until the next streak milestone.
+  int get daysUntilNextMilestone {
+    final next = nextMilestoneKey;
+    if (next == null) return 0;
+    final remaining = next - currentStreak;
+    return remaining > 0 ? remaining : 0;
+  }
+
+  /// Reward coins granted for the next milestone (0 when none remain).
+  int get nextMilestoneReward {
+    final next = nextMilestoneKey;
+    if (next == null) return 0;
+    return streakRewards[next] ?? 0;
+  }
 
   /// Whether the player has already checked in today (UTC).
   bool get checkedInToday {
@@ -59,16 +90,6 @@ class DailyStreakController extends ChangeNotifier {
 
   /// Coins the player will receive on the next check-in.
   int get nextReward => _dailyReward(currentStreak);
-
-  /// Coins the player will receive if they complete a milestone streak.
-  /// Returns the milestone reward if the next check-in triggers one, else 0.
-  int get nextMilestoneReward {
-    final nextStreak = currentStreak + 1;
-    if (streakRewards.containsKey(nextStreak)) {
-      return streakRewards[nextStreak]!;
-    }
-    return 0;
-  }
 
   bool _loaded = false;
   bool get loaded => _loaded;
@@ -96,6 +117,7 @@ class DailyStreakController extends ChangeNotifier {
     _pruneToCurrentStreak();
 
     _totalCheckIns = prefs.getInt(_keyTotalCheckIns) ?? 0;
+    _bestStreak = prefs.getInt(_keyBestStreak) ?? _streakDates.length;
     _loaded = true;
     notifyListeners();
   }
@@ -157,6 +179,9 @@ class DailyStreakController extends ChangeNotifier {
     _streakDates.insert(0, today);
     _lastCheckInDate = today;
     _totalCheckIns++;
+    if (_streakDates.length > _bestStreak) {
+      _bestStreak = _streakDates.length;
+    }
 
     int awarded = _dailyReward(_streakDates.length - 1);
 
@@ -182,5 +207,6 @@ class DailyStreakController extends ChangeNotifier {
       _streakDates.map(_formatDate).toList(),
     );
     await prefs.setInt(_keyTotalCheckIns, _totalCheckIns);
+    await prefs.setInt(_keyBestStreak, _bestStreak);
   }
 }
