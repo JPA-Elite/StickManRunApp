@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'game/app/stickman_run_app.dart';
+import 'game/settings/daily_mission.dart';
+import 'game/settings/daily_streak.dart';
 import 'game/settings/score_history.dart';
 import 'game/settings/settings_controller.dart';
 import 'game/settings/skill_controller.dart';
@@ -18,5 +20,7 @@ Future<void> main() async {
   await SettingsController.instance.load();
   await ScoreHistoryController.instance.load();
   await SkillController.instance.load();
+  await DailyStreakController.instance.load();
+  await DailyMissionController.instance.load();
   runApp(const StickmanRunApp());
 }

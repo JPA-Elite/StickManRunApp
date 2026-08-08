@@ -11,6 +11,8 @@ import '../settings/game_settings.dart';
 import '../settings/legendary_defs.dart';
 import '../settings/score_history.dart';
 import '../settings/settings_controller.dart';
+import '../settings/daily_mission.dart';
+import '../settings/daily_streak.dart';
 import '../settings/skill_controller.dart';
 import 'haptics.dart';
 import 'obstacle_guide.dart';
@@ -492,9 +494,14 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
       }
     }
 
-    // Vibrate when the stickman hits an obstacle (game over).
-    if (wasRunning && _snapshot.status == GameStatus.gameOver) {
-      if (_settings.vibrationsEnabled) {
+    // When a run ends (game over or level complete), record score, award coins,
+    // and check the daily mission.
+    if (wasRunning &&
+        (_snapshot.status == GameStatus.gameOver ||
+            _snapshot.status == GameStatus.levelComplete)) {
+      // Vibrate on obstacle-hit death (not on level complete).
+      if (_snapshot.status == GameStatus.gameOver &&
+          _settings.vibrationsEnabled) {
         vibrate(HapticIntensity.heavy);
       }
       // Record the finished run for the score history.
@@ -511,6 +518,10 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
       }
       // Award collected coins to the skill wallet.
       SkillController.instance.awardCoins(_snapshot.coins);
+      // Check daily mission score threshold.
+      DailyMissionController.instance.checkScore(_snapshot.score);
+      // Auto check-in for the daily streak when a run finishes.
+      DailyStreakController.instance.checkIn();
     }
   }
 

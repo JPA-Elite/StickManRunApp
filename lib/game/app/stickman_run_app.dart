@@ -5,13 +5,13 @@ import 'package:flutter/material.dart';
 import '../settings/score_history.dart';
 import '../settings/settings_controller.dart';
 import '../settings/skill_controller.dart';
+import '../ui/daily_streak_screen.dart';
 import '../ui/menu_backdrop.dart';
 import '../ui/obstacle_guide.dart';
 import '../ui/score_history_screen.dart';
 import '../ui/settings_screen.dart';
 import '../ui/skills_screen.dart';
 import '../ui/stickman_run_screen.dart';
-import '../../widgets/top_toast.dart';
 import '../../game/engine/level_config.dart' as engine;
 
 class StickmanRunApp extends StatefulWidget {
@@ -59,10 +59,13 @@ class _StickmanRunAppState extends State<StickmanRunApp>
   }
 
   void _maybeCelebrateLevelUp() {
+    // Only celebrate on the level-select homepage, never on the very first
+    // landing page before the home page, and never for the starting rank L1.
+    if (!_showLevelSelect) return;
     final history = ScoreHistoryController.instance;
     final total = _totalScore(history);
     final tier = _rankForScore(total).level;
-    if (tier > history.lastCelebratedTier) {
+    if (tier > history.lastCelebratedTier && tier > 1) {
       history.setLastCelebratedTier(tier);
       setState(() => _pendingCelebrationTier = tier);
       _celebrationController.forward(from: 0);
@@ -460,7 +463,11 @@ class _BrandCard extends StatelessWidget {
             ),
             tooltip: 'Daily Streak',
             onPressed: () {
-              TopToast.show(context, message: 'Daily Streak – coming soon');
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const DailyStreakScreen(),
+                ),
+              );
             },
           ),
           IconButton(
