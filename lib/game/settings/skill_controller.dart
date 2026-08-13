@@ -265,6 +265,23 @@ class SkillController extends ChangeNotifier {
     return true;
   }
 
+  /// Removes an equipped legendary [skill] from the active slots. The skill
+  /// stays in the permanent collection and can be re-equipped for free.
+  /// Returns false if [skill] is not currently active.
+  Future<bool> unequipLegendary(LegendarySkill skill) async {
+    if (!_active.contains(skill)) return false;
+
+    _active.remove(skill);
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _keyActiveLegendaries,
+      jsonEncode(_active.map((s) => s.name).toList()),
+    );
+    notifyListeners();
+    return true;
+  }
+
   /// Resets every field so a fresh [load] reproduces a clean player state.
   /// Test-only; not used by production code.
   @visibleForTesting

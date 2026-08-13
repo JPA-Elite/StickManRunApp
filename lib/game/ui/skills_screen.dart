@@ -452,9 +452,9 @@ class _ProcessingDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Dialog(
-      backgroundColor: Color(0xFF1E0A12),
-      child: Padding(
+    return Dialog(
+      backgroundColor: Colors.black,
+      child: const Padding(
         padding: EdgeInsets.all(28),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -879,26 +879,55 @@ Future<void> _equipLegendaryFromCard(
     );
     if (replaced == null || !context.mounted) return;
   }
+  if (!context.mounted) return;
+  final navigator = Navigator.of(context);
+  showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const _ProcessingDialog(),
+  );
   final ok = await sc.equipLegendary(def.id, replaced: replaced);
-  if (ok && context.mounted) {
-    await _showSuccessModal(
-      context,
-      icon: def.icon,
-      title: 'EQUIPPED!',
-      message: '${def.name} equipped — free, ready for your next run.',
-      accent: const Color(0xFFFFD700),
-    );
-  }
+  await Future<void>.delayed(const Duration(seconds: 1));
+  if (navigator.canPop()) navigator.pop();
+  if (!ok || !context.mounted) return;
+  await _showSuccessModal(
+    context,
+    icon: def.icon,
+    title: 'EQUIPPED!',
+    message: '${def.name} equipped — free, ready for your next run.',
+    accent: const Color(0xFFFF5C8A),
+  );
 }
 
-/// Shows a read-only detail dialog for an equipped legendary [def].
+/// Shows a detail dialog for an equipped legendary [def]. When the player
+/// removes it, the skill is unequipped and a success modal is shown.
 Future<void> _openLegendaryInfoDialog(
   BuildContext context,
   LegendaryDef def,
 ) async {
-  await showDialog<void>(
+  final removed = await showDialog<bool>(
     context: context,
     builder: (_) => _LegendaryInfoDialog(def: def),
+  );
+  if (removed != true || !context.mounted) return;
+  final navigator = Navigator.of(context);
+  showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const _ProcessingDialog(),
+  );
+  await SkillController.instance.unequipLegendary(def.id);
+  await Future<void>.delayed(const Duration(seconds: 1));
+  if (navigator.canPop()) navigator.pop();
+  if (!context.mounted) return;
+  await _showSuccessModal(
+    context,
+    icon: def.icon,
+    title: 'REMOVED!',
+    message:
+        '${def.name} was removed from your active loadout — it stays in '
+        'your collection and can be re-equipped for free.',
+    accent: const Color(0xFFFF5C8A),
   );
 }
 
@@ -916,7 +945,7 @@ Future<void> _showSuccessModal(
     context: context,
     barrierDismissible: false,
     builder: (ctx) => Dialog(
-      backgroundColor: const Color(0xFF1E0A12),
+      backgroundColor: Colors.black,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(color: accent, width: 1.2),
@@ -1207,8 +1236,9 @@ class _DashedBorderPainter extends CustomPainter {
       oldDelegate.color != color;
 }
 
-/// Read-only detail dialog for an equipped legendary: shows its icon, name,
-/// trigger combo, description and cost.
+/// Detail dialog for an equipped legendary: shows its icon, name, trigger
+/// combo, description and cost, plus a REMOVE action that unequips it from
+/// the active loadout (it stays in the collection).
 class _LegendaryInfoDialog extends StatelessWidget {
   final LegendaryDef def;
 
@@ -1292,27 +1322,47 @@ class _LegendaryInfoDialog extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 14),
-            Align(
-              alignment: Alignment.centerRight,
-              child: ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF5C8A),
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 10,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton.icon(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  icon: const Icon(
+                    Icons.remove_circle_outline_rounded,
+                    color: Colors.redAccent,
+                    size: 18,
+                  ),
+                  label: const Text(
+                    'REMOVE',
+                    style: TextStyle(
+                      color: Colors.redAccent,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12,
+                      letterSpacing: 1,
+                    ),
                   ),
                 ),
-                child: const Text(
-                  'DONE',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 12,
-                    letterSpacing: 1,
+                const SizedBox(width: 12),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF5C8A),
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 10,
+                    ),
+                  ),
+                  child: const Text(
+                    'DONE',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12,
+                      letterSpacing: 1,
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
           ],
         ),
