@@ -262,9 +262,9 @@ class Stickman {
     );
   }
 
-  Stickman copyWith({double? y, double? vy}) {
+  Stickman copyWith({double? x, double? y, double? vy}) {
     return Stickman(
-      x: x,
+      x: x ?? this.x,
       y: y ?? this.y,
       vy: vy ?? this.vy,
     );

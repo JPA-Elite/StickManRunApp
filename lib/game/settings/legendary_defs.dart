@@ -28,8 +28,8 @@ class LegendaryDef {
   /// The trigger as a labelled human string, e.g. "jump · jump · attack".
   final String comboLabel;
 
-  /// The ordered list of actions that trigger this legendary (empty for
-  /// hold-gesture legendaries like REVERSE RUN).
+  /// The ordered list of actions that trigger this legendary. Every
+  /// legendary is triggered by a combo; the field is always non-empty.
   final List<ComboAction> combo;
 
   const LegendaryDef({
@@ -55,12 +55,12 @@ class LegendaryDef {
     ),
     LegendaryDef(
       id: LegendarySkill.reverseRun,
-      name: 'REVERSE RUN',
+      name: 'TIME REWIND',
       icon: '⟲',
       description:
-          'Hold the left edge to unscroll the world and regain lost distance; hold the right edge to surge forward.',
+          'Hold steady on the screen to rewind the world for 3 seconds — obstacles scroll back away while you regain distance and stay safe.',
       cost: 9000,
-      comboLabel: 'hold left ⟲ / hold right ⟶',
+      comboLabel: 'hold ⟲ to rewind',
     ),
     LegendaryDef(
       id: LegendarySkill.roadSweep,

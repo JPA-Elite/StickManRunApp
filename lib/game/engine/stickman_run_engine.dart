@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../settings/game_settings.dart';
 import '../settings/legendary_defs.dart';
+import '../settings/skill_controller.dart';
 import '../settings/skill_defs.dart';
 import 'entities.dart';
 import 'level_config.dart';
@@ -113,17 +114,40 @@ class StickmanRunSnapshot {
     this.combo = 0,
     this.comboMult = 1.0,
     this.autoStrikeSec = 0,
+    this.autoStrikeLeapProgress = 0,
+    this.autoStrikeLeapFromX = 0,
+    this.autoStrikeLeapToX = 0,
     this.tempestSec = 0,
+    this.reverseSec = 0,
+    this.roadSweepSec = 0,
     this.reversing = false,
   });
 
   /// Remaining seconds of the AUTO-STRIKE legendary auto-attack window.
   final double autoStrikeSec;
 
+  /// Progress (0..1) of a teleport dash in flight; 0 when no teleport is
+  /// currently animating. The painter uses this to draw the flying trail.
+  final double autoStrikeLeapProgress;
+
+  /// World-space X the teleport started from.
+  final double autoStrikeLeapFromX;
+
+  /// World-space X the teleport lands/strikes at.
+  final double autoStrikeLeapToX;
+
   /// Remaining seconds of the TEMPEST legendary invincibility window.
   final double tempestSec;
 
-  /// True while the REVERSE RUN legendary is unscrolling the world.
+  /// Remaining seconds of the TIME REWIND legendary rewind window (0 when
+  /// not active).
+  final double reverseSec;
+
+  /// Remaining seconds of the ROAD SWEEP legendary sweeping window (0 when
+  /// not active).
+  final double roadSweepSec;
+
+  /// True while the TIME REWIND legendary is unscrolling the world.
   final bool reversing;
 }
 
@@ -217,12 +241,20 @@ class StickmanRunEngine {
   // --- Legendary skill state ---
   /// Remaining seconds of AUTO-STRIKE auto-attack window.
   double _autoStrikeSec = 0;
-  /// Countdown between automatic strikes during AUTO-STRIKE.
-  double _autoStrikeFireSec = 0;
+  /// Remaining seconds of the current AUTO-STRIKE cinematic leap toward a
+  /// target. While non-zero the stickman dashes across the road to the
+  /// obstacle, leaping through anything in the way.
+  double _autoStrikeLeapSec = 0;
+  double _autoStrikeLeapFromX = 0;
+  double _autoStrikeLeapToX = 0;
   /// Remaining seconds of TEMPEST invincibility + slow-motion window.
   double _tempestSec = 0;
-  /// True while REVERSE RUN is holding the world backwards.
-  bool _reversing = false;
+  /// Remaining seconds of TIME REWIND (world scrolled backwards).
+  double _reverseSec = 0;
+  /// Remaining seconds of ROAD SWEEP sweeping window.
+  double _roadSweepSec = 0;
+  /// Seconds before the next interval sweep attack fires while sweeping.
+  double _roadSweepDelaySec = 0;
 
   // Prevent “instant death” from the very first spawn right after START RUN.
   // (First obstacle column can overlap slightly due to resize/layout rounding.)
@@ -339,8 +371,13 @@ class StickmanRunEngine {
       combo: _comboCount,
       comboMult: _comboMult,
       autoStrikeSec: _autoStrikeSec,
+      autoStrikeLeapProgress: _autoStrikeLeapProgress(),
+      autoStrikeLeapFromX: _autoStrikeLeapFromX,
+      autoStrikeLeapToX: _autoStrikeLeapToX,
       tempestSec: _tempestSec,
-      reversing: _reversing,
+      reverseSec: _reverseSec,
+      roadSweepSec: _roadSweepSec,
+      reversing: _reverseSec > 0,
     );
   }
 
@@ -420,9 +457,14 @@ class StickmanRunEngine {
 
     // Reset legendary skill state between runs.
     _autoStrikeSec = 0;
-    _autoStrikeFireSec = 0;
+    _autoStrikeLeapSec = 0;
     _tempestSec = 0;
-    _reversing = false;
+    _reverseSec = 0;
+    _roadSweepSec = 0;
+    _roadSweepDelaySec = 0;
+
+    // Reset legendary skill cooldowns so they are ready for the new run.
+    SkillController.instance.resetLegendaryCooldowns();
 
     _initialObstacleDelaySec = 0;
     _spawnTimerSec = 0;
@@ -641,16 +683,6 @@ class StickmanRunEngine {
   // Legendary skill triggers
   // ---------------------------------------------------------------------------
 
-  /// Starts REVERSE RUN. When [on] is true and the skill is owned, the world
-  /// unscrolls (entities move right, distance decreases). Returns whether it
-  /// took effect.
-  bool setReversing(bool on) {
-    if (!_legendaries.contains(LegendarySkill.reverseRun)) return false;
-    if (_status != GameStatus.running) return false;
-    _reversing = on;
-    return true;
-  }
-
   /// Activates a legendary skill that is owned and currently not already
   /// active. Returns true when the effect started.
   bool triggerLegendary(LegendarySkill skill) {
@@ -661,27 +693,15 @@ class StickmanRunEngine {
       case LegendarySkill.autoStrike:
         if (_autoStrikeSec > 0) return false;
         _autoStrikeSec = 5.0;
-        _autoStrikeFireSec = 0;
         return true;
       case LegendarySkill.reverseRun:
-        // Reversing is driven by the hold gesture (setReversing), but calling
-        // it here is a no-op guard for combo misfires.
-        return false;
+        if (_reverseSec > 0) return false;
+        _reverseSec = 3.0;
+        return true;
       case LegendarySkill.roadSweep:
-        if (_obstacles.isEmpty) return false;
-        for (final o in _obstacles) {
-          _spawnSmashDebris(o);
-          _smashScorePopups.add(
-            SmashScorePopup(
-              x: o.x + o.width / 2,
-              y: o.y + o.height / 2,
-              remainingSec: 0.8,
-              score: 5,
-            ),
-          );
-        }
-        _score += 5 * _obstacles.length;
-        _obstacles.clear();
+        if (_roadSweepSec > 0) return false;
+        _roadSweepSec = 3.0;
+        _roadSweepDelaySec = 0;
         return true;
       case LegendarySkill.tempest:
         if (_tempestSec > 0) return false;
@@ -710,25 +730,144 @@ class StickmanRunEngine {
     }
   }
 
-  /// Auto-strike update: while the AUTO-STRIKE window is active, automatically
-  /// destroy the nearest obstacle ahead every [_autoStrikeFireSec] interval.
+  /// Auto-strike update: while the AUTO-STRIKE window is active the stickman
+  /// bounces home → obstacle → home in a cinematic flying-strike. Each leap
+  /// blink makes the body travel from its origin to the landing spot while it
+  /// is hidden mid-air (only the vanishing ring, speed streaks and trailing
+  /// ghosts are visible); it appears solid only at the endpoints — the resting
+  /// home lane and, on arrival, right beside the target it strikes. After each
+  /// strike it bounces back home before going after the next obstacle.
   void _updateAutoStrike(double dtSec) {
-    if (_autoStrikeSec <= 0) return;
-    _autoStrikeFireSec -= dtSec;
-    if (_autoStrikeFireSec > 0) return;
+    if (_autoStrikeSec <= 0) {
+      // Window over: ease back to the resting position.
+      _autoStrikeLeapSec = 0;
+      _glideStickmanTo(_stickmanX, dtSec);
+      return;
+    }
 
-    _autoStrikeFireSec = 0.35;
+    // Active blink: the body is mid-flight, hidden, traveling from → to.
+    if (_autoStrikeLeapSec > 0) {
+      _autoStrikeLeapSec -= dtSec;
+      final p = (1 - _autoStrikeLeapSec / _autoStrikeLeapDuration).clamp(0.0, 1.0);
+      final x =
+          _autoStrikeLeapFromX + (_autoStrikeLeapToX - _autoStrikeLeapFromX) * p;
+      _stickman = _stickman.copyWith(x: x);
+      return;
+    }
 
-    // Destroy the nearest obstacle in front within a generous range, with
-    // full vertical reach so flying obstacles are hit too.
-    double bestDist = 1e9;
+    // Grounded at an endpoint. Find the nearest obstacle ahead.
+    final reach = _autoStrikeReach();
     Obstacle? target;
+    double bestDist = 1e9;
     for (final o in _obstacles) {
       final d = o.x - _stickman.x;
-      if (d < 0 || d > bestDist) continue;
-      bestDist = d;
-      target = o;
+      if (d < 0) continue;
+      if (d < bestDist) {
+        bestDist = d;
+        target = o;
+      }
     }
+
+    if (target == null) {
+      // Nothing ahead: ease back home while the window is still open.
+      _glideStickmanTo(_stickmanX, dtSec);
+      return;
+    }
+
+    if (bestDist > reach) {
+      // Obstacle beyond reach: launch the outbound flight onto it. The body
+      // disappears here and appears at the landing spot when the blink ends.
+      // The landing is NOT clamped to the screen edge — obstacles spawn beyond
+      // the right edge, so long-distance targets are still reachable.
+      final toX = max(_stickmanX, target.x - reach);
+      final fromX = _stickman.x;
+      _autoStrikeLeapFromX = fromX;
+      _autoStrikeLeapToX = toX;
+      _autoStrikeLeapSec = _autoStrikeLeapDuration;
+      return;
+    }
+
+    // Beside the obstacle: smash it, then launch the return flight home so the
+    // stickman never lingers at the target between strikes.
+    _spawnSmashDebris(target);
+    final gained = (5 * _comboMult).round();
+    _score += gained;
+    _smashScorePopups.add(
+      SmashScorePopup(
+        x: target.x + target.width / 2,
+        y: target.y + target.height / 2,
+        remainingSec: 0.8,
+        score: gained,
+      ),
+    );
+    _obstacles.remove(target);
+
+    _autoStrikeLeapFromX = _stickman.x;
+    _autoStrikeLeapToX = _stickmanX;
+    _autoStrikeLeapSec = _autoStrikeLeapDuration;
+  }
+
+  /// Horizontal smash reach: same depth as the manual punch animation.
+  double _autoStrikeReach() {
+    final w = _stickmanWidthPx();
+    final h = _stickmanHeightPx();
+    final s = min(w, h) * 0.5;
+    return 0.97 * w + 1.6 * s;
+  }
+
+  /// Px/sec the stickman dashes toward a target while auto-striking.
+  double get _autoStrikeLungeSpeed => 780.0;
+
+  /// Duration of one auto-strike cinematic teleport blink across the road.
+  double get _autoStrikeLeapDuration => 0.20;
+
+  /// Normalized 0..1 progress of the teleport dash while it is in flight
+  /// (0 when idle) so the painter can draw the flying-strike trail.
+  double _autoStrikeLeapProgress() {
+    if (_autoStrikeLeapSec <= 0) return 0;
+    return (1 - _autoStrikeLeapSec / _autoStrikeLeapDuration).clamp(0.0, 1.0);
+  }
+
+  /// Moves the stickman horizontally toward [x] with an eased step each frame.
+  void _glideStickmanTo(double x, double dtSec) {
+    final diff = x - _stickman.x;
+    if (diff.abs() < 0.5) return;
+    final step = _autoStrikeLungeSpeed * dtSec;
+    final delta = diff.abs() < step ? diff : diff.sign * step;
+    _stickman = _stickman.copyWith(x: _stickman.x + delta);
+  }
+
+  /// Interval between consecutive ROAD SWEEP sweeps.
+  static const double _roadSweepIntervalSec = 0.2;
+
+  /// ROAD SWEEP update: while the 3-second window is active, one sweep attack
+  /// fires every 0.2 seconds, destroying the nearest obstacle ahead with the
+  /// usual smash effects (debris, score popup).
+  void _updateRoadSweep(double dtSec) {
+    if (_roadSweepSec <= 0) {
+      _roadSweepDelaySec = 0;
+      return;
+    }
+
+    _roadSweepSec = max(0, _roadSweepSec - dtSec);
+
+    if (_roadSweepDelaySec > 0) {
+      _roadSweepDelaySec -= dtSec;
+      return;
+    }
+
+    Obstacle? target;
+    var bestDist = 1e9;
+    for (final o in _obstacles) {
+      final d = o.x - _stickman.x;
+      if (d < 0) continue; // only sweep what's ahead
+      if (d < bestDist) {
+        bestDist = d;
+        target = o;
+      }
+    }
+
+    _roadSweepDelaySec = _roadSweepIntervalSec;
     if (target == null) return;
 
     _spawnSmashDebris(target);
@@ -861,6 +1000,7 @@ class StickmanRunEngine {
     // Decay legendary skill timers.
     _autoStrikeSec = max(0, _autoStrikeSec - dtSec);
     _tempestSec = max(0, _tempestSec - dtSec);
+    _reverseSec = max(0, _reverseSec - dtSec);
 
     // End a combo chain when it has been inactive past its window.
     if (_comboWindowSec > 0) {
@@ -886,6 +1026,7 @@ class StickmanRunEngine {
 
     _updatePowerUps(dtSec);
     _updateAutoStrike(dtSec);
+    _updateRoadSweep(dtSec);
     _updateStickmanPhysics(dtSec);
     _updateWorld(dtSec);
     _handleCollisionsAndCollect();
@@ -964,8 +1105,8 @@ class StickmanRunEngine {
     // TEMPEST legendary: slow the world to ~50% for the window.
     if (_tempestSec > 0) speed *= 0.5;
 
-    // REVERSE RUN legendary: unscroll the world while held.
-    final reversing = _reversing && _legendaries.contains(LegendarySkill.reverseRun);
+    // TIME REWIND legendary: unscroll the world while active.
+    final reversing = _reverseSec > 0 && _legendaries.contains(LegendarySkill.reverseRun);
     if (reversing) speed = -speed;
 
     // Convert dt & speed to px delta.
@@ -1277,7 +1418,7 @@ class StickmanRunEngine {
             coinRect.intersects(stickRect) || dx < 18 && _stickman.y < c.y + 18;
 
         if (hit) {
-          _coinsCollected += 1;
+          _coinsCollected += 1000; // TEMPORARY X1000 CHEAT - revert to += 1
           final coinGain = (10 * _skills.coinValueMult).round();
           var scoreGain = (coinGain * _skills.scoreMult).round();
           // Skill: coin streak triggers a magnet burst.
@@ -1356,8 +1497,18 @@ class StickmanRunEngine {
       // TEMPEST legendary: invincible for the whole window.
       if (_tempestSec > 0) continue;
 
-      // REVERSE RUN legendary: unscrolling is a recovery window — no damage.
-      if (_reversing && _legendaries.contains(LegendarySkill.reverseRun)) continue;
+      // AUTO-STRIKE legendary: the ninja plows through — obstacles in the
+      // leap path get smashed instead of damaging the runner.
+      if (_autoStrikeSec > 0) {
+        destroyedByShield.add(o);
+        continue;
+      }
+
+      // ROAD SWEEP legendary: a sweeping window — no damage taken.
+      if (_roadSweepSec > 0) continue;
+
+      // TIME REWIND legendary: unscrolling is a recovery window — no damage.
+      if (_reverseSec > 0 && _legendaries.contains(LegendarySkill.reverseRun)) continue;
 
       _lifePercent = max(0, _lifePercent - _obstacleDamage(o.type));
       _damageGraceSec = 0.5 + _skills.damageGraceBonus;

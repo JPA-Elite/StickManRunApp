@@ -162,6 +162,15 @@ class StickmanRunPainter extends CustomPainter {
     // Floating score popups.
     _drawSmashScorePopups(canvas);
 
+    // AUTO-STRIKE teleport: while the leap is in flight the body is hidden and a
+    // blazing streak paints the crossing — vanish ring, speed lines and trailing
+    // ghosts hug the flying path; the solid figure reappears at the landing spot.
+    final tp = snapshot.autoStrikeLeapProgress;
+    final isTeleporting = tp > 0.01 && tp < 1.0;
+    if (isTeleporting) {
+      _drawStrikeTeleportTrail(canvas);
+    }
+
     // Stickman. During post-hit invulnerability the body fades in and out
     // (flicker) to communicate the grace window.
     if (snapshot.damageGraceSec > 0) {
@@ -982,6 +991,15 @@ class StickmanRunPainter extends CustomPainter {
     final h = _stickmanHeightPx();
     final effectiveH = snapshot.crawlingActive ? h * 0.58 : h;
 
+    // AUTO-STRIKE teleport: during the blink the body is hidden mid-flight —
+    // only the vanish/impact rings, speed streaks and trailing ghosts paint
+    // the leap. The solid figure reappears at the landing spot when the blink
+    // resolves.
+    final tp = snapshot.autoStrikeLeapProgress;
+    if (tp > 0.01 && tp < 1.0) {
+      return;
+    }
+
     // Center stickman on X. stickman.y is bottom.
     final cx = stickman.x;
     final bottomY = stickman.y;
@@ -1248,6 +1266,203 @@ class StickmanRunPainter extends CustomPainter {
         type: PowerUpType.magnet,
       );
     }
+  }
+
+  /// Blazing speed lines trailing the AUTO-STRIKE teleport. Ghost afterimages
+  /// of the stickman flicker along the path from the starting X toward the
+  /// current flying body, fading with distance. A flash ring marks the
+  /// departure point and an impact ring blooms at the landing position so the
+  /// instant blink reads as a true teleport strike.
+  void _drawStrikeTeleportTrail(Canvas canvas) {
+    final tp = snapshot.autoStrikeLeapProgress;
+    if (tp <= 0.01 || tp >= 1.0) return;
+
+    final h = _stickmanHeightPx();
+    final w = _stickmanWidthPx();
+    final color = _effectiveStickmanColor();
+    final bodyCenterY = snapshot.stickman.y - h * 0.5;
+
+    // Teleport departure flash ring at the original position: it expands and
+    // fades fast, as if the stickman blinked away.
+    final from = snapshot.autoStrikeLeapFromX;
+    final away = (1 - tp).clamp(0.0, 1.0);
+    if (from.isFinite && from > 0) {
+      final ringRadius = h * (0.25 + away * 0.55);
+      final flash = Paint()
+        ..color = const Color(0xFFFFD700).withValues(alpha: 0.55 * away)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3;
+      canvas.drawCircle(Offset(from, bodyCenterY), ringRadius, flash);
+    }
+
+    // Horizontal speed streaks behind the flying body.
+    final streakPaint = Paint()
+      ..color = color.withValues(alpha: 0.30)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 3;
+    final backX = snapshot.stickman.x;
+    for (int i = 0; i < 5; i++) {
+      final j = i / 5.0;
+      final y = bodyCenterY + (j - 0.5) * h * 0.9;
+      final len = w * (0.5 + 0.6 * (1 - j));
+      canvas.drawLine(
+        Offset(backX - len * 1.6, y),
+        Offset(backX - len * 0.55, y),
+        streakPaint,
+      );
+    }
+
+    // Afterimage ghosts hugging the flying body: a tight trail just behind the
+    // current X, fading with distance. They never reach back to the origin —
+    // the stickman there is hidden, marked only by the departure flash ring.
+    final to = snapshot.autoStrikeLeapToX;
+    final current = backX;
+    final trailLen = (w * 1.8).clamp(8.0, to - from);
+    if (trailLen > 8.0) {
+      for (int i = 1; i <= 4; i++) {
+        final g = i / 5.0;
+        final ghostX = current - trailLen * g;
+        final dist = ((current - ghostX) / trailLen).clamp(0.0, 1.0);
+        final alpha = 0.34 * (1 - dist) * (1 - tp * 0.4);
+        if (alpha <= 0.01) continue;
+        _drawStickmanGhost(canvas, ghostX, bodyCenterY, alpha, h, w);
+      }
+    }
+
+    // Impact bloom at the destination where the strike lands.
+    final impact = Paint()
+      ..color = const Color(0xFFFFD700).withValues(alpha: 0.45 * tp)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.5;
+    canvas.drawCircle(
+      Offset(to, bodyCenterY),
+      h * (0.18 + tp * 0.4),
+      impact,
+    );
+  }
+
+  /// A simple fading outline of the stickman body used as a teleport ghost.
+  void _drawStickmanGhost(
+    Canvas canvas,
+    double cx,
+    double cy,
+    double alpha,
+    double h,
+    double w,
+  ) {
+    final paint = Paint()
+      ..color = _effectiveStickmanColor().withValues(alpha: alpha)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    _drawFlyingPose(
+      canvas,
+      cx: cx,
+      cy: cy,
+      w: w,
+      h: h,
+      paint: paint,
+      phase: snapshot.timeSec * 14,
+      strength: 0.6,
+    );
+  }
+
+  /// Shared articulated "sprint leap" pose used for both the flying body and
+  /// its afterimage ghosts: real hip/knee elbow/fist joints with a mid-stride
+  /// tucked lead leg, extended trailing leg, and pumping arms. [phase] drives
+  /// a subtle limb pumping cycle so the figure looks alive mid-air.
+  void _drawFlyingPose(
+    Canvas canvas, {
+    required double cx,
+    required double cy,
+    required double w,
+    required double h,
+    required Paint paint,
+    required double phase,
+    required double strength,
+  }) {
+    // Body proportions matched to the running stickman.
+    final s = min(w, h) * 0.5;
+    final headR = h * 0.09 * strength + h * 0.03 * (1 - strength);
+    final limb = s * (0.55 + 0.25 * strength); // ~thigh/shin length
+    final armL = s * (0.5 + 0.2 * strength);
+
+    // Lean the whole figure forward (into the strike direction →).
+    final lean = h * 0.08;
+    final headP = Offset(cx + s * 0.42, cy - h * 0.16);
+    final shoulder = Offset(cx + s * 0.15, cy - h * 0.06);
+    final hip = Offset(
+      cx - s * 0.28 + lean,
+      cy + h * 0.06,
+    );
+
+    // Head leads the way forward.
+    canvas.drawCircle(headP, headR, paint);
+
+    // Torso: slight arch from shoulder down to hip.
+    final torso = Path()
+      ..moveTo(shoulder.dx, shoulder.dy)
+      ..quadraticBezierTo(
+        (shoulder.dx + hip.dx) / 2,
+        shoulder.dy - h * 0.01,
+        hip.dx,
+        hip.dy,
+      );
+    canvas.drawPath(torso, paint);
+
+    // Limb pump: sweep amplitude from the blink progress (best at mid-flight).
+    final swing = sin(phase) * s * 0.18 * strength;
+
+    // --- Leading leg: tucked knee-up (mid-stride) ---
+    final leadKnee = Offset(
+      hip.dx + limb * 0.45,
+      hip.dy - limb * 0.5 + swing,
+    );
+    final leadFoot = Offset(
+      hip.dx + limb * 0.78,
+      cy + h * 0.16 - h * 0.06,
+    );
+    canvas.drawLine(hip, leadKnee, paint);
+    canvas.drawLine(leadKnee, leadFoot, paint);
+
+    // --- Trailing leg: extended straight back ---
+    final trailKnee = Offset(
+      hip.dx - limb * 0.62,
+      hip.dy - limb * 0.28 - swing * 0.6,
+    );
+    final trailFoot = Offset(
+      hip.dx - limb * 1.15,
+      hip.dy + h * 0.02 - h * 0.08,
+    );
+    canvas.drawLine(hip, trailKnee, paint);
+    canvas.drawLine(trailKnee, trailFoot, paint);
+
+    // --- Leading arm: extended toward the strike (fist reaches out) ---
+    final leadElbow = Offset(
+      shoulder.dx + armL * 0.7,
+      shoulder.dy + h * 0.02 + swing * 0.4,
+    );
+    final leadFist = Offset(
+      shoulder.dx + armL * 1.4,
+      shoulder.dy - h * 0.02,
+    );
+    canvas.drawLine(shoulder, leadElbow, paint);
+    canvas.drawLine(leadElbow, leadFist, paint);
+    canvas.drawCircle(leadFist, s * 0.09 * strength + h * 0.02, paint);
+
+    // --- Trailing arm: chambered/pumped back ---
+    final trailElbow = Offset(
+      shoulder.dx - armL * 0.55,
+      shoulder.dy + h * 0.02 - h * 0.02,
+    );
+    final trailFist = Offset(
+      shoulder.dx - armL,
+      shoulder.dy + h * 0.1,
+    );
+    canvas.drawLine(shoulder, trailElbow, paint);
+    canvas.drawLine(trailElbow, trailFist, paint);
   }
 
   /// Impact starburst drawn at the striking fist.

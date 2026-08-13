@@ -99,7 +99,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     _engine = StickmanRunEngine(
       settings: _settings,
       skills: SkillController.instance.config,
-      legendaries: SkillController.instance.owned,
+      legendaries: SkillController.instance.active,
     );
     _engine.start(levelIndex: widget.initialLevel);
     _levelIndex = widget.initialLevel;
@@ -397,10 +397,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   // --- Legendary combo detection (in-memory, reset per run) ---
   static const int _comboWindowMicros =
       1300000; // 1.3s window for a 3-input combo
-  static const int _legendaryCooldownMicros =
-      20000000; // 20s between triggers of the same legendary
   final List<(ComboAction, int)> _comboBuffer = [];
-  final Map<LegendarySkill, int> _lastLegendaryTrigger = {};
   String _legendaryBanner = '';
   double _legendaryBannerSec = 0;
 
@@ -409,13 +406,11 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   void _recordComboInput(ComboAction action) {
     final now = DateTime.now().microsecondsSinceEpoch;
     _comboBuffer.add((action, now));
-    _comboBuffer.removeWhere(
-      (e) => now - e.$2 > _comboWindowMicros,
-    );
+    _comboBuffer.removeWhere((e) => now - e.$2 > _comboWindowMicros);
 
     for (final def in LegendaryDef.all) {
       if (!_engine.owns(def.id)) continue;
-      if (def.combo.isEmpty) continue; // hold-gesture only (REVERSE RUN)
+      if (def.combo.isEmpty) continue; // no combo trigger (unused)
       if (action != def.combo[def.combo.length - 1]) continue;
       if (_comboMatches(def.combo)) {
         _tryTriggerLegendary(def);
@@ -436,12 +431,12 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   }
 
   void _tryTriggerLegendary(LegendaryDef def) {
-    final now = DateTime.now().microsecondsSinceEpoch;
-    final last = _lastLegendaryTrigger[def.id];
-    if (last != null && now - last < _legendaryCooldownMicros) return;
+    if (SkillController.instance.legendaryCooldownRemainingSec(def.id) > 0) {
+      return;
+    }
 
     if (!_engine.triggerLegendary(def.id)) return;
-    _lastLegendaryTrigger[def.id] = now;
+    SkillController.instance.recordLegendaryUse(def.id);
     _comboBuffer.clear();
 
     if (_settings.vibrationsEnabled) {
@@ -582,6 +577,20 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
       !_paused &&
       !_cinematicActive;
 
+  /// True when a steady (long) press on the screen can trigger TIME REWIND:
+  /// requires the skill, an active run, and no pause/cinematic overlay.
+  bool get _canRewindHold =>
+      _engine.owns(LegendarySkill.reverseRun) &&
+      _snapshot.status == GameStatus.running &&
+      !_paused &&
+      !_cinematicActive;
+
+  /// Steady long-press is the trigger for TIME REWIND. If it is ready it
+  /// starts a timed rewind window and enters the shared legendary cooldown.
+  void _onRewindHold() {
+    _tryTriggerLegendary(LegendaryDef.forId(LegendarySkill.reverseRun));
+  }
+
   /// Velocity (px/s) a swipe must exceed to count as jump or crawl.
   static const double _swipeVelocityThreshold = 400;
 
@@ -663,49 +672,58 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
         return Scaffold(
           backgroundColor: Colors.black,
           body: SizedBox.expand(
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: _canTapToJump
-                        ? _onJump
-                        : (_canTapToSmash ? _onSmash : null),
-                    onVerticalDragEnd: _gesturesActive
-                        ? _onVerticalSwipe
-                        : null,
-                    child: RepaintBoundary(
-                      child: CustomPaint(
-                        painter: StickmanRunPainter(
-                          snapshot: _snapshot,
-                          level:
-                              _engine.snapshot().levelIndex ==
-                                  _snapshot.levelIndex
-                              ? _engine.levels[_levelIndex - 1]
-                              : _engine.levels[(_snapshot.levelIndex - 1).clamp(
-                                  0,
-                                  _engine.levels.length - 1,
-                                )],
-                          width: width,
-                          height: height,
-                          stickmanColor: Color(_settings.stickmanColor),
-                          highContrast: _settings.highContrast,
-                          sprites: _sprites,
-                          spriteColors: _spriteColors,
+            // The game surface rebuilds every animation frame (progress bars,
+            // HUD pills, toggling controls). Feeding that churn into the
+            // semantics tree each frame trips a framework assertion
+            // (`!semantics.parentDataDirty`). Exclude the play-layer semantics
+            // to keep the fast-changing widgets out of the semantics tree.
+            // NOTE: Positioned children must stay direct Stack children, so the
+            // ExcludeSemantics wraps the whole Stack rather than any overlay.
+            child: ExcludeSemantics(
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _canTapToJump
+                          ? _onJump
+                          : (_canTapToSmash ? _onSmash : null),
+                      onVerticalDragEnd: _gesturesActive
+                          ? _onVerticalSwipe
+                          : null,
+                      onLongPressStart: _canRewindHold
+                          ? (_) => _onRewindHold()
+                          : null,
+                      child: RepaintBoundary(
+                        child: CustomPaint(
+                          painter: StickmanRunPainter(
+                            snapshot: _snapshot,
+                            level:
+                                _engine.snapshot().levelIndex ==
+                                    _snapshot.levelIndex
+                                ? _engine.levels[_levelIndex - 1]
+                                : _engine.levels[(_snapshot.levelIndex - 1)
+                                      .clamp(0, _engine.levels.length - 1)],
+                            width: width,
+                            height: height,
+                            stickmanColor: Color(_settings.stickmanColor),
+                            highContrast: _settings.highContrast,
+                            sprites: _sprites,
+                            spriteColors: _spriteColors,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                _buildOverlay(),
-                _buildTopButtons(),
-                _buildLegendaryHud(width: width),
-                _buildReverseZones(width: width, height: height),
-                _buildSmashButton(width: width, height: height),
-                _buildJumpButton(width: width, height: height),
-                _buildCrawlButton(width: width, height: height),
-                _buildPauseOverlay(),
-              ],
+                  _buildOverlay(),
+                  _buildTopButtons(),
+                  _buildLegendaryHud(width: width),
+                  _buildSmashButton(width: width, height: height),
+                  _buildJumpButton(width: width, height: height),
+                  _buildCrawlButton(width: width, height: height),
+                  _buildPauseOverlay(),
+                ],
+              ),
             ),
           ),
         );
@@ -716,7 +734,8 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   /// Pause + guide buttons, centered at the top. Visible only while running.
   Widget _buildTopButtons() {
     final isRunning = _snapshot.status == GameStatus.running;
-    if (!isRunning || _paused || _cinematicActive) return const SizedBox.shrink();
+    if (!isRunning || _paused || _cinematicActive)
+      return const SizedBox.shrink();
 
     return Positioned(
       top: 0,
@@ -750,8 +769,32 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     final showReverse = ownedReverse && _snapshot.reversing;
     final showAuto = _snapshot.autoStrikeSec > 0;
     final showTempest = _snapshot.tempestSec > 0;
+    final showRoadSweep = _snapshot.roadSweepSec > 0;
     final showBanner = _legendaryBanner.isNotEmpty;
-    if (!showBanner && !showReverse && !showAuto && !showTempest) {
+
+    // Cooldown pills for every owned legendary that is recharging.
+    final cooldown = <Widget>[];
+    for (final def in LegendaryDef.all) {
+      if (!_engine.owns(def.id)) continue;
+      final remaining = SkillController.instance.legendaryCooldownRemainingSec(
+        def.id,
+      );
+      if (remaining <= 0) continue;
+      cooldown.add(
+        _hudPill(
+          text:
+              '${def.icon} ${def.name} READY IN ${remaining.toStringAsFixed(1)}s',
+          color: const Color(0xFF9E9EA6),
+        ),
+      );
+    }
+
+    if (!showBanner &&
+        !showReverse &&
+        !showAuto &&
+        !showTempest &&
+        !showRoadSweep &&
+        cooldown.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -772,7 +815,10 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                   ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF3D0B22).withValues(alpha: 0.9),
-                    border: Border.all(color: const Color(0xFFFFD700), width: 1.5),
+                    border: Border.all(
+                      color: const Color(0xFFFFD700),
+                      width: 1.5,
+                    ),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Text(
@@ -785,7 +831,11 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                     ),
                   ),
                 ),
-              if (showAuto || showTempest || showReverse)
+              if (showAuto ||
+                  showTempest ||
+                  showReverse ||
+                  showRoadSweep ||
+                  cooldown.isNotEmpty)
                 const SizedBox(height: 6),
               Builder(
                 builder: (_) {
@@ -793,7 +843,8 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                   if (showAuto) {
                     parts.add(
                       _hudPill(
-                        text: '★ AUTO-STRIKE ${_snapshot.autoStrikeSec.toStringAsFixed(1)}s',
+                        text:
+                            '★ AUTO-STRIKE ${_snapshot.autoStrikeSec.toStringAsFixed(1)}s',
                         color: const Color(0xFFFFD700),
                       ),
                     );
@@ -801,7 +852,8 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                   if (showTempest) {
                     parts.add(
                       _hudPill(
-                        text: '⚡ TEMPEST ${_snapshot.tempestSec.toStringAsFixed(1)}s',
+                        text:
+                            '⚡ TEMPEST ${_snapshot.tempestSec.toStringAsFixed(1)}s',
                         color: const Color(0xFF4DD8FF),
                       ),
                     );
@@ -809,11 +861,22 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                   if (showReverse) {
                     parts.add(
                       _hudPill(
-                        text: '⟲ REVERSING',
+                        text:
+                            '⟲ TIME REWIND ${_snapshot.reverseSec.toStringAsFixed(1)}s',
                         color: const Color(0xFFFF8A5C),
                       ),
                     );
                   }
+                  if (showRoadSweep) {
+                    parts.add(
+                      _hudPill(
+                        text:
+                            '☄ ROAD SWEEP ${_snapshot.roadSweepSec.toStringAsFixed(1)}s',
+                        color: const Color(0xFFFF5C8A),
+                      ),
+                    );
+                  }
+                  parts.addAll(cooldown);
                   return Wrap(
                     spacing: 6,
                     runSpacing: 4,
@@ -847,55 +910,6 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
         ),
       ),
     );
-  }
-
-  /// Left/right edge hold zones for the REVERSE RUN legendary. A long-press on
-  /// the left edge unscrolls the world backward; a long-press on the right
-  /// edge gives normal forward (no-op) — but the left hold is the recovery.
-  /// Quick taps still reach the main jump/smash detector underneath.
-  Widget _buildReverseZones({required double width, required double height}) {
-    final canReverse = _engine.owns(LegendarySkill.reverseRun);
-    final isRunning = _snapshot.status == GameStatus.running;
-    if (!canReverse || !isRunning || _paused || _cinematicActive) {
-      return const SizedBox.shrink();
-    }
-
-    final zoneW = width * 0.14;
-    return Stack(
-      children: [
-        // Left edge: hold to reverse the world.
-        Positioned(
-          left: 0,
-          top: height * 0.25,
-          bottom: height * 0.25,
-          width: zoneW,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onLongPressStart: (_) => _setReverse(true),
-            onLongPressEnd: (_) => _setReverse(false),
-            onLongPressCancel: () => _setReverse(false),
-          ),
-        ),
-        // Right edge: held to resume/surge forward (no-op, purely for symmetry).
-        Positioned(
-          right: 0,
-          top: height * 0.25,
-          bottom: height * 0.25,
-          width: zoneW,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onLongPressStart: (_) => _setReverse(false),
-            onLongPressEnd: (_) => _setReverse(false),
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _setReverse(bool on) {
-    if (_engine.setReversing(on)) {
-      setState(() => _snapshot = _engine.snapshot());
-    }
   }
 
   /// Full-screen pause card that blocks input while the game is paused.
@@ -1189,11 +1203,10 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
               child: ElevatedButton(
                 onPressed: canSmash && !_paused
                     ? () {
-                        _engine.smash();
+                        _onSmash();
                         if (_settings.vibrationsEnabled) {
                           vibrate(HapticIntensity.heavy);
                         }
-                        setState(() => _snapshot = _engine.snapshot());
                       }
                     : null,
                 style: ElevatedButton.styleFrom(
