@@ -36,6 +36,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
 
   bool _paused = false;
   bool _showPauseCard = false;
+  bool _confirmingRestart = false;
 
   StickmanRunSnapshot _snapshot = StickmanRunSnapshot(
     status: GameStatus.ready,
@@ -628,6 +629,51 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     setState(() {});
   }
 
+  Future<void> _confirmRestart() async {
+    setState(() => _confirmingRestart = true);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF111318),
+        title: const Text(
+          'Restart level?',
+          style: TextStyle(
+            color: Colors.yellow,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        content: const Text(
+          'Your current progress in this level will be lost.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text(
+              'CANCEL',
+              style: TextStyle(
+                color: Colors.white70,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text(
+              'RESTART',
+              style: TextStyle(
+                color: Colors.redAccent,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    setState(() => _confirmingRestart = false);
+    if (ok == true) _restartLevel();
+  }
+
   void _restartLevel() {
     _engine.start(levelIndex: _levelIndex);
     _engine.startRunning();
@@ -914,7 +960,9 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
 
   /// Full-screen pause card that blocks input while the game is paused.
   Widget _buildPauseOverlay() {
-    if (!_showPauseCard) return const SizedBox.shrink();
+    if (!_showPauseCard || _confirmingRestart) {
+      return const SizedBox.shrink();
+    }
 
     return Positioned.fill(
       child: GestureDetector(
@@ -961,7 +1009,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                   _PauseActionButton(
                     label: 'RESTART LEVEL',
                     icon: Icons.replay_rounded,
-                    onTap: _restartLevel,
+                    onTap: () => _confirmRestart(),
                   ),
                   const SizedBox(height: 10),
                   _PauseActionButton(
