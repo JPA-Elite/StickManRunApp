@@ -7,6 +7,13 @@ import '../settings/skill_controller.dart';
 import '../settings/skill_defs.dart';
 import 'stickman_avatar.dart';
 
+/// Shared modal chrome matching the in-game pause card: black background
+/// with a yellow border and 18px radius.
+const Color _modalBg = Colors.black;
+const Color _modalBorder = Colors.yellow;
+const double _modalBorderWidth = 2;
+const double _modalRadius = 18;
+
 /// Cinematic arcade-style page for purchasing the always-active skill upgrades
 /// and single-purchase legendary skills, funded by coins collected during runs.
 class SkillsScreen extends StatefulWidget {
@@ -460,7 +467,14 @@ class _ProcessingDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: Colors.black,
+      backgroundColor: _modalBg,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(_modalRadius),
+        side: const BorderSide(
+          color: _modalBorder,
+          width: _modalBorderWidth,
+        ),
+      ),
       child: const Padding(
         padding: EdgeInsets.all(28),
         child: Column(
@@ -1143,10 +1157,13 @@ class _UpgradeInfoDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFF150A20),
+      backgroundColor: _modalBg,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: accent, width: 1.2),
+        borderRadius: BorderRadius.circular(_modalRadius),
+        side: const BorderSide(
+          color: _modalBorder,
+          width: _modalBorderWidth,
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
@@ -1446,10 +1463,13 @@ Future<void> _showSuccessModal(
     context: context,
     barrierDismissible: false,
     builder: (ctx) => Dialog(
-      backgroundColor: Colors.black,
+      backgroundColor: _modalBg,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: accent, width: 1.2),
+        borderRadius: BorderRadius.circular(_modalRadius),
+        side: const BorderSide(
+          color: _modalBorder,
+          width: _modalBorderWidth,
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -1773,10 +1793,13 @@ class _LegendaryInfoDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFF1E0A12),
+      backgroundColor: _modalBg,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: const BorderSide(color: Color(0xFFFF5C8A), width: 1.2),
+        borderRadius: BorderRadius.circular(_modalRadius),
+        side: const BorderSide(
+          color: _modalBorder,
+          width: _modalBorderWidth,
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -1915,10 +1938,13 @@ class _EquipReplaceDialog extends StatelessWidget {
     ];
 
     return Dialog(
-      backgroundColor: const Color(0xFF1E0A12),
+      backgroundColor: _modalBg,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: const BorderSide(color: Color(0xFFFF5C8A), width: 1.2),
+        borderRadius: BorderRadius.circular(_modalRadius),
+        side: const BorderSide(
+          color: _modalBorder,
+          width: _modalBorderWidth,
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),

@@ -1050,7 +1050,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
               width: min(340.0, MediaQuery.of(context).size.width - 32),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
               decoration: BoxDecoration(
-                color: const Color(0xFF111318),
+                color: Colors.black,
                 border: Border.all(color: Colors.yellow, width: 2),
                 borderRadius: BorderRadius.circular(18),
               ),
