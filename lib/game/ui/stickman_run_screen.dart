@@ -38,6 +38,11 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   bool _showPauseCard = false;
   bool _confirmingRestart = false;
 
+  /// Screen X where the smash indicator is pinned while AUTO-STRIKE is
+  /// active (locked when the skill starts so it stays steady instead of
+  /// chasing the teleporting stickman); null otherwise.
+  double? _autoStrikeIndicatorX;
+
   StickmanRunSnapshot _snapshot = StickmanRunSnapshot(
     status: GameStatus.ready,
     levelIndex: 1,
@@ -463,11 +468,21 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
 
     final dtSec = max(0.0001, dtMicro / 1e6);
     final wasRunning = _snapshot.status == GameStatus.running;
+    final wasAutoStrike = _snapshot.autoStrikeSec > 0;
     _engine.tick(dtSec);
 
     setState(() {
       _snapshot = _engine.snapshot();
     });
+
+    // While AUTO-STRIKE is active, pin the smash indicator to the position
+    // it had when the skill started so it never jumps around with the
+    // stickman's teleport leaps.
+    if (_snapshot.autoStrikeSec > 0) {
+      _autoStrikeIndicatorX ??= _snapshot.stickman.x;
+    } else if (wasAutoStrike) {
+      _autoStrikeIndicatorX = null;
+    }
 
     // Vibrate when the smash actually impacts (animation starts).
     if (!_wasSmashActive && _snapshot.smashActive) {
@@ -1066,8 +1081,12 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     final ready = canSmash && !_paused;
     final fill = (1 - _snapshot.smashCooldownSec / 1.2).clamp(0.0, 1.0);
 
-    // Position below the stickman on the ground (stable — doesn't follow jumps).
-    final stickmanX = _snapshot.stickman.x;
+    // Position below the stickman on the ground (stable — doesn't follow
+    // jumps). During AUTO-STRIKE it stays locked to its original position
+    // instead of following the teleporting stickman.
+    final stickmanX = _snapshot.autoStrikeSec > 0 && _autoStrikeIndicatorX != null
+        ? _autoStrikeIndicatorX!
+        : _snapshot.stickman.x;
     final groundY = height * 0.78;
     const indicatorWidth = 86.0;
     final left = (stickmanX - indicatorWidth / 2).clamp(
