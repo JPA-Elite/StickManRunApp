@@ -208,7 +208,7 @@ class _ActiveLegendaries extends StatelessWidget {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 6),
         child: Text(
-          'No legendary skills equipped yet. Buy and equip them from the '
+          'No legendary skills in use yet. Buy and use them from the '
           'Skills tab — each one is triggered by a special combo during a run.',
           style: TextStyle(
             color: Colors.white70,

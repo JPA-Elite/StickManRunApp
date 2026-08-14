@@ -25,6 +25,34 @@ class _CulledObstacle {
   });
 }
 
+/// A power-up that scrolled off the left edge, parked with the world scroll
+/// position at which it was removed so TIME REWIND can bring it back into the
+/// world, like obstacles.
+@immutable
+class _CulledPowerUp {
+  final PowerUp powerUp;
+  final double culledScrollPx;
+
+  const _CulledPowerUp({
+    required this.powerUp,
+    required this.culledScrollPx,
+  });
+}
+
+/// A coin that scrolled off the left edge, parked with the world scroll
+/// position at which it was removed so TIME REWIND can bring it back into the
+/// world, like obstacles.
+@immutable
+class _CulledCoin {
+  final Coin coin;
+  final double culledScrollPx;
+
+  const _CulledCoin({
+    required this.coin,
+    required this.culledScrollPx,
+  });
+}
+
 @immutable
 class StickmanRunSnapshot {
   final GameStatus status;
@@ -261,6 +289,14 @@ class StickmanRunEngine {
   /// Obstacles that scrolled off the left edge, kept so TIME REWIND can
   /// un-scroll them back into the world.
   final List<_CulledObstacle> _culledObstacles = [];
+
+  /// Power-ups that scrolled off the left edge, kept so TIME REWIND can
+  /// un-scroll them back into the world.
+  final List<_CulledPowerUp> _culledPowerUps = [];
+
+  /// Coins that scrolled off the left edge, kept so TIME REWIND can un-scroll
+  /// them back into the world.
+  final List<_CulledCoin> _culledCoins = [];
 
   // Heal power-up rule: a heal is guaranteed at each 500m milestone
   // (500/1000/1500/...), and each 500m segment gets at most one bonus heal
@@ -561,6 +597,8 @@ class StickmanRunEngine {
     _distanceMeters = 0;
     _scrollPx = 0;
     _culledObstacles.clear();
+    _culledPowerUps.clear();
+    _culledCoins.clear();
     _lastHealMilestone = 0;
     _healMilestoneDue = false;
     _segmentBonusAtMeters = null;
@@ -1460,18 +1498,31 @@ class StickmanRunEngine {
     final dx = speed * dtSec;
     _scrollPx += dx;
 
-    // TIME REWIND: bring back obstacles that already passed behind the
-    // stickman. Left-culled obstacles are parked in a short history with the
-    // scroll position where they were removed; as the world scrolls backwards
-    // the most recently passed ones are re-added at their recorded position so
-    // they scroll back through the screen (spacing preserved). Coins and
-    // power-ups are not restored — rewind is a recovery window, not a farming
-    // tool.
+    // TIME REWIND: bring back obstacles, power-ups and coins that already
+    // passed behind the stickman. Left-culled entities are parked in a short
+    // history with the scroll position where they were removed; as the world
+    // scrolls backwards the most recently passed ones are re-added at their
+    // recorded position so they scroll back through the screen (spacing
+    // preserved).
     if (dx < 0 && _culledObstacles.isNotEmpty) {
       while (_culledObstacles.isNotEmpty &&
           _culledObstacles.last.culledScrollPx >= _scrollPx) {
         final entry = _culledObstacles.removeLast();
         _obstacles.add(entry.obstacle);
+      }
+    }
+    if (dx < 0 && _culledPowerUps.isNotEmpty) {
+      while (_culledPowerUps.isNotEmpty &&
+          _culledPowerUps.last.culledScrollPx >= _scrollPx) {
+        final entry = _culledPowerUps.removeLast();
+        _powerUps.add(entry.powerUp);
+      }
+    }
+    if (dx < 0 && _culledCoins.isNotEmpty) {
+      while (_culledCoins.isNotEmpty &&
+          _culledCoins.last.culledScrollPx >= _scrollPx) {
+        final entry = _culledCoins.removeLast();
+        _coins.add(entry.coin);
       }
     }
 
@@ -1560,9 +1611,9 @@ class StickmanRunEngine {
 
     // Remove out-of-screen entities. While reversing (and during the post-
     // rewind grace) the right-edge cull is suspended so obstacles pushed back
-    // by TIME REWIND scroll back into view instead of being deleted. Obstacles
-    // leaving the left edge are parked in the rewind history instead of being
-    // dropped; coins and power-ups cull normally on both edges.
+    // by TIME REWIND scroll back into view instead of being deleted. Obstacles,
+    // power-ups and coins leaving the left edge are parked in the rewind
+    // history instead of being dropped.
     final leftKill = -140.0;
     final cullRight = !reversing && _reverseReentrySec <= 0;
     for (var i = _obstacles.length - 1; i >= 0; i--) {
@@ -1574,6 +1625,24 @@ class StickmanRunEngine {
         _obstacles.removeAt(i);
       }
     }
+    for (var i = _powerUps.length - 1; i >= 0; i--) {
+      final p = _powerUps[i];
+      if (p.x + p.size * 0.5 < leftKill) {
+        _culledPowerUps.add(
+          _CulledPowerUp(powerUp: p, culledScrollPx: _scrollPx),
+        );
+        _powerUps.removeAt(i);
+      }
+    }
+    for (var i = _coins.length - 1; i >= 0; i--) {
+      final c = _coins[i];
+      if (c.x + c.radius < leftKill) {
+        _culledCoins.add(
+          _CulledCoin(coin: c, culledScrollPx: _scrollPx),
+        );
+        _coins.removeAt(i);
+      }
+    }
     // Prune history entries too far behind the current scroll to ever be
     // reached by a rewind (older than the longest possible rewind window).
     const maxRewindPx = 4000.0;
@@ -1581,15 +1650,17 @@ class StickmanRunEngine {
         _culledObstacles.first.culledScrollPx < _scrollPx - maxRewindPx) {
       _culledObstacles.removeAt(0);
     }
+    while (_culledPowerUps.isNotEmpty &&
+        _culledPowerUps.first.culledScrollPx < _scrollPx - maxRewindPx) {
+      _culledPowerUps.removeAt(0);
+    }
+    while (_culledCoins.isNotEmpty &&
+        _culledCoins.first.culledScrollPx < _scrollPx - maxRewindPx) {
+      _culledCoins.removeAt(0);
+    }
     _obstacles.removeWhere((o) => cullRight && o.x > _width + 140);
-    _coins.removeWhere(
-      (c) => c.x + c.radius < leftKill || (cullRight && c.x > _width + 140),
-    );
-    _powerUps.removeWhere(
-      (p) =>
-          p.x + p.size * 0.5 < leftKill ||
-          (cullRight && p.x > _width + 140),
-    );
+    _coins.removeWhere((c) => cullRight && c.x > _width + 140);
+    _powerUps.removeWhere((p) => cullRight && p.x > _width + 140);
   }
 
   void _spawnObstacleColumn() {

@@ -53,10 +53,10 @@ void main() {
     await tester.pumpAndSettle();
 
     // The read-only detail dialog shows the equipped skill's purchase cost line.
-    expect(find.textContaining('to buy · equipped & ready'), findsOneWidget);
+    expect(find.textContaining('to buy · ready to use'), findsOneWidget);
     await tester.tap(find.text('DONE'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('to buy · equipped & ready'), findsNothing);
+    expect(find.textContaining('to buy · ready to use'), findsNothing);
   });
 
   testWidgets('buying a third legendary works at full slots', (tester) async {
@@ -73,8 +73,8 @@ void main() {
       isFalse,
       reason: 'Slots are full, so it joins the collection unequipped',
     );
-    // Its card now offers EQUIP (already owned) rather than BUY.
-    expect(find.text('EQUIP'), findsWidgets);
+    // Its card now offers USE (already owned) rather than BUY.
+    expect(find.text('USE'), findsWidgets);
   });
 
   testWidgets('upgrading a standard skill shows a success modal', (
@@ -126,10 +126,10 @@ void main() {
 
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('ROAD SWEEP'));
-    await tester.tap(find.text('EQUIP').first);
+    await tester.tap(find.text('USE').first);
     await tester.pumpAndSettle();
 
-    // Slots are full: equipping prompts which active skill to evict.
+    // Slots are full: using prompts which active skill to evict.
     expect(find.text('REPLACE ACTIVE SKILL'), findsOneWidget);
     final options = find.descendant(
       of: find.byType(Dialog),
@@ -142,15 +142,15 @@ void main() {
     expect(sc.isActive(LegendarySkill.roadSweep), isTrue);
     expect(sc.isActive(LegendarySkill.tempest), isFalse);
 
-    // Equipping now finishes with a modal (not a SnackBar).
-    expect(find.text('EQUIPPED!'), findsOneWidget);
+    // Using now finishes with a modal (not a SnackBar).
+    expect(find.text('USED!'), findsOneWidget);
     expect(
-      find.text('ROAD SWEEP equipped — free, ready for your next run.'),
+      find.text('ROAD SWEEP is ready to use — free, for your next run.'),
       findsOneWidget,
     );
     await tester.tap(find.text('DONE'));
     await tester.pumpAndSettle();
-    expect(find.text('EQUIPPED!'), findsNothing);
+    expect(find.text('USED!'), findsNothing);
   });
 
   testWidgets('cancel from replace dialog aborts', (tester) async {
@@ -161,7 +161,7 @@ void main() {
 
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('ROAD SWEEP'));
-    await tester.tap(find.text('EQUIP').first);
+    await tester.tap(find.text('USE').first);
     await tester.pumpAndSettle();
 
     expect(find.text('REPLACE ACTIVE SKILL'), findsOneWidget);

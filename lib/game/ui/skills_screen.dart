@@ -259,8 +259,8 @@ class _SkillsScreenState extends State<SkillsScreen> {
         ),
         const SizedBox(height: 6),
         Text(
-          'Own every legendary permanently — equip any ${SkillController.maxLegendaries} '
-          'for your next run. Equipping is free.',
+          'Own every legendary permanently — use any ${SkillController.maxLegendaries} '
+          'for your next run. Using is free.',
           style: TextStyle(
             fontSize: 11,
             height: 1.3,
@@ -861,7 +861,7 @@ class _LegendaryCard extends StatelessWidget {
                           ),
                         ),
                         child: const Text(
-                          'EQUIP',
+                          'USE',
                           style: TextStyle(
                             fontWeight: FontWeight.w800,
                             fontSize: 12,
@@ -931,7 +931,7 @@ class _LegendaryCard extends StatelessWidget {
                       title: 'OWNED!',
                       message:
                           'Bought ${def.name} for $cost◆ — '
-                          'equip it to use it in your next run.',
+                          'use it in your next run.',
                       accent: _crimson,
                     );
                   },
@@ -1394,8 +1394,8 @@ Future<void> _equipLegendaryFromCard(
   await _showSuccessModal(
     context,
     icon: def.icon,
-    title: 'EQUIPPED!',
-    message: '${def.name} equipped — free, ready for your next run.',
+    title: 'USED!',
+    message: '${def.name} is ready to use — free, for your next run.',
     accent: const Color(0xFFFF5C8A),
   );
 }
@@ -1427,7 +1427,7 @@ Future<void> _openLegendaryInfoDialog(
     title: 'REMOVED!',
     message:
         '${def.name} was removed from your active loadout — it stays in '
-        'your collection and can be re-equipped for free.',
+        'your collection and can be used again for free.',
     accent: const Color(0xFFFF5C8A),
   );
 }
@@ -1841,7 +1841,7 @@ class _LegendaryInfoDialog extends StatelessWidget {
             _LegendaryStatsLine(def: def),
             const SizedBox(height: 6),
             Text(
-              '${def.cost}◆ to buy · equipped & ready for your next run',
+              '${def.cost}◆ to buy · ready to use in your next run',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.55),
                 fontSize: 10,
@@ -1937,7 +1937,7 @@ class _EquipReplaceDialog extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              "Equip ${incoming.name} for free. Pick which active skill "
+              "Use ${incoming.name} for free. Pick which active skill "
               'to put away — it stays in your collection.',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.6),

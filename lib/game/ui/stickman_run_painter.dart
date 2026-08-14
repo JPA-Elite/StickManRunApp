@@ -184,7 +184,9 @@ class StickmanRunPainter extends CustomPainter {
     }
 
     // Stickman. During post-hit invulnerability the body fades in and out
-    // (flicker) to communicate the grace window.
+    // (flicker) to communicate the grace window. During TIME REWIND it gets a
+    // cinematic temporal fade instead: a slow, dreamy pulse with a cool cyan
+    // tint matching the rewind shockwave.
     if (snapshot.damageGraceSec > 0) {
       final flickerAlpha =
           0.25 + 0.6 * (0.5 + 0.5 * sin(snapshot.timeSec * 24));
@@ -202,6 +204,23 @@ class StickmanRunPainter extends CustomPainter {
       canvas.saveLayer(
         flickerRect,
         Paint()..color = Colors.white.withValues(alpha: flickerAlpha),
+      );
+      _drawStickman(canvas, snapshot.stickman);
+      canvas.restore();
+    } else if (snapshot.reversing) {
+      final stickmanW = _stickmanWidthPx();
+      final stickmanH = _stickmanHeightPx();
+      final reach = stickmanH * 1.4;
+      final fadeRect = Rect.fromLTWH(
+        snapshot.stickman.x - stickmanW * 0.5 - reach,
+        snapshot.stickman.y - reach,
+        stickmanW + reach * 2,
+        reach + stickmanH * 0.2,
+      );
+      final pulse = 0.45 + 0.4 * (0.5 + 0.5 * sin(snapshot.timeSec * 5));
+      canvas.saveLayer(
+        fadeRect,
+        Paint()..color = const Color(0xFF00E5FF).withValues(alpha: pulse),
       );
       _drawStickman(canvas, snapshot.stickman);
       canvas.restore();
