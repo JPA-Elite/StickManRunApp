@@ -121,6 +121,9 @@ class StickmanRunSnapshot {
     this.reverseSec = 0,
     this.roadSweepSec = 0,
     this.goldRushSec = 0,
+    this.sweepFireballs = const [],
+    this.sweepShakeSec = 0,
+    this.sweepShockwaves = const [],
     this.reversing = false,
   });
 
@@ -151,6 +154,16 @@ class StickmanRunSnapshot {
   /// Remaining seconds of the GOLD RUSH legendary window (0 when not
   /// active). While active, on-screen obstacles turn into coins.
   final double goldRushSec;
+
+  /// Fireballs raining from the sky during ROAD SWEEP (empty when no sweep
+  /// is active). Each explodes on impact, wiping obstacles in its blast.
+  final List<SweepFireball> sweepFireballs;
+
+  /// Remaining seconds of the ROAD SWEEP camera kick (0 when calm).
+  final double sweepShakeSec;
+
+  /// Expanding ring/flash impacts where the sweep blade shattered obstacles.
+  final List<SweepShockwave> sweepShockwaves;
 
   /// True while the TIME REWIND legendary is unscrolling the world.
   final bool reversing;
@@ -260,6 +273,21 @@ class StickmanRunEngine {
   double _roadSweepSec = 0;
   /// Seconds before the next interval sweep attack fires while sweeping.
   double _roadSweepDelaySec = 0;
+
+  /// Fireballs raining from the sky during ROAD SWEEP.
+  final List<SweepFireball> _sweepFireballs = [];
+
+  /// Starting fall speed (px/s) of a sweeping fireball.
+  static const double _sweepFireballStartVy = 420;
+
+  /// Downward acceleration (px/s²) of a sweeping fireball.
+  static const double _sweepFireballGravity = 2600;
+
+  /// Remaining seconds of the ROAD SWEEP camera kick.
+  double _sweepShakeSec = 0;
+
+  /// Expanding ring/flash impacts where the sweep blade shattered obstacles.
+  final List<SweepShockwave> _sweepShockwaves = [];
   /// Remaining seconds of the GOLD RUSH conversion window.
   double _goldRushSec = 0;
 
@@ -385,6 +413,9 @@ class StickmanRunEngine {
       reverseSec: _reverseSec,
       roadSweepSec: _roadSweepSec,
       goldRushSec: _goldRushSec,
+      sweepFireballs: List.unmodifiable(_sweepFireballs),
+      sweepShakeSec: _sweepShakeSec,
+      sweepShockwaves: List.unmodifiable(_sweepShockwaves),
       reversing: _reverseSec > 0,
     );
   }
@@ -470,6 +501,9 @@ class StickmanRunEngine {
     _reverseSec = 0;
     _roadSweepSec = 0;
     _roadSweepDelaySec = 0;
+    _sweepFireballs.clear();
+    _sweepShakeSec = 0;
+    _sweepShockwaves.clear();
     _goldRushSec = 0;
 
     // Reset legendary skill cooldowns so they are ready for the new run.
@@ -711,6 +745,9 @@ class StickmanRunEngine {
         if (_roadSweepSec > 0) return false;
         _roadSweepSec = 3.0;
         _roadSweepDelaySec = 0;
+        // Activate with an instant wipe of every obstacle visible on screen,
+        // then the rain keeps clearing new ones for the rest of the window.
+        _explodeAt(_stickman.x, _groundY - 4);
         return true;
       case LegendarySkill.tempest:
         if (_tempestSec > 0) return false;
@@ -857,48 +894,120 @@ class StickmanRunEngine {
   /// Interval between consecutive ROAD SWEEP sweeps.
   static const double _roadSweepIntervalSec = 0.2;
 
-  /// ROAD SWEEP update: while the 3-second window is active, one sweep attack
-  /// fires every 0.2 seconds, destroying the nearest obstacle ahead with the
-  /// usual smash effects (debris, score popup).
+  /// ROAD SWEEP update: while the 3-second window is active, fireballs rain
+  /// from the sky every 0.2 seconds. Each fireball explodes on impact and
+  /// wipes EVERY obstacle visible on screen with shatter debris, an expanding
+  /// shockwave ring and a camera kick — 100% of on-screen obstacles are
+  /// destroyed, guaranteed.
   void _updateRoadSweep(double dtSec) {
+    // Decay lingering impact feedback even after the window ends.
+    if (_sweepShakeSec > 0) {
+      _sweepShakeSec = max(0, _sweepShakeSec - dtSec);
+    }
+    if (_sweepShockwaves.isNotEmpty) {
+      for (var i = _sweepShockwaves.length - 1; i >= 0; i--) {
+        final s = _sweepShockwaves[i];
+        final newRemaining = s.remainingSec - dtSec;
+        if (newRemaining <= 0) {
+          _sweepShockwaves.removeAt(i);
+        } else {
+          _sweepShockwaves[i] = s.copyWith(remainingSec: newRemaining);
+        }
+      }
+    }
+
     if (_roadSweepSec <= 0) {
       _roadSweepDelaySec = 0;
+      _sweepFireballs.clear();
       return;
     }
 
     _roadSweepSec = max(0, _roadSweepSec - dtSec);
+
+    // Rain: advance every fireball and explode it on ground impact.
+    if (_sweepFireballs.isNotEmpty) {
+      for (var i = _sweepFireballs.length - 1; i >= 0; i--) {
+        final fb = _sweepFireballs[i];
+        final vy = fb.vy + _sweepFireballGravity * dtSec;
+        final y = fb.y + vy * dtSec;
+        if (y >= _groundY - 4) {
+          _explodeAt(fb.x, _groundY - 4);
+          _sweepFireballs.removeAt(i);
+        } else {
+          _sweepFireballs[i] = fb.copyWith(y: y, vy: vy);
+        }
+      }
+    }
 
     if (_roadSweepDelaySec > 0) {
       _roadSweepDelaySec -= dtSec;
       return;
     }
 
-    Obstacle? target;
+    _roadSweepDelaySec = _roadSweepIntervalSec;
+    _sweepFireballs.add(_dropFireball());
+  }
+
+  /// Picks the next falling fireball: aimed at the nearest obstacle visible on
+  /// screen when one exists (with a little jitter so it feels like rain),
+  /// otherwise a random spot on the visible road ahead.
+  SweepFireball _dropFireball() {
+    var targetX =
+        _stickman.x +
+        80 +
+        _rng.nextDouble() * max(40.0, _width - _stickman.x - 120);
     var bestDist = 1e9;
     for (final o in _obstacles) {
-      final d = o.x - _stickman.x;
-      if (d < 0) continue; // only sweep what's ahead
+      final cx = o.x + o.width / 2;
+      final d = cx - _stickman.x;
+      if (d < 0) continue;
+      if (cx > _width) continue; // only target obstacles seen on screen
       if (d < bestDist) {
         bestDist = d;
-        target = o;
+        targetX = cx;
       }
     }
+    // Jitter so the rain doesn't look laser-guided.
+    targetX = (targetX + (_rng.nextDouble() - 0.5) * 90).clamp(
+      _stickman.x + 40,
+      _width - 30,
+    );
+    return SweepFireball(x: targetX, y: -60, vy: _sweepFireballStartVy);
+  }
 
-    _roadSweepDelaySec = _roadSweepIntervalSec;
-    if (target == null) return;
+  /// Explodes a fireball at [x], [y]: wipes EVERY obstacle visible on screen
+  /// with shatter debris + score popups, plus an expanding shockwave ring +
+  /// flash and a strong camera kick. ROAD SWEEP guarantees 100% of on-screen
+  /// obstacles are destroyed.
+  void _explodeAt(double x, double y) {
+    for (final o in _obstacles.toList()) {
+      final cx = o.x + o.width / 2;
+      // Only blast obstacles actually seen on screen.
+      if (cx < 0 || cx > _width) continue;
+      _destroyRoadSweepTarget(o);
+    }
+    _sweepShockwaves.add(SweepShockwave(x: x, y: y, remainingSec: 0.5));
+    _sweepShakeSec = max(_sweepShakeSec, 0.18);
+  }
 
-    _spawnSmashDebris(target);
+  /// Applies the fireball destruction effect to one obstacle: shatter debris
+  /// at its center plus a score popup, then removes it.
+  void _destroyRoadSweepTarget(Obstacle o) {
+    if (!_obstacles.contains(o)) return;
+    final cx = o.x + o.width / 2;
+    final cy = o.y + o.height / 2;
+    _spawnSmashDebris(o);
     final gained = (5 * _comboMult).round();
     _score += gained;
     _smashScorePopups.add(
       SmashScorePopup(
-        x: target.x + target.width / 2,
-        y: target.y + target.height / 2,
+        x: cx,
+        y: cy,
         remainingSec: 0.8,
         score: gained,
       ),
     );
-        _obstacles.remove(target);
+    _obstacles.remove(o);
   }
 
   /// GOLD RUSH update: while the 10-second window is active, every on-screen

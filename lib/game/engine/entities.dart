@@ -239,6 +239,52 @@ class SmashScorePopup {
 }
 
 @immutable
+class SweepFireball {
+  /// A fireball raining from the sky during ROAD SWEEP. Falls straight down
+  /// at [x]; explodes on impact with the road.
+  final double x;
+  final double y;
+  final double vy;
+
+  const SweepFireball({
+    required this.x,
+    required this.y,
+    required this.vy,
+  });
+
+  SweepFireball copyWith({double? y, double? vy}) {
+    return SweepFireball(
+      x: x,
+      y: y ?? this.y,
+      vy: vy ?? this.vy,
+    );
+  }
+}
+
+@immutable
+class SweepShockwave {
+  /// World-space position where the ROAD SWEEP comet blade shattered an
+  /// obstacle. The painter expands a ring + flash from here as it fades.
+  final double x;
+  final double y;
+  final double remainingSec;
+
+  const SweepShockwave({
+    required this.x,
+    required this.y,
+    required this.remainingSec,
+  });
+
+  SweepShockwave copyWith({double? remainingSec}) {
+    return SweepShockwave(
+      x: x,
+      y: y,
+      remainingSec: remainingSec ?? this.remainingSec,
+    );
+  }
+}
+
+@immutable
 class Stickman {
   final double x; // fixed horizontal position (center)
   final double y; // world-space y coordinate of stickman's bottom

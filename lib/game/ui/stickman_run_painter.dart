@@ -94,6 +94,13 @@ class StickmanRunPainter extends CustomPainter {
       canvas.translate(sin(t) * p * 5.0, cos(t * 0.7) * p * 3.0);
     }
 
+    // Camera kick from ROAD SWEEP blade launches and impact shatters.
+    if (snapshot.sweepShakeSec > 0) {
+      final p = (snapshot.sweepShakeSec / 0.16).clamp(0.0, 1.0);
+      final t = snapshot.timeSec * 140.0;
+      canvas.translate(sin(t) * p * 7.0, cos(t * 1.3) * p * 4.0);
+    }
+
     final groundY = height * 0.78;
 
     // Background.
@@ -161,6 +168,10 @@ class StickmanRunPainter extends CustomPainter {
 
     // Floating score popups.
     _drawSmashScorePopups(canvas);
+
+    // ROAD SWEEP fire rain falling from the sky + impact explosions.
+    _drawSweepFireballs(canvas);
+    _drawSweepShockwaves(canvas);
 
     // AUTO-STRIKE teleport: while the leap is in flight the body is hidden and a
     // blazing streak paints the crossing — vanish ring, speed lines and trailing
@@ -2857,6 +2868,162 @@ class StickmanRunPainter extends CustomPainter {
         return const Color(0xFFE74C3C);
       case PowerUpType.heal50:
         return const Color(0xFFFF2D55);
+    }
+  }
+
+  /// Deterministic pseudo-random in [0,1) from an integer seed. Stable across
+  /// frames for the same seed, so procedural particles never flicker.
+  double _hashUnit(int seed) {
+    var h = seed * 374761393 + 668265263;
+    h = (h ^ (h >> 13)) * 1274126177;
+    h = h ^ (h >> 16);
+    return ((h & 0x7FFFFFFF) % 10000) / 10000.0;
+  }
+
+  /// Draws the ROAD SWEEP fire rain: fireballs tumbling down from the sky with
+  /// a blazing flame trail, using the fireball obstacle sprite (or a hand-drawn
+  /// fallback). Explosions on impact are drawn by [_drawSweepShockwaves].
+  void _drawSweepFireballs(Canvas canvas) {
+    final balls = snapshot.sweepFireballs;
+    if (balls.isEmpty) return;
+
+    final sprite = sprites['assets/images/fireball_obstacle.png'];
+
+    for (final fb in balls) {
+      const size = 52.0;
+      final c = Offset(fb.x, fb.y);
+
+      // Blazing vertical flame trail above the fireball.
+      final trailRect = Rect.fromLTWH(fb.x - 9, fb.y - 150, 18, 150);
+      canvas.drawRect(
+        trailRect,
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.bottomCenter,
+            end: Alignment.topCenter,
+            colors: [
+              const Color(0xFFFFD700).withValues(alpha: 0.85),
+              const Color(0xFFFF6A00).withValues(alpha: 0.4),
+              const Color(0xFFFF2D00).withValues(alpha: 0.0),
+            ],
+          ).createShader(trailRect),
+      );
+      canvas.drawRect(
+        Rect.fromLTWH(fb.x - 4, fb.y - 150, 8, 150),
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.bottomCenter,
+            end: Alignment.topCenter,
+            colors: [
+              Colors.white.withValues(alpha: 0.5),
+              const Color(0xFFFFB300).withValues(alpha: 0.2),
+              const Color(0xFFFF2D00).withValues(alpha: 0.0),
+            ],
+          ).createShader(trailRect),
+      );
+
+      // Warm glow behind the fireball body.
+      canvas.drawCircle(
+        c,
+        size * 0.85,
+        Paint()..color = const Color(0xFFFF8A00).withValues(alpha: 0.3),
+      );
+
+      if (sprite != null) {
+        final src = Rect.fromLTWH(
+          0,
+          0,
+          sprite.width.toDouble(),
+          sprite.height.toDouble(),
+        );
+        canvas.save();
+        canvas.translate(fb.x, fb.y);
+        canvas.rotate(fb.y * 0.04); // tumble while falling
+        canvas.drawImageRect(
+          sprite,
+          src,
+          Rect.fromCenter(center: Offset.zero, width: size, height: size),
+          Paint()..filterQuality = FilterQuality.low,
+        );
+        canvas.restore();
+      } else {
+        // Hand-drawn fallback: a flickering flaming orb.
+        final flicker = 0.8 + 0.2 * sin(snapshot.timeSec * 30 + fb.x);
+        canvas.drawCircle(
+          c,
+          size * 0.5 * flicker,
+          Paint()..color = const Color(0xFFFF6A00).withValues(alpha: 0.95),
+        );
+        canvas.drawCircle(
+          c,
+          size * 0.32 * flicker,
+          Paint()..color = const Color(0xFFFFD700).withValues(alpha: 0.95),
+        );
+        canvas.drawCircle(
+          c,
+          size * 0.16 * flicker,
+          Paint()..color = Colors.white.withValues(alpha: 0.9),
+        );
+      }
+    }
+  }
+
+  /// Draws expanding ring + flash impacts where a fireball exploded, synced
+  /// to the engine's shatter moments, plus a burst of rising embers.
+  void _drawSweepShockwaves(Canvas canvas) {
+    final waves = snapshot.sweepShockwaves;
+    if (waves.isEmpty) return;
+    for (final s in waves) {
+      final t = 1 - (s.remainingSec / 0.5).clamp(0.0, 1.0); // 0 -> 1
+      final fade = (1 - t).clamp(0.0, 1.0);
+      final c = Offset(s.x, s.y);
+
+      // Warm flash burst at the impact point.
+      canvas.drawCircle(
+        c,
+        6 + t * 38,
+        Paint()..color = const Color(0xFFFF8A00).withValues(alpha: 0.45 * fade),
+      );
+      canvas.drawCircle(
+        c,
+        4 + t * 24,
+        Paint()..color = Colors.white.withValues(alpha: 0.8 * fade),
+      );
+
+      // Expanding shockwave rings.
+      final radius = 10 + t * 105;
+      canvas.drawCircle(
+        c,
+        radius,
+        Paint()
+          ..color = const Color(0xFFFFD700).withValues(alpha: 0.5 * fade)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = (7 * (1 - t)).clamp(1.0, 7.0),
+      );
+      canvas.drawCircle(
+        c,
+        radius * 0.72,
+        Paint()
+          ..color = Colors.white.withValues(alpha: 0.8 * fade)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = (3 * (1 - t)).clamp(1.0, 3.0),
+      );
+
+      // Rising embers from the blast, staggered so they keep flowing out.
+      for (var i = 0; i < 8; i++) {
+        final r = _hashUnit(s.x.round() * 911 + i * 37);
+        final emberT = (t + r * 0.3) % 1.0;
+        if (emberT >= 0.9) continue;
+        final ex = s.x + (r - 0.5) * 80 * emberT;
+        final ey = s.y - emberT * 95 - r * 24;
+        final esize = (3.4 - emberT * 2.0).clamp(1.0, 3.4);
+        final ealpha = ((1 - emberT) * 0.85).clamp(0.0, 1.0);
+        canvas.drawCircle(
+          Offset(ex, ey),
+          esize,
+          Paint()..color = const Color(0xFFFF8A00).withValues(alpha: ealpha),
+        );
+      }
     }
   }
 

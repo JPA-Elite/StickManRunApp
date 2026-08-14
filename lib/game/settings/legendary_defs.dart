@@ -67,7 +67,8 @@ class LegendaryDef {
       name: 'ROAD SWEEP',
       icon: '☄',
       description:
-          'Attack, jump, jump: instantly wipe every obstacle off the road.',
+          'Attack, jump, jump: for 3 seconds fireballs rain from the sky, '
+          'wiping every obstacle off the road.',
       cost: 8000,
       comboLabel: 'attack · jump · jump',
       combo: [ComboAction.smash, ComboAction.jump, ComboAction.jump],
