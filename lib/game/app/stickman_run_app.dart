@@ -416,7 +416,7 @@ class _BrandCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 5),
                     Text(
-                      '$wallet',
+                      formatCoinAmount(wallet),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 15,

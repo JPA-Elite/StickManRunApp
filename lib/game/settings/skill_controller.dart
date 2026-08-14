@@ -6,6 +6,25 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'legendary_defs.dart';
 import 'skill_defs.dart';
 
+/// Formats a coin amount for compact header badges: plain digits below 1000,
+/// then abbreviated as e.g. "1.5K", "12.3M" or "1.2B" (one decimal, trailing
+/// ".0" trimmed). Keeps the badge width bounded even with a billion-coin
+/// wallet instead of letting the raw digits stretch the container.
+String formatCoinAmount(int coins) {
+  const units = [
+    (1000000000, 'B'),
+    (1000000, 'M'),
+    (1000, 'K'),
+  ];
+  for (final (divisor, suffix) in units) {
+    if (coins >= divisor) {
+      final value = (coins / divisor).toStringAsFixed(1);
+      return '${value.endsWith('.0') ? value.substring(0, value.length - 2) : value}$suffix';
+    }
+  }
+  return '$coins';
+}
+
 /// Singleton controller that owns the player's owned skill tiers and their
 /// coin wallet. Coins are earned from finished runs and spent to upgrade
 /// skills. This state is persisted independently from the score history so it

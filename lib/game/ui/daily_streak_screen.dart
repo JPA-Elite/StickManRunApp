@@ -298,7 +298,7 @@ class _DailyStreakScreenState extends State<DailyStreakScreen>
                               ),
                               const SizedBox(width: 5),
                               Text(
-                                'WALLET: $wallet',
+                                'WALLET: ${formatCoinAmount(wallet)}',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 13,

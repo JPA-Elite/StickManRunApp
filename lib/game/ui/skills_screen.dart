@@ -365,7 +365,7 @@ class _HeaderCoins extends StatelessWidget {
           Icon(Icons.monetization_on, color: coinColor, size: 18),
           const SizedBox(width: 5),
           Text(
-            '$wallet',
+            formatCoinAmount(wallet),
             style: const TextStyle(
               color: Colors.white,
               fontSize: 15,
