@@ -101,6 +101,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
       settings: _settings,
       skills: SkillController.instance.config,
       legendaries: SkillController.instance.active,
+      legendaryTiers: SkillController.instance.legendaryTiers,
     );
     _engine.start(levelIndex: widget.initialLevel);
     _levelIndex = widget.initialLevel;

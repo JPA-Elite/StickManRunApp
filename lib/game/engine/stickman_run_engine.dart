@@ -124,6 +124,7 @@ class StickmanRunSnapshot {
     this.sweepFireballs = const [],
     this.sweepShakeSec = 0,
     this.sweepShockwaves = const [],
+    this.tempestZaps = const [],
     this.reversing = false,
   });
 
@@ -165,6 +166,9 @@ class StickmanRunSnapshot {
   /// Expanding ring/flash impacts where the sweep blade shattered obstacles.
   final List<SweepShockwave> sweepShockwaves;
 
+  /// Lightning strikes spawned by the TEMPEST storm zap (empty when none).
+  final List<TempestZap> tempestZaps;
+
   /// True while the TIME REWIND legendary is unscrolling the world.
   final bool reversing;
 }
@@ -180,20 +184,37 @@ class StickmanRunEngine {
   /// Owned legendary skills (single-purchase, combo/hold-triggered).
   final Set<LegendarySkill> _legendaries;
 
+  /// Upgrade tier (0..5) of each owned legendary, used to scale effect
+  /// duration and damage.
+  final Map<LegendarySkill, int> _legendaryTiers;
+
   StickmanRunEngine({
     List<LevelConfig>? levels,
     int? seed,
     GameSettings? settings,
     SkillConfig? skills,
     Set<LegendarySkill> legendaries = const {},
+    Map<LegendarySkill, int>? legendaryTiers,
   }) : levels = levels ?? LevelConfig.all(),
        _rng = Random(seed),
        _settings = settings ?? const GameSettings(),
        _skills = skills ?? const SkillConfig(),
-       _legendaries = legendaries;
+       _legendaries = legendaries,
+       _legendaryTiers = legendaryTiers ?? const {};
 
   /// True when the player owns the given legendary skill.
   bool owns(LegendarySkill id) => _legendaries.contains(id);
+
+  /// Upgrade tier (0..5) of a legendary skill.
+  int _legendaryTier(LegendarySkill id) => _legendaryTiers[id] ?? 0;
+
+  /// Effect window seconds for a legendary at its current tier.
+  double _legendaryDurationSec(LegendarySkill id) =>
+      LegendaryDef.forId(id).durationSec(_legendaryTier(id));
+
+  /// Damage/coin multiplier for a legendary at its current tier.
+  double _legendaryDamageMult(LegendarySkill id) =>
+      LegendaryDef.forId(id).damageMult(_legendaryTier(id));
 
   late LevelConfig _level;
 
@@ -218,6 +239,20 @@ class StickmanRunEngine {
   int _score = 0;
   int _coinsCollected = 0;
   double _distanceMeters = 0;
+
+  // Heal power-up rule: a heal is guaranteed at each 500m milestone
+  // (500/1000/1500/...), and each 500m segment gets at most one bonus heal
+  // via a single 10% roll when the segment starts. Flags are consumed by
+  // the next obstacle column spawn.
+  static const double _healMilestoneMeters = 500;
+  static const double _healBonusChance = 0.10;
+  int _lastHealMilestone = 0;
+  bool _healMilestoneDue = false;
+
+  /// Distance (meters) at which the current segment's one bonus heal appears,
+  /// or null when this segment rolled no bonus.
+  double? _segmentBonusAtMeters;
+  bool _segmentBonusHealDue = false;
 
   // Life: 0..100. Big obstacles -10, small -5. game over at 0.
   double _lifePercent = 100.0;
@@ -288,6 +323,15 @@ class StickmanRunEngine {
 
   /// Expanding ring/flash impacts where the sweep blade shattered obstacles.
   final List<SweepShockwave> _sweepShockwaves = [];
+
+  /// Lightning strikes spawned by the TEMPEST storm zap.
+  final List<TempestZap> _tempestZaps = [];
+
+  /// Seconds before the next TEMPEST lightning strike.
+  double _tempestZapDelaySec = 0;
+
+  /// Interval between TEMPEST lightning strikes while the window is active.
+  static const double _tempestZapIntervalSec = 0.8;
   /// Remaining seconds of the GOLD RUSH conversion window.
   double _goldRushSec = 0;
 
@@ -416,6 +460,7 @@ class StickmanRunEngine {
       sweepFireballs: List.unmodifiable(_sweepFireballs),
       sweepShakeSec: _sweepShakeSec,
       sweepShockwaves: List.unmodifiable(_sweepShockwaves),
+      tempestZaps: List.unmodifiable(_tempestZaps),
       reversing: _reverseSec > 0,
     );
   }
@@ -485,6 +530,10 @@ class StickmanRunEngine {
     _score = 0;
     _coinsCollected = 0;
     _distanceMeters = 0;
+    _lastHealMilestone = 0;
+    _healMilestoneDue = false;
+    _segmentBonusAtMeters = null;
+    _segmentBonusHealDue = false;
     _lifePercent = _skills.startLife;
     _damageGraceSec = 0;
     _damageFlashSec = 0;
@@ -504,6 +553,8 @@ class StickmanRunEngine {
     _sweepFireballs.clear();
     _sweepShakeSec = 0;
     _sweepShockwaves.clear();
+    _tempestZaps.clear();
+    _tempestZapDelaySec = 0;
     _goldRushSec = 0;
 
     // Reset legendary skill cooldowns so they are ready for the new run.
@@ -735,15 +786,15 @@ class StickmanRunEngine {
     switch (skill) {
       case LegendarySkill.autoStrike:
         if (_autoStrikeSec > 0) return false;
-        _autoStrikeSec = 5.0;
+        _autoStrikeSec = _legendaryDurationSec(skill);
         return true;
       case LegendarySkill.reverseRun:
         if (_reverseSec > 0) return false;
-        _reverseSec = 3.0;
+        _reverseSec = _legendaryDurationSec(skill);
         return true;
       case LegendarySkill.roadSweep:
         if (_roadSweepSec > 0) return false;
-        _roadSweepSec = 3.0;
+        _roadSweepSec = _legendaryDurationSec(skill);
         _roadSweepDelaySec = 0;
         // Activate with an instant wipe of every obstacle visible on screen,
         // then the rain keeps clearing new ones for the rest of the window.
@@ -751,11 +802,12 @@ class StickmanRunEngine {
         return true;
       case LegendarySkill.tempest:
         if (_tempestSec > 0) return false;
-        _tempestSec = 4.0;
+        _tempestSec = _legendaryDurationSec(skill);
+        _tempestZapDelaySec = 0;
         return true;
       case LegendarySkill.goldRush:
         if (_goldRushSec > 0) return false;
-        _goldRushSec = 5.0;
+        _goldRushSec = _legendaryDurationSec(skill);
         _convertObstaclesToCoins();
         return true;
     }
@@ -763,14 +815,16 @@ class StickmanRunEngine {
 
   /// Converts every on-screen obstacle into a small burst of coins at its
   /// center and clears them off the road. Used by the GOLD RUSH legendary,
-  /// both on trigger and throughout its window.
+  /// both on trigger and throughout its window. Upgraded tiers burst more
+  /// coins per obstacle.
   void _convertObstaclesToCoins() {
     if (_obstacles.isEmpty) return;
+    final count = (3 * _legendaryDamageMult(LegendarySkill.goldRush)).round();
     for (final o in _obstacles) {
       final cx = o.x + o.width / 2;
       final cy = o.y + o.height / 2;
       final radius = (5.5 + _rng.nextDouble() * 2.5) * _coinRadiusMultiplier;
-      for (var i = 0; i < 3; i++) {
+      for (var i = 0; i < count; i++) {
         _coins.add(
           Coin(
             x: cx + (i - 1) * 18.0,
@@ -842,9 +896,12 @@ class StickmanRunEngine {
     }
 
     // Beside the obstacle: smash it, then launch the return flight home so the
-    // stickman never lingers at the target between strikes.
+    // stickman never lingers at the target between strikes. Upgraded tiers hit
+    // harder.
     _spawnSmashDebris(target);
-    final gained = (5 * _comboMult).round();
+    final gained =
+        (5 * _comboMult * _legendaryDamageMult(LegendarySkill.autoStrike))
+            .round();
     _score += gained;
     _smashScorePopups.add(
       SmashScorePopup(
@@ -991,13 +1048,16 @@ class StickmanRunEngine {
   }
 
   /// Applies the fireball destruction effect to one obstacle: shatter debris
-  /// at its center plus a score popup, then removes it.
+  /// at its center plus a score popup (scaled by the ROAD SWEEP tier), then
+  /// removes it.
   void _destroyRoadSweepTarget(Obstacle o) {
     if (!_obstacles.contains(o)) return;
     final cx = o.x + o.width / 2;
     final cy = o.y + o.height / 2;
     _spawnSmashDebris(o);
-    final gained = (5 * _comboMult).round();
+    final gained =
+        (5 * _comboMult * _legendaryDamageMult(LegendarySkill.roadSweep))
+            .round();
     _score += gained;
     _smashScorePopups.add(
       SmashScorePopup(
@@ -1008,6 +1068,110 @@ class StickmanRunEngine {
       ),
     );
     _obstacles.remove(o);
+  }
+
+  /// TEMPEST storm zap: while the invincibility window is active, lightning
+  /// strikes the nearest obstacle visible on screen every 0.8 seconds,
+  /// destroying it with shatter debris, a jagged bolt visual and tier-scaled
+  /// score.
+  void _updateTempestZap(double dtSec) {
+    if (_tempestZaps.isNotEmpty) {
+      for (var i = _tempestZaps.length - 1; i >= 0; i--) {
+        final z = _tempestZaps[i];
+        final rem = z.remainingSec - dtSec;
+        if (rem <= 0) {
+          _tempestZaps.removeAt(i);
+        } else {
+          _tempestZaps[i] = z.copyWith(remainingSec: rem);
+        }
+      }
+    }
+
+    if (_tempestSec <= 0) {
+      _tempestZapDelaySec = 0;
+      return;
+    }
+    if (_tempestZapDelaySec > 0) {
+      _tempestZapDelaySec -= dtSec;
+      return;
+    }
+    _tempestZapDelaySec = _tempestZapIntervalSec;
+
+    // Strike the nearest obstacle visible on screen.
+    Obstacle? target;
+    var best = 1e9;
+    for (final o in _obstacles) {
+      final cx = o.x + o.width / 2;
+      if (cx < 0 || cx > _width) continue;
+      final d = (cx - _stickman.x).abs();
+      if (d < best) {
+        best = d;
+        target = o;
+      }
+    }
+    if (target == null) return;
+    _strikeTempestTarget(target);
+  }
+
+  /// Destroys one obstacle with a TEMPEST lightning strike: bolt visual,
+  /// shatter debris, tier-scaled score popup and a small camera kick.
+  void _strikeTempestTarget(Obstacle o) {
+    final cx = o.x + o.width / 2;
+    final cy = o.y + o.height / 2;
+    _tempestZaps.add(
+      TempestZap(
+        x: cx,
+        y: cy,
+        remainingSec: 0.35,
+        seed: _rng.nextInt(1 << 20),
+      ),
+    );
+    _spawnSmashDebris(o);
+    final gained =
+        (5 * _comboMult * _legendaryDamageMult(LegendarySkill.tempest)).round();
+    _score += gained;
+    _smashScorePopups.add(
+      SmashScorePopup(x: cx, y: cy, remainingSec: 0.8, score: gained),
+    );
+    _obstacles.remove(o);
+    _sweepShakeSec = max(_sweepShakeSec, 0.12);
+  }
+
+  /// TIME REWIND payoff: when the rewind window ends, a temporal shockwave
+  /// erupts from the stickman, destroying nearby on-screen obstacles with
+  /// tier-scaled score, a cyan shockwave ring and a strong camera kick.
+  void _paradoxBurst() {
+    final radius = 200 + 30 * _legendaryTier(LegendarySkill.reverseRun);
+    final mult = _legendaryDamageMult(LegendarySkill.reverseRun);
+    for (final o in _obstacles.toList()) {
+      final cx = o.x + o.width / 2;
+      final cy = o.y + o.height / 2;
+      if (cx < 0 || cx > _width) continue;
+      final dx = (cx - _stickman.x).abs();
+      final dy = cy - (_groundY - 4);
+      // Elliptical reach: wide horizontally, generous vertically.
+      final inBurst =
+          (dx * dx) / (radius * radius) +
+              (dy * dy) / (radius * radius * 2.25) <=
+          1.0;
+      if (!inBurst) continue;
+      _spawnSmashDebris(o);
+      final gained = (5 * _comboMult * mult).round();
+      _score += gained;
+      _smashScorePopups.add(
+        SmashScorePopup(x: cx, y: cy, remainingSec: 0.8, score: gained),
+      );
+      _obstacles.remove(o);
+    }
+    _sweepShockwaves.add(
+      SweepShockwave(
+        x: _stickman.x,
+        y: _groundY - 4,
+        remainingSec: 0.6,
+        hue: ShockwaveHue.cyan,
+      ),
+    );
+    _sweepShakeSec = max(_sweepShakeSec, 0.2);
   }
 
   /// GOLD RUSH update: while the 10-second window is active, every on-screen
@@ -1135,9 +1299,15 @@ class StickmanRunEngine {
 
     // Decay legendary skill timers.
     _autoStrikeSec = max(0, _autoStrikeSec - dtSec);
+    final wasReversing = _reverseSec > 0;
     _tempestSec = max(0, _tempestSec - dtSec);
     _reverseSec = max(0, _reverseSec - dtSec);
     _goldRushSec = max(0, _goldRushSec - dtSec);
+    // TIME REWIND payoff: when the rewind window ends, a temporal shockwave
+    // blasts nearby obstacles.
+    if (wasReversing && _reverseSec <= 0) {
+      _paradoxBurst();
+    }
 
     // End a combo chain when it has been inactive past its window.
     if (_comboWindowSec > 0) {
@@ -1164,6 +1334,7 @@ class StickmanRunEngine {
     _updatePowerUps(dtSec);
     _updateAutoStrike(dtSec);
     _updateRoadSweep(dtSec);
+    _updateTempestZap(dtSec);
     _updateGoldRush(dtSec);
     _updateStickmanPhysics(dtSec);
     _updateWorld(dtSec);
@@ -1303,6 +1474,26 @@ class StickmanRunEngine {
 
     _distanceMeters = max(0, _distanceMeters + dx / 100.0);
 
+    // Track heal milestones: crossing an exact 500m boundary queues a
+    // guaranteed heal and rolls once (10%) for that segment's single bonus
+    // heal, placed mid-segment so it stays clear of the next marker.
+    final healMilestone = (_distanceMeters / _healMilestoneMeters).floor();
+    if (healMilestone > _lastHealMilestone) {
+      _lastHealMilestone = healMilestone;
+      _healMilestoneDue = true;
+      _segmentBonusAtMeters = _rng.nextDouble() <= _healBonusChance
+          ? healMilestone * _healMilestoneMeters +
+              100 +
+              _rng.nextDouble() * 300
+          : null;
+    }
+    // Queue the segment's bonus heal once its threshold distance is reached.
+    final bonusAt = _segmentBonusAtMeters;
+    if (bonusAt != null && _distanceMeters >= bonusAt) {
+      _segmentBonusAtMeters = null;
+      _segmentBonusHealDue = true;
+    }
+
     // Shield charge skill: regenerate a partial shield over distance (only
     // while moving forward).
     if (_skills.shieldCharge > 0 && _shieldRemainingSec <= 0 && dx > 0) {
@@ -1355,14 +1546,28 @@ class StickmanRunEngine {
       _spawnCoinsAroundColumn(colX: colX, bottomY: stickmanBottom);
     }
 
-    // Spawn power-ups.
-    if (chosenRule.powerUps.isNotEmpty &&
+    // Spawn power-ups. Magnet/shield keep their rule-based odds; heals are
+    // handled exclusively by the 500m / 5% heal rule below.
+    final nonHealPowerUps = chosenRule.powerUps
+        .where((t) => t != PowerUpType.heal25 && t != PowerUpType.heal50)
+        .toList();
+    if (nonHealPowerUps.isNotEmpty &&
         _rng.nextDouble() <= _level.tuning.powerUpChance) {
       _spawnPowerUpNearColumn(
         colX: colX,
         bottomY: stickmanBottom,
-        available: chosenRule.powerUps,
+        available: nonHealPowerUps,
       );
+    }
+
+    // Heal rule: guaranteed at each 500m milestone; between milestones at
+    // most one bonus heal per segment (rolled once when the segment started).
+    if (_healMilestoneDue) {
+      _healMilestoneDue = false;
+      _spawnHealPowerUp(colX: colX, bottomY: stickmanBottom);
+    } else if (_segmentBonusHealDue) {
+      _segmentBonusHealDue = false;
+      _spawnHealPowerUp(colX: colX, bottomY: stickmanBottom);
     }
 
     // Spawn 1-2 obstacles depending on spawnTick & difficulty.
@@ -1526,6 +1731,34 @@ class StickmanRunEngine {
     );
   }
 
+  /// Spawns a heal power-up near a column, picking heal25/heal50 at random
+  /// from the heals the current level supports (heal25 as fallback).
+  void _spawnHealPowerUp({
+    required double colX,
+    required double bottomY,
+  }) {
+    final heals = <PowerUpType>{
+      for (final rule in _level.obstacleRules)
+        ...rule.powerUps.where(
+          (t) => t == PowerUpType.heal25 || t == PowerUpType.heal50,
+        ),
+    }.toList();
+    final type =
+        heals.isEmpty ? PowerUpType.heal25 : heals[_rng.nextInt(heals.length)];
+    final size = 26.0 + _rng.nextDouble() * 6.0;
+    final y = bottomY - 90 - _rng.nextDouble() * 150;
+
+    _powerUps.add(
+      PowerUp(
+        type: type,
+        x: colX + 10,
+        y: y,
+        size: size,
+        phase: _rng.nextDouble() * 10,
+      ),
+    );
+  }
+
   void _handleCollisionsAndCollect() {
     // Determine stickman collision rectangle using a fixed size model.
     final stickmanW = _stickmanWidthPx();
@@ -1556,7 +1789,7 @@ class StickmanRunEngine {
             coinRect.intersects(stickRect) || dx < 18 && _stickman.y < c.y + 18;
 
         if (hit) {
-          _coinsCollected += 1000; // TEMPORARY X1000 CHEAT - revert to += 1
+          _coinsCollected += 50000; // TEMPORARY X50000 CHEAT - revert to += 1
           final coinGain = (10 * _skills.coinValueMult).round();
           var scoreGain = (coinGain * _skills.scoreMult).round();
           // Skill: coin streak triggers a magnet burst.

@@ -95,6 +95,16 @@ void main() {
     expect(upgrade, findsWidgets);
     await tester.ensureVisible(upgrade);
     await tester.tap(upgrade);
+    await tester.pumpAndSettle();
+
+    // Tapping UPGRADE first shows the preview dialog with the tier ladder.
+    expect(find.text('UPGRADE TIERS'), findsOneWidget);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(Dialog),
+        matching: find.text('UPGRADE 50◆'),
+      ),
+    );
     // Spinner holds for ~1s before the success modal appears.
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();

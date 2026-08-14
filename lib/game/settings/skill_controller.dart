@@ -20,6 +20,7 @@ class SkillController extends ChangeNotifier {
   static const String _keyTiers = 'skill_tiers_v1';
   static const String _keyLegendaries = 'legendary_owned_v1';
   static const String _keyActiveLegendaries = 'legendary_active_v1';
+  static const String _keyLegendaryTiers = 'legendary_tiers_v1';
 
   int _wallet = 0;
 
@@ -38,6 +39,9 @@ class SkillController extends ChangeNotifier {
 
   /// The legendaries currently equipped in the active slots, ≤ [maxLegendaries].
   Set<LegendarySkill> _active = {};
+
+  /// Upgrade tier (0..5) of each legendary skill.
+  Map<LegendarySkill, int> _legendaryTiers = {};
 
   /// Every legendary skill the player has permanently purchased.
   Set<LegendarySkill> get owned => Set.unmodifiable(_legendaries);
@@ -60,8 +64,29 @@ class SkillController extends ChangeNotifier {
   /// True when the legendary skill is currently equipped in an active slot.
   bool isActive(LegendarySkill id) => _active.contains(id);
 
-  /// Cooldown between triggers of the same legendary skill.
-  static const int legendaryCooldownMicros = 20000000; // 20s
+  /// Upgrade tiers (0..5) of every legendary skill.
+  Map<LegendarySkill, int> get legendaryTiers =>
+      Map.unmodifiable(_legendaryTiers);
+
+  /// Owned tier (0..max) for the given legendary skill.
+  int legendaryTierOf(LegendarySkill id) => _legendaryTiers[id] ?? 0;
+
+  /// True when the legendary skill is at its maximum tier.
+  bool legendaryIsMaxed(LegendarySkill id) =>
+      legendaryTierOf(id) >= LegendaryDef.forId(id).maxTier;
+
+  /// Cost to upgrade the legendary to its next tier (0 when maxed).
+  int legendaryNextCost(LegendarySkill id) {
+    final def = LegendaryDef.forId(id);
+    final t = legendaryTierOf(id);
+    if (t >= def.maxTier) return 0;
+    return def.costs[t];
+  }
+
+  /// Cooldown seconds between triggers of the same legendary skill at its
+  /// current tier (base 20s, shortened by upgrades).
+  double legendaryCooldownSec(LegendarySkill id) =>
+      LegendaryDef.forId(id).cooldownSec(legendaryTierOf(id));
 
   /// Timestamp (microsSinceEpoch) of the last time each legendary was
   /// triggered, kept in memory for the current app session. Like the old
@@ -87,8 +112,8 @@ class SkillController extends ChangeNotifier {
   double legendaryCooldownRemainingSec(LegendarySkill id) {
     final last = _lastLegendaryUseMicros[id];
     if (last == null) return 0;
-    final elapsedMicros = DateTime.now().microsecondsSinceEpoch - last;
-    final remaining = (legendaryCooldownMicros - elapsedMicros) / 1e6;
+    final elapsedSec = (DateTime.now().microsecondsSinceEpoch - last) / 1e6;
+    final remaining = legendaryCooldownSec(id) - elapsedSec;
     return remaining < 0 ? 0 : remaining;
   }
 
@@ -166,6 +191,21 @@ class SkillController extends ChangeNotifier {
         _active = {};
       }
     }
+    final legTiersRaw = prefs.getString(_keyLegendaryTiers);
+    if (legTiersRaw != null && legTiersRaw.isNotEmpty) {
+      try {
+        final map = (jsonDecode(legTiersRaw) as Map<String, dynamic>);
+        _legendaryTiers = {
+          for (final e in map.entries)
+            LegendarySkill.values.firstWhere(
+              (s) => s.name == e.key,
+              orElse: () => LegendarySkill.autoStrike,
+            ): (e.value as num).toInt(),
+        };
+      } catch (_) {
+        _legendaryTiers = {};
+      }
+    }
     // Legacy saves predate the active-slot concept: derive the equipped set
     // from the first owned skills so the player keeps their loadout.
     if (_active.isEmpty && _legendaries.isNotEmpty) {
@@ -203,6 +243,30 @@ class SkillController extends ChangeNotifier {
     await prefs.setString(
       _keyTiers,
       jsonEncode({for (final e in _tiers.entries) e.key.name: e.value}),
+    );
+    notifyListeners();
+    return true;
+  }
+
+  /// Attempts to upgrade the legendary skill [id] to its next tier. Returns
+  /// false if already maxed or the wallet cannot afford it.
+  Future<bool> upgradeLegendary(LegendarySkill id) async {
+    final def = LegendaryDef.forId(id);
+    final t = legendaryTierOf(id);
+    if (t >= def.maxTier) return false;
+    final cost = def.costs[t];
+    if (_wallet < cost) return false;
+
+    _wallet -= cost;
+    _legendaryTiers[id] = t + 1;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_keyWallet, _wallet);
+    await prefs.setString(
+      _keyLegendaryTiers,
+      jsonEncode(
+        {for (final e in _legendaryTiers.entries) e.key.name: e.value},
+      ),
     );
     notifyListeners();
     return true;
@@ -291,6 +355,7 @@ class SkillController extends ChangeNotifier {
     _tiers = {};
     _legendaries = {};
     _active = {};
+    _legendaryTiers = {};
     _lastLegendaryUseMicros.clear();
     _loaded = false;
   }

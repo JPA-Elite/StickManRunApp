@@ -394,6 +394,10 @@ class _AsyncActionButton extends StatelessWidget {
   final Future<bool> Function() onAction;
   final Future<void> Function()? onSuccess;
 
+  /// Optional gate shown before the action runs (e.g. an upgrade preview
+  /// dialog). When set, the action is skipped unless this resolves true.
+  final Future<bool> Function()? onConfirm;
+
   const _AsyncActionButton({
     required this.label,
     required this.cost,
@@ -401,13 +405,16 @@ class _AsyncActionButton extends StatelessWidget {
     required this.enabled,
     required this.onAction,
     this.onSuccess,
+    this.onConfirm,
   });
 
   @override
   Widget build(BuildContext context) {
     return ElevatedButton(
       onPressed: enabled
-          ? () {
+          ? () async {
+              if (onConfirm != null && !await onConfirm!()) return;
+              if (!context.mounted) return;
               final navigator = Navigator.of(context);
               showDialog<void>(
                 context: context,
@@ -564,7 +571,26 @@ class _SkillCard extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.75),
             ),
           ),
+          const SizedBox(height: 6),
+          // Current-tier effect stats, mirroring the legendary cards, so a
+          // maxed skill still shows what it actually grants (not just MAX).
+          Text(
+            'Lv ${tier + 1}${isMaxed ? ' · MAX' : ''} · '
+            '${_standardTierSummary(def.id, tier)}',
+            style: TextStyle(
+              color: isMaxed
+                  ? accent
+                  : Colors.white.withValues(alpha: 0.6),
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.3,
+            ),
+          ),
           const SizedBox(height: 12),
+          // Pin the action row to the bottom of the card (cards are stretched
+          // to equal height in pairs) so the bottom gap matches the top padding
+          // instead of leaving a tall empty space under the button.
+          const Spacer(),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
@@ -594,6 +620,7 @@ class _SkillCard extends StatelessWidget {
                   cost: cost,
                   accent: accent,
                   enabled: canAfford,
+                  onConfirm: () => _confirmStandardUpgrade(context, def),
                   onAction: () => SkillController.instance.upgrade(def.id),
                   onSuccess: () async {
                     if (!context.mounted) return;
@@ -730,6 +757,14 @@ class _LegendaryCard extends StatelessWidget {
                         letterSpacing: 0.5,
                       ),
                     ),
+                    if (owned) ...[
+                      const SizedBox(height: 4),
+                      _TierPips(
+                        current: sc.legendaryTierOf(def.id),
+                        max: def.maxTier,
+                        accent: const Color(0xFFFFD700),
+                      ),
+                    ],
                     const SizedBox(height: 5),
                     // Static combo-key preview strip.
                     if (def.combo.isNotEmpty)
@@ -782,7 +817,15 @@ class _LegendaryCard extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.75),
             ),
           ),
+          if (owned) ...[
+            const SizedBox(height: 6),
+            _LegendaryStats(def: def, tier: sc.legendaryTierOf(def.id)),
+          ],
           const SizedBox(height: 12),
+          // Pin the action row to the bottom of the card (cards are stretched
+          // to equal height in pairs) and keep every button flush right, so
+          // side-by-side cards like AUTO-STRIKE / TIME REWIND always align.
+          const Spacer(),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
@@ -826,6 +869,54 @@ class _LegendaryCard extends StatelessWidget {
                         ),
                       )
               else
+                const Spacer(),
+              if (owned && sc.legendaryIsMaxed(def.id))
+                Container(
+                  margin: const EdgeInsets.only(left: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFD700).withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text(
+                    'MAX',
+                    style: TextStyle(
+                      color: Color(0xFFFFD700),
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                )
+              else if (owned)
+                Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: _AsyncActionButton(
+                    label: 'UPGRADE',
+                    cost: sc.legendaryNextCost(def.id),
+                    accent: const Color(0xFFFFD700),
+                    enabled: sc.wallet >= sc.legendaryNextCost(def.id),
+                    onConfirm: () => _confirmLegendaryUpgrade(context, def),
+                    onAction: () =>
+                        SkillController.instance.upgradeLegendary(def.id),
+                    onSuccess: () async {
+                      if (!context.mounted) return;
+                      final tier =
+                          SkillController.instance.legendaryTierOf(def.id);
+                      await _showSuccessModal(
+                        context,
+                        icon: def.icon,
+                        title: 'UPGRADED!',
+                        message: '${def.name} is now Level ${tier + 1}.',
+                        accent: const Color(0xFFFFD700),
+                      );
+                    },
+                  ),
+                )
+              else
                 _AsyncActionButton(
                   label: 'BUY',
                   cost: cost,
@@ -859,6 +950,416 @@ class _LegendaryCard extends StatelessWidget {
       builder: (context, value, child) =>
           Transform.scale(scale: value, child: child),
       child: card,
+    );
+  }
+}
+
+/// Compact per-tier stat line for an owned legendary: duration, cooldown and
+/// damage at the current tier.
+class _LegendaryStats extends StatelessWidget {
+  final LegendaryDef def;
+  final int tier;
+
+  const _LegendaryStats({required this.def, required this.tier});
+
+  @override
+  Widget build(BuildContext context) {
+    final dm = def.damageMult(tier);
+    final dmg = def.damagePerTier > 0 ? ' · ${dm.toStringAsFixed(2)}× dmg' : '';
+    return Text(
+      'Lv ${tier + 1} · ${def.durationSec(tier).toStringAsFixed(1)}s '
+      '· ${def.cooldownSec(tier).toStringAsFixed(0)}s cooldown$dmg',
+      style: TextStyle(
+        color: Colors.white.withValues(alpha: 0.6),
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.3,
+      ),
+    );
+  }
+}
+
+/// One level of an upgrade ladder shown in the upgrade preview dialog.
+class _UpgradeTier {
+  final int level;
+
+  /// Human-readable effect summary at this level.
+  final String summary;
+
+  /// Cost in coins to purchase this level (null once owned).
+  final int? cost;
+  final bool owned;
+
+  /// The level the player can buy right now (highlighted).
+  final bool isNext;
+
+  const _UpgradeTier({
+    required this.level,
+    required this.summary,
+    this.cost,
+    this.owned = false,
+    this.isNext = false,
+  });
+}
+
+/// Effect summary for a standard skill at [tier] (1..5), derived from the
+/// same [SkillConfig] the engine uses at runtime.
+String _standardTierSummary(SkillId id, int tier) {
+  final c = SkillConfig.fromTiers({id: tier});
+  switch (id) {
+    case SkillId.coinMagnet:
+      return 'Pull ${(c.magnetRangeMult * 100).round()}% · '
+          'duration ${(c.magnetDurationMult * 100).round()}%';
+    case SkillId.healEfficiency:
+      return '+${c.healBonus.toStringAsFixed(0)} HP heals · '
+          'start ${c.startLife.toStringAsFixed(0)} HP';
+    case SkillId.smashMastery:
+      return 'Smash cooldown ${c.smashCooldownSec.toStringAsFixed(2)}s';
+    case SkillId.coinBaron:
+      return 'Coin ${(c.coinValueMult * 100).round()}% · '
+          'score ${(c.scoreMult * 100).round()}%';
+    case SkillId.endlessStamina:
+      return 'Ramp ${(c.speedRampMult * 100).round()}% · '
+          '+${c.endlessStartGraceSec.toStringAsFixed(0)}s grace';
+    case SkillId.comboRamp:
+      return 'Cap ${c.comboCap} · window ${c.comboWindowSec.toStringAsFixed(1)}s · '
+          'max ${c.comboMaxScoreMult.toStringAsFixed(1)}×';
+    case SkillId.perfectLanding:
+      return '+${c.perfectLandingBoostPx.toStringAsFixed(0)} px/s · '
+          '${c.perfectLandingDurationSec.toStringAsFixed(1)}s burst';
+    case SkillId.rebound:
+      return '+${c.damageGraceBonus.toStringAsFixed(1)}s hit grace';
+    case SkillId.shieldCharge:
+      return 'Recharge every ${c.shieldChargeEveryMeters.toStringAsFixed(0)}m · '
+          '+${c.shieldChargeAmount.toStringAsFixed(0)} HP';
+    case SkillId.overdrive:
+      return '${c.overdriveWindowSec.toStringAsFixed(1)}s post-smash invuln';
+    case SkillId.coinStreak:
+      return 'Burst every ${c.coinStreakEvery} coins · '
+          '${c.coinStreakBurstSec.toStringAsFixed(1)}s magnet';
+    // Enum-only value with no purchasable definition or effect.
+    case SkillId.fortitude:
+      return 'Fortitude';
+  }
+}
+
+/// Effect summary for a legendary skill at [tier] (1..5).
+String _legendaryTierSummary(LegendaryDef def, int tier) {
+  final dm = def.damageMult(tier);
+  final dmg = def.damagePerTier > 0 ? ' · ${dm.toStringAsFixed(2)}× dmg' : '';
+  return '${def.durationSec(tier).toStringAsFixed(1)}s effect · '
+      '${def.cooldownSec(tier).toStringAsFixed(0)}s cooldown$dmg';
+}
+
+/// Shows the upgrade preview dialog for a standard skill; resolves true only
+/// when the player confirms the purchase from inside the dialog.
+Future<bool> _confirmStandardUpgrade(BuildContext context, SkillDef def) async {
+  final sc = SkillController.instance;
+  final tier = sc.tierOf(def.id);
+  final cost = sc.nextCost(def.id);
+  final accent =
+      def.isCombo ? const Color(0xFF4DD8FF) : const Color(0xFFFFD700);
+  final confirmed = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => _UpgradeInfoDialog(
+      icon: def.icon,
+      name: def.name,
+      description: def.description,
+      accent: accent,
+      cost: cost,
+      canAfford: sc.wallet >= cost,
+      tiers: [
+        for (var l = 1; l <= def.maxTier; l++)
+          _UpgradeTier(
+            level: l,
+            summary: _standardTierSummary(def.id, l),
+            cost: l > tier ? def.costs[l - 1] : null,
+            owned: l <= tier,
+            isNext: l == tier + 1,
+          ),
+      ],
+    ),
+  );
+  return confirmed ?? false;
+}
+
+/// Shows the upgrade preview dialog for a legendary skill; resolves true only
+/// when the player confirms the purchase from inside the dialog.
+Future<bool> _confirmLegendaryUpgrade(
+  BuildContext context,
+  LegendaryDef def,
+) async {
+  final sc = SkillController.instance;
+  final tier = sc.legendaryTierOf(def.id);
+  final cost = sc.legendaryNextCost(def.id);
+  final confirmed = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => _UpgradeInfoDialog(
+      icon: def.icon,
+      name: def.name,
+      description: def.description,
+      accent: const Color(0xFFFFD700),
+      cost: cost,
+      canAfford: sc.wallet >= cost,
+      tiers: [
+        for (var l = 1; l <= def.maxTier; l++)
+          _UpgradeTier(
+            level: l,
+            summary: _legendaryTierSummary(def, l),
+            cost: l > tier ? def.costs[l - 1] : null,
+            owned: l <= tier,
+            isNext: l == tier + 1,
+          ),
+      ],
+    ),
+  );
+  return confirmed ?? false;
+}
+
+/// Upgrade preview dialog: shows the full tier ladder — what each level
+/// grants and what it costs — with the next purchasable level highlighted,
+/// plus CANCEL / UPGRADE actions so the player confirms before spending.
+class _UpgradeInfoDialog extends StatelessWidget {
+  final String icon;
+  final String name;
+  final String description;
+  final Color accent;
+  final int cost;
+  final bool canAfford;
+  final List<_UpgradeTier> tiers;
+
+  const _UpgradeInfoDialog({
+    required this.icon,
+    required this.name,
+    required this.description,
+    required this.accent,
+    required this.cost,
+    required this.canAfford,
+    required this.tiers,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: const Color(0xFF150A20),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: accent, width: 1.2),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.18),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: accent.withValues(alpha: 0.6)),
+                  ),
+                  child: Text(
+                    icon,
+                    style: TextStyle(
+                      color: accent,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 14,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              description,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.7),
+                fontSize: 11,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'UPGRADE TIERS',
+              style: TextStyle(
+                color: accent,
+                fontWeight: FontWeight.w900,
+                fontSize: 10,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    for (final t in tiers)
+                      _UpgradeTierRow(tier: t, accent: accent),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text(
+                    'CANCEL',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: canAfford
+                      ? () => Navigator.of(context).pop(true)
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: accent,
+                    foregroundColor: Colors.black,
+                    disabledBackgroundColor:
+                        Colors.white.withValues(alpha: 0.08),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 9,
+                    ),
+                  ),
+                  child: Text(
+                    'UPGRADE $cost◆',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One row of the upgrade ladder inside [_UpgradeInfoDialog].
+class _UpgradeTierRow extends StatelessWidget {
+  final _UpgradeTier tier;
+  final Color accent;
+
+  const _UpgradeTierRow({required this.tier, required this.accent});
+
+  @override
+  Widget build(BuildContext context) {
+    final highlight = tier.isNext;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: highlight
+            ? accent.withValues(alpha: 0.16)
+            : Colors.white.withValues(alpha: 0.04),
+        border: Border.all(
+          color: highlight
+              ? accent.withValues(alpha: 0.9)
+              : Colors.white.withValues(alpha: 0.1),
+        ),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 40,
+            child: Text(
+              'LV ${tier.level}',
+              style: TextStyle(
+                color: tier.owned || highlight ? accent : Colors.white70,
+                fontWeight: FontWeight.w900,
+                fontSize: 11,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              tier.summary,
+              style: TextStyle(
+                color: highlight
+                    ? Colors.white
+                    : Colors.white.withValues(alpha: 0.65),
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (tier.cost != null)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (tier.isNext) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: accent,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      'NEXT',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 8,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                ],
+                Text(
+                  '${tier.cost}◆',
+                  style: const TextStyle(
+                    color: Color(0xFFFFD700),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            )
+          else
+            Icon(
+              Icons.check_circle,
+              size: 14,
+              color: accent.withValues(alpha: 0.5),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -1236,6 +1737,31 @@ class _DashedBorderPainter extends CustomPainter {
       oldDelegate.color != color;
 }
 
+/// Small per-tier stat line shown in the legendary info dialog.
+class _LegendaryStatsLine extends StatelessWidget {
+  final LegendaryDef def;
+
+  const _LegendaryStatsLine({required this.def});
+
+  @override
+  Widget build(BuildContext context) {
+    final sc = SkillController.instance;
+    final tier = sc.legendaryTierOf(def.id);
+    final dm = def.damageMult(tier);
+    final dmg = def.damagePerTier > 0 ? ' · ${dm.toStringAsFixed(2)}× dmg' : '';
+    return Text(
+      'Level ${tier + 1} · ${def.durationSec(tier).toStringAsFixed(1)}s '
+      'duration · ${def.cooldownSec(tier).toStringAsFixed(0)}s cooldown$dmg',
+      style: TextStyle(
+        color: Colors.white.withValues(alpha: 0.55),
+        fontSize: 10,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.4,
+      ),
+    );
+  }
+}
+
 /// Detail dialog for an equipped legendary: shows its icon, name, trigger
 /// combo, description and cost, plus a REMOVE action that unequips it from
 /// the active loadout (it stays in the collection).
@@ -1312,6 +1838,8 @@ class _LegendaryInfoDialog extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
+            _LegendaryStatsLine(def: def),
+            const SizedBox(height: 6),
             Text(
               '${def.cost}◆ to buy · equipped & ready for your next run',
               style: TextStyle(

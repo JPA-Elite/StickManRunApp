@@ -169,8 +169,9 @@ class StickmanRunPainter extends CustomPainter {
     // Floating score popups.
     _drawSmashScorePopups(canvas);
 
-    // ROAD SWEEP fire rain falling from the sky + impact explosions.
+    // ROAD SWEEP fire rain + TEMPEST lightning strikes + impact explosions.
     _drawSweepFireballs(canvas);
+    _drawTempestZaps(canvas);
     _drawSweepShockwaves(canvas);
 
     // AUTO-STRIKE teleport: while the leap is in flight the body is hidden and a
@@ -2968,21 +2969,25 @@ class StickmanRunPainter extends CustomPainter {
     }
   }
 
-  /// Draws expanding ring + flash impacts where a fireball exploded, synced
-  /// to the engine's shatter moments, plus a burst of rising embers.
+  /// Draws expanding ring + flash impacts from legendary explosions, synced
+  /// to the engine's shatter moments, plus a burst of rising particles.
+  /// Gold for fire-based impacts (road sweep), cyan for temporal ones.
   void _drawSweepShockwaves(Canvas canvas) {
     final waves = snapshot.sweepShockwaves;
     if (waves.isEmpty) return;
     for (final s in waves) {
-      final t = 1 - (s.remainingSec / 0.5).clamp(0.0, 1.0); // 0 -> 1
+      final t = 1 - (s.remainingSec / 0.6).clamp(0.0, 1.0); // 0 -> 1
       final fade = (1 - t).clamp(0.0, 1.0);
       final c = Offset(s.x, s.y);
+      final gold = s.hue == ShockwaveHue.gold;
+      final flashColor = gold ? const Color(0xFFFF8A00) : const Color(0xFF00E5FF);
+      final ringColor = gold ? const Color(0xFFFFD700) : Colors.cyanAccent;
 
-      // Warm flash burst at the impact point.
+      // Flash burst at the impact point.
       canvas.drawCircle(
         c,
         6 + t * 38,
-        Paint()..color = const Color(0xFFFF8A00).withValues(alpha: 0.45 * fade),
+        Paint()..color = flashColor.withValues(alpha: 0.45 * fade),
       );
       canvas.drawCircle(
         c,
@@ -2996,7 +3001,7 @@ class StickmanRunPainter extends CustomPainter {
         c,
         radius,
         Paint()
-          ..color = const Color(0xFFFFD700).withValues(alpha: 0.5 * fade)
+          ..color = ringColor.withValues(alpha: 0.5 * fade)
           ..style = PaintingStyle.stroke
           ..strokeWidth = (7 * (1 - t)).clamp(1.0, 7.0),
       );
@@ -3009,7 +3014,7 @@ class StickmanRunPainter extends CustomPainter {
           ..strokeWidth = (3 * (1 - t)).clamp(1.0, 3.0),
       );
 
-      // Rising embers from the blast, staggered so they keep flowing out.
+      // Rising particles from the blast, staggered so they keep flowing out.
       for (var i = 0; i < 8; i++) {
         final r = _hashUnit(s.x.round() * 911 + i * 37);
         final emberT = (t + r * 0.3) % 1.0;
@@ -3021,9 +3026,63 @@ class StickmanRunPainter extends CustomPainter {
         canvas.drawCircle(
           Offset(ex, ey),
           esize,
-          Paint()..color = const Color(0xFFFF8A00).withValues(alpha: ealpha),
+          Paint()..color = flashColor.withValues(alpha: ealpha),
         );
       }
+    }
+  }
+
+  /// Draws TEMPEST lightning strikes: a jagged cyan bolt from the sky to the
+  /// strike point with a flickering shape and a bright flash at impact.
+  void _drawTempestZaps(Canvas canvas) {
+    final zaps = snapshot.tempestZaps;
+    if (zaps.isEmpty) return;
+    for (final z in zaps) {
+      final t = 1 - (z.remainingSec / 0.35).clamp(0.0, 1.0); // 0 -> 1
+      final fade = (1 - t).clamp(0.0, 1.0);
+      final c = Offset(z.x, z.y);
+
+      // Flash at the strike point.
+      canvas.drawCircle(
+        c,
+        4 + t * 30,
+        Paint()..color = Colors.white.withValues(alpha: 0.8 * fade),
+      );
+      canvas.drawCircle(
+        c,
+        3 + t * 18,
+        Paint()..color = Colors.cyanAccent.withValues(alpha: 0.55 * fade),
+      );
+
+      // Jagged lightning bolt from the sky down to the strike point. The
+      // horizontal jitter flickers with time so the bolt looks alive.
+      final bolt = Path()..moveTo(z.x, 0);
+      var bx = z.x;
+      const segs = 7;
+      final flicker = 0.6 + 0.4 * sin(snapshot.timeSec * 60 + z.seed);
+      for (var i = 1; i <= segs; i++) {
+        final py = z.y * i / segs;
+        if (i < segs) {
+          bx = z.x + (_hashUnit(z.seed + i * 31) - 0.5) * 34 * flicker;
+        }
+        bolt.lineTo(bx, py);
+      }
+      canvas.drawPath(
+        bolt,
+        Paint()
+          ..color = Colors.cyanAccent.withValues(alpha: 0.85 * fade)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4
+          ..strokeCap = StrokeCap.round,
+      );
+      canvas.drawPath(
+        bolt,
+        Paint()
+          ..color = Colors.white.withValues(alpha: 0.95 * fade)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.6
+          ..strokeCap = StrokeCap.round,
+      );
     }
   }
 

@@ -223,7 +223,11 @@ class _ActiveLegendaries extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final id in active) _LegendaryRow(def: LegendaryDef.forId(id)),
+        for (final id in active)
+          _LegendaryRow(
+            def: LegendaryDef.forId(id),
+            tier: SkillController.instance.legendaryTierOf(id),
+          ),
       ],
     );
   }
@@ -231,8 +235,9 @@ class _ActiveLegendaries extends StatelessWidget {
 
 class _LegendaryRow extends StatelessWidget {
   final LegendaryDef def;
+  final int tier;
 
-  const _LegendaryRow({required this.def});
+  const _LegendaryRow({required this.def, required this.tier});
 
   @override
   Widget build(BuildContext context) {
@@ -282,7 +287,7 @@ class _LegendaryRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Trigger: ${def.comboLabel}',
+                  'Lv ${tier + 1} · Trigger: ${def.comboLabel}',
                   style: const TextStyle(
                     color: Colors.yellow,
                     fontSize: 11,

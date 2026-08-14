@@ -261,18 +261,25 @@ class SweepFireball {
   }
 }
 
+/// Color treatment for an impact shockwave ring + flash.
+enum ShockwaveHue { gold, cyan }
+
 @immutable
 class SweepShockwave {
-  /// World-space position where the ROAD SWEEP comet blade shattered an
-  /// obstacle. The painter expands a ring + flash from here as it fades.
+  /// World-space position where an explosion/impact happened. The painter
+  /// expands a ring + flash from here as it fades.
   final double x;
   final double y;
   final double remainingSec;
+
+  /// Color treatment: gold for fire-based impacts, cyan for temporal ones.
+  final ShockwaveHue hue;
 
   const SweepShockwave({
     required this.x,
     required this.y,
     required this.remainingSec,
+    this.hue = ShockwaveHue.gold,
   });
 
   SweepShockwave copyWith({double? remainingSec}) {
@@ -280,6 +287,33 @@ class SweepShockwave {
       x: x,
       y: y,
       remainingSec: remainingSec ?? this.remainingSec,
+      hue: hue,
+    );
+  }
+}
+
+@immutable
+class TempestZap {
+  /// A lightning strike from the sky to (x, y) during TEMPEST. [seed] drives
+  /// the bolt's jagged shape so it stays stable while flickering.
+  final double x;
+  final double y;
+  final double remainingSec;
+  final int seed;
+
+  const TempestZap({
+    required this.x,
+    required this.y,
+    required this.remainingSec,
+    required this.seed,
+  });
+
+  TempestZap copyWith({double? remainingSec}) {
+    return TempestZap(
+      x: x,
+      y: y,
+      remainingSec: remainingSec ?? this.remainingSec,
+      seed: seed,
     );
   }
 }
