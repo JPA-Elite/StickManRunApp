@@ -1330,7 +1330,12 @@ class StickmanRunPainter extends CustomPainter {
     // the stickman there is hidden, marked only by the departure flash ring.
     final to = snapshot.autoStrikeLeapToX;
     final current = backX;
-    final trailLen = (w * 1.8).clamp(8.0, to - from);
+    // The leap travels in either direction (outbound to the target, return
+    // flight home), so measure the span in absolute terms. Guard the span so
+    // the clamp range is always valid (8.0..span) — a degenerate span simply
+    // renders no ghosts instead of throwing.
+    final span = (to - from).abs();
+    final trailLen = span >= 8.0 ? (w * 1.8).clamp(8.0, span) : 0.0;
     if (trailLen > 8.0) {
       for (int i = 1; i <= 4; i++) {
         final g = i / 5.0;

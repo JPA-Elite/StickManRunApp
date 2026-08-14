@@ -1773,7 +1773,12 @@ class StickmanRunEngine {
     final magnetPull = _magnetRemainingSec > 0;
 
     // Coin collection.
-    if (_coins.isNotEmpty) {
+    // During an AUTO-STRIKE leap the stickman is a teleport blur crossing the
+    // road; it must not vacuum up coins/power-ups along the way (that made the
+    // HUD coin value jump and heal-flashes flicker over the HUD). Pickups are
+    // collected normally again once the stickman is grounded between strikes.
+    final isAutoStrikeLeap = _autoStrikeLeapSec > 0;
+    if (_coins.isNotEmpty && !isAutoStrikeLeap) {
       final magnetRange =
           magnetPull ? max(_width, _height) * 0.5 * _skills.magnetRangeMult : 42.0;
       _coins.removeWhere((c) {
@@ -1810,8 +1815,8 @@ class StickmanRunEngine {
       });
     }
 
-    // Power-up collection.
-    if (_powerUps.isNotEmpty) {
+    // Power-up collection (skipped mid AUTO-STRIKE leap, see above).
+    if (_powerUps.isNotEmpty && !isAutoStrikeLeap) {
       _powerUps.removeWhere((p) {
         final pr = p.collisionRect();
         final sr = _stickman.collisionRect(width: stickmanW, height: stickmanH);
@@ -1882,7 +1887,7 @@ class StickmanRunEngine {
       if (_reverseSec > 0 && _legendaries.contains(LegendarySkill.reverseRun)) continue;
 
       _lifePercent = max(0, _lifePercent - _obstacleDamage(o.type));
-      _damageGraceSec = 0.2 + _skills.damageGraceBonus;
+      _damageGraceSec = 0.35 + _skills.damageGraceBonus;
       _damageFlashSec = 0.35;
       _hitCount += 1;
       // Getting hit resets the combo chain.
