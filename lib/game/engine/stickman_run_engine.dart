@@ -165,6 +165,7 @@ class StickmanRunSnapshot {
     this.goldRushSec = 0,
     this.goldRushSplashSec = 0,
     this.gameOverKickSec = 0,
+    this.levelTimeSec = 0,
     this.sweepFireballs = const [],
     this.sweepShakeSec = 0,
     this.sweepShockwaves = const [],
@@ -207,6 +208,10 @@ class StickmanRunSnapshot {
   /// Seconds remaining of the fatal-hit camera kick (0 when calm). The
   /// painter adds a sharp shake + red flash while it runs.
   final double gameOverKickSec;
+
+  /// Seconds spent actually running this level (excludes menus/paused time).
+  /// Used to accumulate the player's lifetime play time on the profile page.
+  final double levelTimeSec;
 
   /// Fireballs raining from the sky during ROAD SWEEP (empty when no sweep
   /// is active). Each explodes on impact, wiping obstacles in its blast.
@@ -547,6 +552,7 @@ class StickmanRunEngine {
       goldRushSec: _goldRushSec,
       goldRushSplashSec: _goldRushSplashSec,
       gameOverKickSec: _gameOverKickSec,
+      levelTimeSec: _levelTimeSec,
       sweepFireballs: List.unmodifiable(_sweepFireballs),
       sweepShakeSec: _sweepShakeSec,
       sweepShockwaves: List.unmodifiable(_sweepShockwaves),

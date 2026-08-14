@@ -12,12 +12,16 @@ class ScoreRecord {
   final int levelIndex;
   final DateTime timestamp;
 
+  /// Seconds spent running this level (0 for legacy records).
+  final double durationSec;
+
   const ScoreRecord({
     required this.score,
     required this.coins,
     required this.distanceMeters,
     required this.levelIndex,
     required this.timestamp,
+    this.durationSec = 0,
   });
 
   Map<String, dynamic> toJson() => {
@@ -26,6 +30,7 @@ class ScoreRecord {
         'distanceMeters': distanceMeters,
         'levelIndex': levelIndex,
         'timestamp': timestamp.millisecondsSinceEpoch,
+        'durationSec': durationSec,
       };
 
   factory ScoreRecord.fromJson(Map<String, dynamic> json) => ScoreRecord(
@@ -36,6 +41,7 @@ class ScoreRecord {
         timestamp: DateTime.fromMillisecondsSinceEpoch(
           (json['timestamp'] as num).toInt(),
         ),
+        durationSec: (json['durationSec'] as num?)?.toDouble() ?? 0,
       );
 }
 
@@ -49,6 +55,7 @@ class ScoreHistoryController extends ChangeNotifier {
   static const String _keyRecords = 'score_history_v1';
   static const String _keyLastCelebratedTier = 'last_celebrated_tier';
   static const String _keyAccumulatedScore = 'accumulated_score_v1';
+  static const String _keyAccumulatedPlaySec = 'accumulated_play_sec_v1';
   static const int maxRecords = 20;
 
   List<ScoreRecord> _records = [];
@@ -60,6 +67,12 @@ class ScoreHistoryController extends ChangeNotifier {
   /// survives [clear] so the homepage rank tier is not reset when history is
   /// wiped.
   int get accumulatedScore => _accumulatedScore;
+
+  double _accumulatedPlaySec = 0;
+
+  /// Lifetime seconds actually spent running, accumulated across all runs.
+  /// Survives [clear] like [accumulatedScore].
+  double get accumulatedPlaySec => _accumulatedPlaySec;
 
   int _lastCelebratedTier = 0;
 
@@ -101,6 +114,7 @@ class ScoreHistoryController extends ChangeNotifier {
     }
     _lastCelebratedTier = prefs.getInt(_keyLastCelebratedTier) ?? 0;
     _accumulatedScore = prefs.getInt(_keyAccumulatedScore) ?? 0;
+    _accumulatedPlaySec = prefs.getDouble(_keyAccumulatedPlaySec) ?? 0;
     _loaded = true;
     notifyListeners();
   }
@@ -112,6 +126,7 @@ class ScoreHistoryController extends ChangeNotifier {
       jsonEncode(_records.map((r) => r.toJson()).toList()),
     );
     await prefs.setInt(_keyAccumulatedScore, _accumulatedScore);
+    await prefs.setDouble(_keyAccumulatedPlaySec, _accumulatedPlaySec);
   }
 
   /// Appends a finished run at the front, caps at [maxRecords], persists.
@@ -121,6 +136,7 @@ class ScoreHistoryController extends ChangeNotifier {
       _records = _records.sublist(0, maxRecords);
     }
     _accumulatedScore += record.score;
+    _accumulatedPlaySec += record.durationSec;
     await _save();
     notifyListeners();
   }

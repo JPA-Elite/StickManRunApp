@@ -540,6 +540,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
             distanceMeters: _snapshot.distanceMeters,
             levelIndex: _snapshot.levelIndex,
             timestamp: DateTime.now(),
+            durationSec: _snapshot.levelTimeSec,
           ),
         );
       }

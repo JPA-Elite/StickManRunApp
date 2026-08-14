@@ -2,11 +2,13 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../settings/rank.dart';
 import '../settings/score_history.dart';
 import '../settings/settings_controller.dart';
 import '../settings/skill_controller.dart';
 import '../ui/daily_streak_screen.dart';
 import '../ui/menu_backdrop.dart';
+import '../ui/profile_screen.dart';
 import '../ui/stickman_guide.dart';
 import '../ui/score_history_screen.dart';
 import '../ui/settings_screen.dart';
@@ -65,7 +67,7 @@ class _StickmanRunAppState extends State<StickmanRunApp>
     if (!_showLevelSelect) return;
     final history = ScoreHistoryController.instance;
     final total = _totalScore(history);
-    final tier = _rankForScore(total).level;
+    final tier = rankForScore(total).level;
     if (tier > history.lastCelebratedTier && tier > 1) {
       history.setLastCelebratedTier(tier);
       setState(() => _pendingCelebrationTier = tier);
@@ -591,38 +593,6 @@ class _LevelUpObserver extends NavigatorObserver {
   }
 }
 
-/// Cinematic rank tiers, driven by total accumulated score.
-/// L1 = <10k, L2 = 10k–20k, L3 = 20k–30k, and so on.
-class _RankTier {
-  final int level;
-  final String name;
-  final int nextMilestone;
-
-  const _RankTier({
-    required this.level,
-    required this.name,
-    required this.nextMilestone,
-  });
-}
-
-const List<String> _tierNames = [
-  'ROOKIE',
-  'RUNNER',
-  'SPRINTER',
-  'DASHER',
-  'ACROBAT',
-  'LEGEND',
-];
-
-_RankTier _rankForScore(int total) {
-  final level = (total ~/ 10000 + 1).clamp(1, _tierNames.length);
-  final name = _tierNames[level - 1];
-  return _RankTier(
-    level: level,
-    name: name,
-    nextMilestone: level * 10000,
-  );
-}
 
 /// Header profile chip: stickman avatar + rank label + neon progress bar +
 /// accumulated score caption. Replaces the old "STICKMAN RUN" brand badge.
@@ -636,24 +606,30 @@ class _RunnerProfile extends StatelessWidget {
       builder: (context, _) {
         final history = ScoreHistoryController.instance;
         final total = _totalScore(history);
-        final tier = _rankForScore(total);
+        final tier = rankForScore(total);
         final prevMilestone = (tier.level - 1) * 10000;
         final progress =
-            tier.level >= _tierNames.length
+            tier.level >= rankTierNames.length
                 ? 1.0
                 : ((total - prevMilestone) / 10000).clamp(0.0, 1.0);
 
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const StickmanAvatar(size: 46),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '${tier.name} LV ${tier.level}',
+        // Tapping the avatar (or the rank chip) opens the profile page.
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const ProfileScreen()),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const StickmanAvatar(size: 46),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '${tier.name} LV ${tier.level}',
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w900,
@@ -688,9 +664,10 @@ class _RunnerProfile extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.7),
                   ),
                 ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         );
       },
     );
@@ -712,7 +689,7 @@ class _LevelUpCelebration extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rank = _rankForScore((tier - 1) * 10000);
+    final rank = rankForScore((tier - 1) * 10000);
 
     return Positioned.fill(
       child: GestureDetector(
