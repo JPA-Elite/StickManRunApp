@@ -830,6 +830,24 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     );
   }
 
+  /// Remaining seconds of the active duration window for [id] (0 when the
+  /// skill is not currently running), used to keep READY IN pills from
+  /// appearing while a skill's own duration is still on screen.
+  double _activeLegendarySec(LegendarySkill id) {
+    switch (id) {
+      case LegendarySkill.autoStrike:
+        return _snapshot.autoStrikeSec;
+      case LegendarySkill.reverseRun:
+        return _snapshot.reverseSec;
+      case LegendarySkill.roadSweep:
+        return _snapshot.roadSweepSec;
+      case LegendarySkill.tempest:
+        return _snapshot.tempestSec;
+      case LegendarySkill.goldRush:
+        return _snapshot.goldRushSec;
+    }
+  }
+
   /// Small top HUD showing the current legendary activation state: the
   Widget _buildLegendaryHud({required double width}) {
     final ownedReverse = _engine.owns(LegendarySkill.reverseRun);
@@ -844,6 +862,9 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     final cooldown = <Widget>[];
     for (final def in LegendaryDef.all) {
       if (!_engine.owns(def.id)) continue;
+      // The cooldown pill only appears once the skill's own duration window
+      // has finished, so the duration banner and READY IN never overlap.
+      if (_activeLegendarySec(def.id) > 0) continue;
       final remaining = SkillController.instance.legendaryCooldownRemainingSec(
         def.id,
       );

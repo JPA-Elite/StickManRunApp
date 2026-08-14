@@ -114,9 +114,15 @@ class SkillController extends ChangeNotifier {
   final Map<LegendarySkill, int> _lastLegendaryUseMicros = {};
 
   /// Records a legendary activation so the shared cooldown is visible from
-  /// the run HUD and the skills page alike.
+  /// the run HUD and the skills page alike. The cooldown clock starts only
+  /// after the skill's effect window ends: the stored timestamp is forward-
+  /// dated by the skill's duration at its current tier, so the full cooldown
+  /// is fresh the moment the effect ends — a 5s skill with a 20s cooldown
+  /// recharges 25s after the trigger instead of running both timers at once.
   void recordLegendaryUse(LegendarySkill id) {
-    _lastLegendaryUseMicros[id] = DateTime.now().microsecondsSinceEpoch;
+    final durationSec = LegendaryDef.forId(id).durationSec(legendaryTierOf(id));
+    _lastLegendaryUseMicros[id] =
+        DateTime.now().microsecondsSinceEpoch + (durationSec * 1e6).round();
     notifyListeners();
   }
 
