@@ -264,58 +264,64 @@ class _StickmanRunAppState extends State<StickmanRunApp>
                                     padding: const EdgeInsets.only(left: 24),
                                     child: Align(
                                       alignment: Alignment.centerLeft,
-                                      child: _CinematicOrbit(
-                                        accent: const Color(0xFFFFD54F),
-                                        child: IconButton(
-                                          icon: const Icon(
-                                            Icons.emoji_events,
-                                            color: Colors.yellow,
-                                            size: 26,
+                                      child: _PressableScale(
+                                        child: _CinematicOrbit(
+                                          accent: const Color(0xFFFFD54F),
+                                          child: IconButton(
+                                            icon: const Icon(
+                                              Icons.emoji_events,
+                                              color: Colors.yellow,
+                                              size: 26,
+                                            ),
+                                            tooltip: 'Score History',
+                                            onPressed: () {
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      const ScoreHistoryScreen(),
+                                                ),
+                                              );
+                                            },
                                           ),
-                                          tooltip: 'Score History',
-                                          onPressed: () {
-                                            Navigator.of(context).push(
-                                              MaterialPageRoute(
-                                                builder: (_) =>
-                                                    const ScoreHistoryScreen(),
-                                              ),
-                                            );
-                                          },
                                         ),
                                       ),
                                     ),
                                   ),
                                 ),
-                                ElevatedButton.icon(
-                                  onPressed: () {
-                                    _navigatorKey.currentState!.push(
-                                      MaterialPageRoute(
-                                        builder: (_) => StickmanRunScreen(
-                                          initialLevel: _selectedLevel,
+                                _PressableScale(
+                                  child: ElevatedButton.icon(
+                                    onPressed: () {
+                                      _navigatorKey.currentState!.push(
+                                        MaterialPageRoute(
+                                          builder: (_) => StickmanRunScreen(
+                                            initialLevel: _selectedLevel,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    icon: const Icon(
+                                      Icons.play_arrow,
+                                      color: Colors.black,
+                                    ),
+                                    label: const Text(
+                                      'PLAY LEVEL',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 18,
+                                      ),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.yellow,
+                                      foregroundColor: Colors.black,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(
+                                          16,
                                         ),
                                       ),
-                                    );
-                                  },
-                                  icon: const Icon(
-                                    Icons.play_arrow,
-                                    color: Colors.black,
-                                  ),
-                                  label: const Text(
-                                    'PLAY LEVEL',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 18,
-                                    ),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.yellow,
-                                    foregroundColor: Colors.black,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 32,
-                                      vertical: 10,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 32,
+                                        vertical: 10,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -324,23 +330,25 @@ class _StickmanRunAppState extends State<StickmanRunApp>
                                     padding: const EdgeInsets.only(right: 24),
                                     child: Align(
                                       alignment: Alignment.centerRight,
-                                      child: _CinematicOrbit(
-                                        accent: const Color(0xFF4DD8FF),
-                                        child: IconButton(
-                                          icon: const Icon(
-                                            Icons.menu_book,
-                                            color: Colors.white,
-                                            size: 26,
+                                      child: _PressableScale(
+                                        child: _CinematicOrbit(
+                                          accent: const Color(0xFF4DD8FF),
+                                          child: IconButton(
+                                            icon: const Icon(
+                                              Icons.menu_book,
+                                              color: Colors.white,
+                                              size: 26,
+                                            ),
+                                            tooltip: 'Skills',
+                                            onPressed: () {
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      const SkillsScreen(),
+                                                ),
+                                              );
+                                            },
                                           ),
-                                          tooltip: 'Skills',
-                                          onPressed: () {
-                                            Navigator.of(context).push(
-                                              MaterialPageRoute(
-                                                builder: (_) =>
-                                                    const SkillsScreen(),
-                                              ),
-                                            );
-                                          },
                                         ),
                                       ),
                                     ),
@@ -484,6 +492,41 @@ class _BrandCard extends StatelessWidget {
           ),
           const SizedBox(width: 9          ),
         ],
+      ),
+    );
+  }
+}
+
+/// Wraps [child] with a tactile press scale: it shrinks to [scale] while
+/// pressed and springs back on release. Uses raw [Listener] pointer events so
+/// the wrapped button's own tap handling is never interfered with.
+class _PressableScale extends StatefulWidget {
+  final Widget child;
+  final double scale;
+
+  const _PressableScale({
+    required this.child,
+    this.scale = 0.9,
+  });
+
+  @override
+  State<_PressableScale> createState() => _PressableScaleState();
+}
+
+class _PressableScaleState extends State<_PressableScale> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerDown: (_) => setState(() => _pressed = true),
+      onPointerUp: (_) => setState(() => _pressed = false),
+      onPointerCancel: (_) => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? widget.scale : 1.0,
+        duration: const Duration(milliseconds: 110),
+        curve: Curves.easeOut,
+        child: widget.child,
       ),
     );
   }
