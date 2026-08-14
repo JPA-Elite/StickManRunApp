@@ -534,6 +534,9 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
       DailyMissionController.instance.checkScore(_snapshot.score);
       // Auto check-in for the daily streak when a run finishes.
       DailyStreakController.instance.checkIn();
+      // Fully reset legendary cooldowns so no READY IN pills linger on the
+      // game-over / level-complete screen and the next run starts fresh.
+      SkillController.instance.resetLegendaryCooldowns();
     }
   }
 
@@ -850,6 +853,10 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
 
   /// Small top HUD showing the current legendary activation state: the
   Widget _buildLegendaryHud({required double width}) {
+    // Never show legendary pills (duration banners or READY IN cooldowns)
+    // once the run has ended — the overlay takes over the screen.
+    if (_snapshot.status != GameStatus.running) return const SizedBox.shrink();
+
     final ownedReverse = _engine.owns(LegendarySkill.reverseRun);
     final showReverse = ownedReverse && _snapshot.reversing;
     final showAuto = _snapshot.autoStrikeSec > 0;

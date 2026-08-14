@@ -163,6 +163,7 @@ class StickmanRunSnapshot {
     this.reverseSec = 0,
     this.roadSweepSec = 0,
     this.goldRushSec = 0,
+    this.goldRushSplashSec = 0,
     this.sweepFireballs = const [],
     this.sweepShakeSec = 0,
     this.sweepShockwaves = const [],
@@ -197,6 +198,10 @@ class StickmanRunSnapshot {
   /// Remaining seconds of the GOLD RUSH legendary window (0 when not
   /// active). While active, on-screen obstacles turn into coins.
   final double goldRushSec;
+
+  /// Seconds remaining of the GOLD RUSH activation cinematic splash (0 when
+  /// none). The painter draws a golden bloom + headline while it runs.
+  final double goldRushSplashSec;
 
   /// Fireballs raining from the sky during ROAD SWEEP (empty when no sweep
   /// is active). Each explodes on impact, wiping obstacles in its blast.
@@ -400,6 +405,12 @@ class StickmanRunEngine {
   /// Remaining seconds of the GOLD RUSH conversion window.
   double _goldRushSec = 0;
 
+  /// Seconds remaining of the GOLD RUSH activation cinematic splash.
+  double _goldRushSplashSec = 0;
+
+  /// Duration of the GOLD RUSH activation cinematic splash.
+  static const double goldRushSplashDurationSec = 1.4;
+
   // Prevent “instant death” from the very first spawn right after START RUN.
   // (First obstacle column can overlap slightly due to resize/layout rounding.)
   double _collisionGraceSec = 0;
@@ -522,6 +533,7 @@ class StickmanRunEngine {
       reverseSec: _reverseSec,
       roadSweepSec: _roadSweepSec,
       goldRushSec: _goldRushSec,
+      goldRushSplashSec: _goldRushSplashSec,
       sweepFireballs: List.unmodifiable(_sweepFireballs),
       sweepShakeSec: _sweepShakeSec,
       sweepShockwaves: List.unmodifiable(_sweepShockwaves),
@@ -627,6 +639,7 @@ class StickmanRunEngine {
     _tempestZaps.clear();
     _tempestZapDelaySec = 0;
     _goldRushSec = 0;
+    _goldRushSplashSec = 0;
 
     // Reset legendary skill cooldowns so they are ready for the new run.
     SkillController.instance.resetLegendaryCooldowns();
@@ -880,6 +893,7 @@ class StickmanRunEngine {
       case LegendarySkill.goldRush:
         if (_goldRushSec > 0) return false;
         _goldRushSec = _legendaryDurationSec(skill);
+        _goldRushSplashSec = goldRushSplashDurationSec;
         _convertObstaclesToCoins();
         return true;
     }
@@ -1375,6 +1389,7 @@ class StickmanRunEngine {
     _tempestSec = max(0, _tempestSec - dtSec);
     _reverseSec = max(0, _reverseSec - dtSec);
     _goldRushSec = max(0, _goldRushSec - dtSec);
+    _goldRushSplashSec = max(0, _goldRushSplashSec - dtSec);
     // TIME REWIND payoff: when the rewind window ends, a temporal shockwave
     // blasts nearby obstacles. The pushed-back obstacles are given a grace
     // period (matching the rewind length) to scroll back into view before the

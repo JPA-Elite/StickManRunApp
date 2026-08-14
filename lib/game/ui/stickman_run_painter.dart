@@ -264,6 +264,109 @@ class StickmanRunPainter extends CustomPainter {
     if (snapshot.themeTransitionSec > 0) {
       _drawThemeTransition(canvas);
     }
+
+    // GOLD RUSH activation cinematic splash: golden bloom, expanding coin
+    // rings/sparks and a GOLD RUSH headline that flashes in and fades out.
+    if (snapshot.goldRushSplashSec > 0) {
+      _drawGoldRushSplash(canvas);
+    }
+  }
+
+  /// Cinematic splash when GOLD RUSH activates: a golden bloom pulse, coin
+  /// sparks radiating from center and a big GOLD RUSH headline that flashes
+  /// in fast, then fades out.
+  void _drawGoldRushSplash(Canvas canvas) {
+    final total = StickmanRunEngine.goldRushSplashDurationSec;
+    final p = (1 - snapshot.goldRushSplashSec / total).clamp(0.0, 1.0);
+    // Fast attack (peak at 20% in), slow fade-out.
+    final strength = p < 0.2
+        ? p / 0.2
+        : ((1 - p) / 0.8).clamp(0.0, 1.0);
+    if (strength <= 0.01) return;
+
+    final center = Offset(width / 2, height * 0.42);
+
+    // Golden radial bloom.
+    final bloomRect = Rect.fromCircle(
+      center: center,
+      radius: max(width, height) * 0.8,
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, width, height),
+      Paint()
+        ..shader = RadialGradient(
+          colors: [
+            const Color(0xFFFFD700).withValues(alpha: 0.5 * strength),
+            const Color(0xFFFF8A00).withValues(alpha: 0.16 * strength),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.5, 1.0],
+        ).createShader(bloomRect),
+    );
+
+    // Expanding gold rings from the center (shockwave feel).
+    final reach = max(width, height) * 0.55;
+    canvas.drawCircle(
+      center,
+      40 + p * reach,
+      Paint()
+        ..color = const Color(0xFFFFD700).withValues(alpha: 0.6 * strength)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3 + 4 * (1 - strength),
+    );
+    canvas.drawCircle(
+      center,
+      20 + p * reach * 0.7,
+      Paint()
+        ..color = const Color(0xFFFFBF00).withValues(alpha: 0.35 * strength)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
+
+    // Coin sparks radiating outward.
+    for (var i = 0; i < 14; i++) {
+      final a = i / 14.0 * 2 * pi;
+      final dist = p * reach * (0.75 + 0.25 * ((i * 37) % 10) / 10);
+      canvas.drawCircle(
+        Offset(center.dx + cos(a) * dist, center.dy + sin(a) * dist * 0.6),
+        2.5 + 2.5 * (1 - p),
+        Paint()
+          ..color = const Color(0xFFFFBF00).withValues(alpha: strength),
+      );
+    }
+
+    // Headline.
+    final tp = TextPainter(
+      text: TextSpan(
+        text: 'GOLD RUSH',
+        style: TextStyle(
+          fontSize: 38,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 6,
+          color: Colors.white.withValues(alpha: strength),
+          shadows: [
+            Shadow(
+              color: const Color(0xFFFFD700).withValues(alpha: 0.9 * strength),
+              blurRadius: 30,
+              offset: Offset.zero,
+            ),
+            Shadow(
+              color: const Color(0xFFFF8A00).withValues(alpha: 0.95 * strength),
+              blurRadius: 10,
+              offset: Offset.zero,
+            ),
+          ],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(
+      canvas,
+      Offset(
+        (width - tp.width) / 2,
+        height * 0.40 - (1 - strength) * 20 - tp.height / 2,
+      ),
+    );
   }
 
   void _drawThemeTransition(Canvas canvas) {
