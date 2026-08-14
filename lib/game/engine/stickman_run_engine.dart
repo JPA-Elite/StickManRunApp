@@ -120,6 +120,7 @@ class StickmanRunSnapshot {
     this.tempestSec = 0,
     this.reverseSec = 0,
     this.roadSweepSec = 0,
+    this.goldRushSec = 0,
     this.reversing = false,
   });
 
@@ -146,6 +147,10 @@ class StickmanRunSnapshot {
   /// Remaining seconds of the ROAD SWEEP legendary sweeping window (0 when
   /// not active).
   final double roadSweepSec;
+
+  /// Remaining seconds of the GOLD RUSH legendary window (0 when not
+  /// active). While active, on-screen obstacles turn into coins.
+  final double goldRushSec;
 
   /// True while the TIME REWIND legendary is unscrolling the world.
   final bool reversing;
@@ -255,6 +260,8 @@ class StickmanRunEngine {
   double _roadSweepSec = 0;
   /// Seconds before the next interval sweep attack fires while sweeping.
   double _roadSweepDelaySec = 0;
+  /// Remaining seconds of the GOLD RUSH conversion window.
+  double _goldRushSec = 0;
 
   // Prevent “instant death” from the very first spawn right after START RUN.
   // (First obstacle column can overlap slightly due to resize/layout rounding.)
@@ -377,6 +384,7 @@ class StickmanRunEngine {
       tempestSec: _tempestSec,
       reverseSec: _reverseSec,
       roadSweepSec: _roadSweepSec,
+      goldRushSec: _goldRushSec,
       reversing: _reverseSec > 0,
     );
   }
@@ -462,6 +470,7 @@ class StickmanRunEngine {
     _reverseSec = 0;
     _roadSweepSec = 0;
     _roadSweepDelaySec = 0;
+    _goldRushSec = 0;
 
     // Reset legendary skill cooldowns so they are ready for the new run.
     SkillController.instance.resetLegendaryCooldowns();
@@ -708,26 +717,34 @@ class StickmanRunEngine {
         _tempestSec = 4.0;
         return true;
       case LegendarySkill.goldRush:
-        if (_obstacles.isEmpty) return false;
-        for (final o in _obstacles) {
-          // Convert each obstacle into a small burst of coins at its center.
-          final cx = o.x + o.width / 2;
-          final cy = o.y + o.height / 2;
-          final radius = (5.5 + _rng.nextDouble() * 2.5) * _coinRadiusMultiplier;
-          for (var i = 0; i < 3; i++) {
-            _coins.add(
-              Coin(
-                x: cx + (i - 1) * 18.0,
-                y: cy + (i % 2 == 0 ? 0 : 18.0),
-                radius: radius,
-                phase: _rng.nextDouble() * 10,
-              ),
-            );
-          }
-        }
-        _obstacles.clear();
+        if (_goldRushSec > 0) return false;
+        _goldRushSec = 5.0;
+        _convertObstaclesToCoins();
         return true;
     }
+  }
+
+  /// Converts every on-screen obstacle into a small burst of coins at its
+  /// center and clears them off the road. Used by the GOLD RUSH legendary,
+  /// both on trigger and throughout its window.
+  void _convertObstaclesToCoins() {
+    if (_obstacles.isEmpty) return;
+    for (final o in _obstacles) {
+      final cx = o.x + o.width / 2;
+      final cy = o.y + o.height / 2;
+      final radius = (5.5 + _rng.nextDouble() * 2.5) * _coinRadiusMultiplier;
+      for (var i = 0; i < 3; i++) {
+        _coins.add(
+          Coin(
+            x: cx + (i - 1) * 18.0,
+            y: cy + (i % 2 == 0 ? 0 : 18.0),
+            radius: radius,
+            phase: _rng.nextDouble() * 10,
+          ),
+        );
+      }
+    }
+    _obstacles.clear();
   }
 
   /// Auto-strike update: while the AUTO-STRIKE window is active the stickman
@@ -881,7 +898,17 @@ class StickmanRunEngine {
         score: gained,
       ),
     );
-    _obstacles.remove(target);
+        _obstacles.remove(target);
+  }
+
+  /// GOLD RUSH update: while the 10-second window is active, every on-screen
+  /// obstacle is continuously converted into coins so the player farms them
+  /// instead of dodging.
+  void _updateGoldRush(double dtSec) {
+    if (_goldRushSec <= 0) {
+      return;
+    }
+    _convertObstaclesToCoins();
   }
 
   /// Spawns particle debris at the obstacle's center for the shatter effect.
@@ -1001,6 +1028,7 @@ class StickmanRunEngine {
     _autoStrikeSec = max(0, _autoStrikeSec - dtSec);
     _tempestSec = max(0, _tempestSec - dtSec);
     _reverseSec = max(0, _reverseSec - dtSec);
+    _goldRushSec = max(0, _goldRushSec - dtSec);
 
     // End a combo chain when it has been inactive past its window.
     if (_comboWindowSec > 0) {
@@ -1027,6 +1055,7 @@ class StickmanRunEngine {
     _updatePowerUps(dtSec);
     _updateAutoStrike(dtSec);
     _updateRoadSweep(dtSec);
+    _updateGoldRush(dtSec);
     _updateStickmanPhysics(dtSec);
     _updateWorld(dtSec);
     _handleCollisionsAndCollect();

@@ -87,7 +87,8 @@ class LegendaryDef {
       name: 'GOLD RUSH',
       icon: '◈',
       description:
-          'Attack, attack, jump: convert every on-screen obstacle into a burst of coins.',
+          'Attack, attack, jump: for 5 seconds every on-screen obstacle '
+          'is converted into a burst of coins.',
       cost: 6000,
       comboLabel: 'attack · attack · jump',
       combo: [ComboAction.smash, ComboAction.smash, ComboAction.jump],

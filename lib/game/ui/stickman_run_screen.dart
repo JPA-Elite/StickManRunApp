@@ -548,9 +548,14 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
 
   void _onSmash() {
     if (_snapshot.status != GameStatus.running) return;
-    if (_snapshot.smashCooldownSec > 0) return;
 
+    // Register the input for legendary combos even while the smash is
+    // cooling down, so combos like attack · attack · jump can be entered
+    // back-to-back without waiting out the full smash cooldown between
+    // presses. The actual smash effect is still gated by the cooldown.
     _recordComboInput(ComboAction.smash);
+
+    if (_snapshot.smashCooldownSec > 0) return;
 
     _engine.smash();
     setState(() => _snapshot = _engine.snapshot());
@@ -816,6 +821,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     final showAuto = _snapshot.autoStrikeSec > 0;
     final showTempest = _snapshot.tempestSec > 0;
     final showRoadSweep = _snapshot.roadSweepSec > 0;
+    final showGoldRush = _snapshot.goldRushSec > 0;
     final showBanner = _legendaryBanner.isNotEmpty;
 
     // Cooldown pills for every owned legendary that is recharging.
@@ -840,6 +846,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
         !showAuto &&
         !showTempest &&
         !showRoadSweep &&
+        !showGoldRush &&
         cooldown.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -881,6 +888,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                   showTempest ||
                   showReverse ||
                   showRoadSweep ||
+                  showGoldRush ||
                   cooldown.isNotEmpty)
                 const SizedBox(height: 6),
               Builder(
@@ -919,6 +927,15 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                         text:
                             '☄ ROAD SWEEP ${_snapshot.roadSweepSec.toStringAsFixed(1)}s',
                         color: const Color(0xFFFF5C8A),
+                      ),
+                    );
+                  }
+                  if (showGoldRush) {
+                    parts.add(
+                      _hudPill(
+                        text:
+                            '◈ GOLD RUSH ${_snapshot.goldRushSec.toStringAsFixed(1)}s',
+                        color: const Color(0xFFFFD700),
                       ),
                     );
                   }
@@ -1249,7 +1266,11 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                     : null,
               ),
               child: ElevatedButton(
-                onPressed: canSmash && !_paused
+                // Keep the button pressable during the smash cooldown so
+                // legendary combos that start with repeated attacks (e.g.
+                // GOLD RUSH: attack · attack · jump) can be entered without
+                // waiting out the cooldown between presses.
+                onPressed: isRunning && !_paused
                     ? () {
                         _onSmash();
                         if (_settings.vibrationsEnabled) {
