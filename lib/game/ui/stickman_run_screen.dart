@@ -15,7 +15,7 @@ import '../settings/daily_mission.dart';
 import '../settings/daily_streak.dart';
 import '../settings/skill_controller.dart';
 import 'haptics.dart';
-import 'obstacle_guide.dart';
+import 'stickman_guide.dart';
 import 'menu_backdrop.dart';
 import 'settings_screen.dart';
 import 'stickman_run_painter.dart';
@@ -696,7 +696,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     });
   }
 
-  /// Opens the obstacle guide page. From the in-game hint button the run is
+  /// Opens the stickman guide page. From the in-game hint button the run is
   /// frozen while the guide is open and resumes when it closes; from the
   /// pause card the game stays paused.
   Future<void> _openGuide() async {
@@ -706,7 +706,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
       setState(() {});
     }
     await Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const ObstacleGuideScreen()),
+      MaterialPageRoute<void>(builder: (_) => const StickmanGuideScreen()),
     );
     if (!_showPauseCard) _resume();
   }
@@ -805,7 +805,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
             const SizedBox(width: 8),
             _TopCircleButton(
               icon: Icons.help_outline,
-              tooltip: 'Obstacle guide',
+              tooltip: 'Stickman guide',
               onTap: _openGuide,
             ),
           ],

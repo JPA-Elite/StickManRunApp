@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../settings/game_settings.dart';
+import '../settings/legendary_defs.dart';
 import '../settings/settings_controller.dart';
+import '../settings/skill_controller.dart';
 
 /// All things the guide can describe: every obstacle type plus the
 /// collectibles (coins and power-ups).
@@ -116,10 +118,11 @@ const List<GuideItem> _collectibleItems = [
   ),
 ];
 
-/// Dark arcade-style page listing every obstacle and collectible with a
-/// mini glyph and a short definition. The header holds a back icon.
-class ObstacleGuideScreen extends StatelessWidget {
-  const ObstacleGuideScreen({super.key});
+/// Dark arcade-style page listing the player's active legendary skills plus
+/// every obstacle and collectible, each with a mini glyph and a short
+/// definition. The header holds a back icon.
+class StickmanGuideScreen extends StatelessWidget {
+  const StickmanGuideScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -144,7 +147,7 @@ class ObstacleGuideScreen extends StatelessWidget {
                   ),
                   const Expanded(
                     child: Text(
-                      'OBSTACLE GUIDE',
+                      'STICKMAN GUIDE',
                       style: TextStyle(
                         color: Colors.yellow,
                         fontWeight: FontWeight.w900,
@@ -171,6 +174,9 @@ class ObstacleGuideScreen extends StatelessWidget {
                     const _SectionHeader('HOW TO PLAY'),
                     const _HowToItems(),
                     const SizedBox(height: 14),
+                    const _SectionHeader('LEGENDARY SKILLS'),
+                    const _ActiveLegendaries(),
+                    const SizedBox(height: 14),
                     const _SectionHeader('OBSTACLES'),
                     for (final item in _obstacleItems) _GuideRow(item: item),
                     const SizedBox(height: 14),
@@ -183,6 +189,111 @@ class ObstacleGuideScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The player's equipped legendary skills with their trigger combos. Shows a
+/// hint when none are equipped.
+class _ActiveLegendaries extends StatelessWidget {
+  const _ActiveLegendaries();
+
+  @override
+  Widget build(BuildContext context) {
+    final active = SkillController.instance.active.toList()
+      ..sort((a, b) => a.index.compareTo(b.index));
+
+    if (active.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 6),
+        child: Text(
+          'No legendary skills equipped yet. Buy and equip them from the '
+          'Skills tab — each one is triggered by a special combo during a run.',
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            height: 1.25,
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final id in active) _LegendaryRow(def: LegendaryDef.forId(id)),
+      ],
+    );
+  }
+}
+
+class _LegendaryRow extends StatelessWidget {
+  final LegendaryDef def;
+
+  const _LegendaryRow({required this.def});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 38,
+            height: 38,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.yellow.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.yellow, width: 1.5),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                def.icon,
+                style: const TextStyle(color: Colors.yellow, fontSize: 18),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  def.name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  def.description,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    height: 1.25,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Trigger: ${def.comboLabel}',
+                  style: const TextStyle(
+                    color: Colors.yellow,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

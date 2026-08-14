@@ -7,7 +7,7 @@ import '../settings/settings_controller.dart';
 import '../settings/skill_controller.dart';
 import '../ui/daily_streak_screen.dart';
 import '../ui/menu_backdrop.dart';
-import '../ui/obstacle_guide.dart';
+import '../ui/stickman_guide.dart';
 import '../ui/score_history_screen.dart';
 import '../ui/settings_screen.dart';
 import '../ui/skills_screen.dart';
@@ -434,7 +434,7 @@ class _BrandCard extends StatelessWidget {
             tooltip: 'How to Play',
             onPressed: () {
               Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ObstacleGuideScreen()),
+                MaterialPageRoute(builder: (_) => const StickmanGuideScreen()),
               );
             },
           ),
