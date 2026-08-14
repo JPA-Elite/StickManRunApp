@@ -243,7 +243,8 @@ class SkillConfig {
   /// Invulnerability windows after smash (seconds).
   double get overdriveWindowSec => 0.5 + 0.3 * overdrive;
 
-  /// Coins needed per streak to trigger a burst.
-  int get coinStreakEvery => max(1, 8 - coinStreak);
+  /// Coins needed per streak to trigger a burst. Starts at 100 coins at
+  /// level 1 and drops by 15 per tier down to 25 at max.
+  int get coinStreakEvery => max(10, 100 - 15 * coinStreak);
   double get coinStreakBurstSec => 2.0 + 0.4 * coinStreak;
 }

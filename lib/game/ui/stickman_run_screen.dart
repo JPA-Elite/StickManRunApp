@@ -401,6 +401,15 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   bool _wasSmashActive = false;
   int _lastHitCount = 0;
 
+  /// Seconds spent on the game-over screen; drives the fatal-hit cinematic
+  /// beat (the modal waits out the camera kick, then fades in).
+  double _gameOverRevealSec = 0;
+
+  /// How long the GAME OVER modal holds back while the fatal-hit camera kick
+  /// (shake + red flash) plays, before the card fades in.
+  static const double _gameOverRevealDelaySec = 0.6;
+  static const double _gameOverRevealFadeSec = 0.35;
+
   // --- Legendary combo detection (in-memory, reset per run) ---
   static const int _comboWindowMicros =
       1300000; // 1.3s window for a 3-input combo
@@ -474,6 +483,12 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     setState(() {
       _snapshot = _engine.snapshot();
     });
+
+    // Track how long the game-over screen has been shown so the modal can
+    // wait out the fatal-hit camera kick before fading in.
+    _gameOverRevealSec = _snapshot.status == GameStatus.gameOver
+        ? _gameOverRevealSec + dtSec
+        : 0;
 
     // While AUTO-STRIKE is active, pin the smash indicator to the position
     // it had when the skill started so it never jumps around with the
@@ -1391,6 +1406,24 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
 
     if (isRunning) return const SizedBox.shrink();
 
+    // Fatal-hit cinematic beat: keep the world (camera shake + red flash)
+    // visible for the kick's duration, then fade the modal in. A transparent
+    // tap barrier blocks input so the run can't restart mid-beat (a tap would
+    // otherwise call startRunning via _onJump).
+    final revealProgress = isOver
+        ? ((_gameOverRevealSec - _gameOverRevealDelaySec) /
+                  _gameOverRevealFadeSec)
+              .clamp(0.0, 1.0)
+        : 1.0;
+    if (isOver && revealProgress <= 0) {
+      return Positioned.fill(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {},
+        ),
+      );
+    }
+
     final title = isReady
         ? 'STICKMAN RUN'
         : isOver
@@ -1414,9 +1447,11 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
         : 'Nice! Score: ${_snapshot.score} • Coins: ${_snapshot.coins}';
 
     return Positioned.fill(
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
+      child: Opacity(
+        opacity: revealProgress,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
           // Cinematic dusk backdrop behind the overlay.
           CustomPaint(
             painter: MenuBackdropPainter(
@@ -1659,6 +1694,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
             },
           ),
         ],
+        ),
       ),
     );
   }

@@ -94,6 +94,17 @@ class StickmanRunPainter extends CustomPainter {
       canvas.translate(sin(t) * p * 5.0, cos(t * 0.7) * p * 3.0);
     }
 
+    // Fatal-hit camera kick: a sharper shake on the killing blow so the
+    // death moment lands with impact before the overlay takes over.
+    if (snapshot.gameOverKickSec > 0) {
+      final p =
+          (snapshot.gameOverKickSec /
+                  StickmanRunEngine.gameOverKickDurationSec)
+              .clamp(0.0, 1.0);
+      final t = snapshot.timeSec * 110.0;
+      canvas.translate(sin(t) * p * 12.0, cos(t * 0.8) * p * 7.0);
+    }
+
     // Camera kick from ROAD SWEEP blade launches and impact shatters.
     if (snapshot.sweepShakeSec > 0) {
       final p = (snapshot.sweepShakeSec / 0.16).clamp(0.0, 1.0);
@@ -242,12 +253,19 @@ class StickmanRunPainter extends CustomPainter {
       if (snapshot.combo > 1) _drawCombo(canvas, groundY: groundY);
     }
 
-    // Red flash overlay while taking damage.
-    if (snapshot.damageFlashSec > 0) {
-      final alpha = (snapshot.damageFlashSec / 0.35).clamp(0.0, 1.0);
+    // Red flash overlay while taking damage — brighter and stronger on the
+    // fatal hit, so the kill reads clearly through the camera kick.
+    final fatalFlash = snapshot.gameOverKickSec > 0
+        ? (snapshot.gameOverKickSec /
+                  StickmanRunEngine.gameOverKickDurationSec)
+              .clamp(0.0, 1.0)
+        : 0.0;
+    if (snapshot.damageFlashSec > 0 || fatalFlash > 0) {
+      final alpha = max(snapshot.damageFlashSec / 0.35, fatalFlash)
+          .clamp(0.0, 1.0);
       canvas.drawRect(
         Rect.fromLTWH(0, 0, width, height),
-        Paint()..color = Colors.red.withValues(alpha: alpha * 0.18),
+        Paint()..color = Colors.red.withValues(alpha: alpha * 0.22),
       );
     }
 

@@ -164,6 +164,7 @@ class StickmanRunSnapshot {
     this.roadSweepSec = 0,
     this.goldRushSec = 0,
     this.goldRushSplashSec = 0,
+    this.gameOverKickSec = 0,
     this.sweepFireballs = const [],
     this.sweepShakeSec = 0,
     this.sweepShockwaves = const [],
@@ -202,6 +203,10 @@ class StickmanRunSnapshot {
   /// Seconds remaining of the GOLD RUSH activation cinematic splash (0 when
   /// none). The painter draws a golden bloom + headline while it runs.
   final double goldRushSplashSec;
+
+  /// Seconds remaining of the fatal-hit camera kick (0 when calm). The
+  /// painter adds a sharp shake + red flash while it runs.
+  final double gameOverKickSec;
 
   /// Fireballs raining from the sky during ROAD SWEEP (empty when no sweep
   /// is active). Each explodes on impact, wiping obstacles in its blast.
@@ -441,6 +446,13 @@ class StickmanRunEngine {
   /// Total damage events this run (drives per-hit haptic feedback).
   int _hitCount = 0;
 
+  /// Seconds remaining of the fatal-hit camera kick (0 = calm). Set when the
+  /// run ends so the death moment lands with a sharp shake + red flash.
+  double _gameOverKickSec = 0;
+
+  /// Duration of the fatal-hit camera kick.
+  static const double gameOverKickDurationSec = 0.6;
+
   /// Cycled visual theme index (0..4) for the RANDOM/endless level.
   int _randomThemeIndex = 0;
 
@@ -534,6 +546,7 @@ class StickmanRunEngine {
       roadSweepSec: _roadSweepSec,
       goldRushSec: _goldRushSec,
       goldRushSplashSec: _goldRushSplashSec,
+      gameOverKickSec: _gameOverKickSec,
       sweepFireballs: List.unmodifiable(_sweepFireballs),
       sweepShakeSec: _sweepShakeSec,
       sweepShockwaves: List.unmodifiable(_sweepShockwaves),
@@ -606,6 +619,7 @@ class StickmanRunEngine {
     _status = GameStatus.ready;
     _score = 0;
     _coinsCollected = 0;
+    _gameOverKickSec = 0;
     _distanceMeters = 0;
     _scrollPx = 0;
     _culledObstacles.clear();
@@ -1338,6 +1352,10 @@ class StickmanRunEngine {
   }
 
   void tick(double dtSec) {
+    // The fatal-hit camera kick keeps decaying even after the run ends so the
+    // death shake settles while the game-over cinematic plays.
+    _gameOverKickSec = max(0, _gameOverKickSec - dtSec);
+
     if (_status != GameStatus.running) {
       _timeSec += dtSec;
       return;
@@ -1565,14 +1583,17 @@ class StickmanRunEngine {
       _powerUps[i] = _powerUps[i].copyWith(x: _powerUps[i].x - dx);
     }
 
-    // Magnet pull: attract coins toward the stickman's head, moving diagonally
-    // anywhere on screen (50% of the screen) — no ground forcing.
+    // Magnet pull: attract coins in a straight line toward the stickman's
+    // head — no orbital swirl, so coins stream directly into the head instead
+    // of circling up into the sky above it. The head is at bottom - 0.88 *
+    // height (stickman.y is the feet).
     if (_magnetRemainingSec > 0 && _coins.isNotEmpty) {
       final magnetRange = max(_width, _height) * 0.5 * _skills.magnetRangeMult;
       final targetX = _stickman.x;
-      final targetY = _stickman.y - _stickmanHeightPx() / 2;
-      const double pullStrength = 500.0;
-      const double angularVelocity = 2.0;
+      final targetY = _stickman.y - _stickmanHeightPx() * 0.88;
+      // Strong straight-line pull so coins converge on the head quickly;
+      // eased off near the target so they settle instead of overshooting.
+      const double pullStrength = 900.0;
       for (var i = 0; i < _coins.length; i++) {
         final c = _coins[i];
         final dx = targetX - c.x;
@@ -1580,14 +1601,11 @@ class StickmanRunEngine {
         final dist = sqrt(dx * dx + dy * dy);
         if (dist > magnetRange || dist < 1) continue;
 
-        final pullX = (dx / dist) * pullStrength * dtSec;
-        final pullY = (dy / dist) * pullStrength * dtSec;
-        final orbitX = (-dy / dist) * angularVelocity * dist * dtSec;
-        final orbitY = (dx / dist) * angularVelocity * dist * dtSec;
-
+        // Scale the pull down as a coin approaches so it eases into the head.
+        final ease = (dist / magnetRange).clamp(0.2, 1.0);
         _coins[i] = c.copyWith(
-          x: c.x + pullX + orbitX,
-          y: c.y + pullY + orbitY,
+          x: c.x + (dx / dist) * pullStrength * ease * dtSec,
+          y: c.y + (dy / dist) * pullStrength * ease * dtSec,
         );
       }
     }
@@ -2066,6 +2084,8 @@ class StickmanRunEngine {
 
       if (_lifePercent <= 0) {
         _status = GameStatus.gameOver;
+        // Fatal-hit camera kick: sharp shake + red flash on the killing blow.
+        _gameOverKickSec = gameOverKickDurationSec;
         return;
       }
     }
