@@ -1882,7 +1882,7 @@ class StickmanRunEngine {
       if (_reverseSec > 0 && _legendaries.contains(LegendarySkill.reverseRun)) continue;
 
       _lifePercent = max(0, _lifePercent - _obstacleDamage(o.type));
-      _damageGraceSec = 0.5 + _skills.damageGraceBonus;
+      _damageGraceSec = 0.2 + _skills.damageGraceBonus;
       _damageFlashSec = 0.35;
       _hitCount += 1;
       // Getting hit resets the combo chain.
