@@ -11,6 +11,20 @@ import 'level_config.dart';
 
 enum GameStatus { ready, running, levelComplete, gameOver }
 
+/// An obstacle that scrolled off the left edge, parked with the world scroll
+/// position at which it was removed so TIME REWIND can bring it back into the
+/// world (restored at its recorded position when the scroll re-descends to it).
+@immutable
+class _CulledObstacle {
+  final Obstacle obstacle;
+  final double culledScrollPx;
+
+  const _CulledObstacle({
+    required this.obstacle,
+    required this.culledScrollPx,
+  });
+}
+
 @immutable
 class StickmanRunSnapshot {
   final GameStatus status;
@@ -240,6 +254,14 @@ class StickmanRunEngine {
   int _coinsCollected = 0;
   double _distanceMeters = 0;
 
+  /// Total signed world scroll in px (grows forward, shrinks during TIME
+  /// REWIND). Drives obstacle restore from the rewind history.
+  double _scrollPx = 0;
+
+  /// Obstacles that scrolled off the left edge, kept so TIME REWIND can
+  /// un-scroll them back into the world.
+  final List<_CulledObstacle> _culledObstacles = [];
+
   // Heal power-up rule: a heal is guaranteed at each 500m milestone
   // (500/1000/1500/...), and each 500m segment gets at most one bonus heal
   // via a single 10% roll when the segment starts. Flags are consumed by
@@ -304,6 +326,13 @@ class StickmanRunEngine {
   double _tempestSec = 0;
   /// Remaining seconds of TIME REWIND (world scrolled backwards).
   double _reverseSec = 0;
+
+  /// Full length of the last TIME REWIND window, used to keep the right-edge
+  /// cull disabled for the same period after the window ends so obstacles
+  /// pushed back by the rewind can scroll back into view instead of being
+  /// deleted.
+  double _reverseWindowSec = 0;
+  double _reverseReentrySec = 0;
   /// Remaining seconds of ROAD SWEEP sweeping window.
   double _roadSweepSec = 0;
   /// Seconds before the next interval sweep attack fires while sweeping.
@@ -530,6 +559,8 @@ class StickmanRunEngine {
     _score = 0;
     _coinsCollected = 0;
     _distanceMeters = 0;
+    _scrollPx = 0;
+    _culledObstacles.clear();
     _lastHealMilestone = 0;
     _healMilestoneDue = false;
     _segmentBonusAtMeters = null;
@@ -548,6 +579,8 @@ class StickmanRunEngine {
     _autoStrikeLeapSec = 0;
     _tempestSec = 0;
     _reverseSec = 0;
+    _reverseWindowSec = 0;
+    _reverseReentrySec = 0;
     _roadSweepSec = 0;
     _roadSweepDelaySec = 0;
     _sweepFireballs.clear();
@@ -791,6 +824,7 @@ class StickmanRunEngine {
       case LegendarySkill.reverseRun:
         if (_reverseSec > 0) return false;
         _reverseSec = _legendaryDurationSec(skill);
+        _reverseWindowSec = _reverseSec;
         return true;
       case LegendarySkill.roadSweep:
         if (_roadSweepSec > 0) return false;
@@ -1304,10 +1338,14 @@ class StickmanRunEngine {
     _reverseSec = max(0, _reverseSec - dtSec);
     _goldRushSec = max(0, _goldRushSec - dtSec);
     // TIME REWIND payoff: when the rewind window ends, a temporal shockwave
-    // blasts nearby obstacles.
+    // blasts nearby obstacles. The pushed-back obstacles are given a grace
+    // period (matching the rewind length) to scroll back into view before the
+    // right-edge cull resumes.
     if (wasReversing && _reverseSec <= 0) {
+      _reverseReentrySec = _reverseWindowSec;
       _paradoxBurst();
     }
+    _reverseReentrySec = max(0, _reverseReentrySec - dtSec);
 
     // End a combo chain when it has been inactive past its window.
     if (_comboWindowSec > 0) {
@@ -1420,6 +1458,22 @@ class StickmanRunEngine {
 
     // Convert dt & speed to px delta.
     final dx = speed * dtSec;
+    _scrollPx += dx;
+
+    // TIME REWIND: bring back obstacles that already passed behind the
+    // stickman. Left-culled obstacles are parked in a short history with the
+    // scroll position where they were removed; as the world scrolls backwards
+    // the most recently passed ones are re-added at their recorded position so
+    // they scroll back through the screen (spacing preserved). Coins and
+    // power-ups are not restored — rewind is a recovery window, not a farming
+    // tool.
+    if (dx < 0 && _culledObstacles.isNotEmpty) {
+      while (_culledObstacles.isNotEmpty &&
+          _culledObstacles.last.culledScrollPx >= _scrollPx) {
+        final entry = _culledObstacles.removeLast();
+        _obstacles.add(entry.obstacle);
+      }
+    }
 
     // Spawn logic.
     // Do not spawn obstacle columns during the initial delay window or while
@@ -1504,15 +1558,37 @@ class StickmanRunEngine {
       }
     }
 
-    // Remove out-of-screen entities. When reversing, also cull entities that
-    // scroll back past the right edge.
+    // Remove out-of-screen entities. While reversing (and during the post-
+    // rewind grace) the right-edge cull is suspended so obstacles pushed back
+    // by TIME REWIND scroll back into view instead of being deleted. Obstacles
+    // leaving the left edge are parked in the rewind history instead of being
+    // dropped; coins and power-ups cull normally on both edges.
     final leftKill = -140.0;
-    _obstacles.removeWhere(
-      (o) => o.x + o.width < leftKill || o.x > _width + 140,
+    final cullRight = !reversing && _reverseReentrySec <= 0;
+    for (var i = _obstacles.length - 1; i >= 0; i--) {
+      final o = _obstacles[i];
+      if (o.x + o.width < leftKill) {
+        _culledObstacles.add(
+          _CulledObstacle(obstacle: o, culledScrollPx: _scrollPx),
+        );
+        _obstacles.removeAt(i);
+      }
+    }
+    // Prune history entries too far behind the current scroll to ever be
+    // reached by a rewind (older than the longest possible rewind window).
+    const maxRewindPx = 4000.0;
+    while (_culledObstacles.isNotEmpty &&
+        _culledObstacles.first.culledScrollPx < _scrollPx - maxRewindPx) {
+      _culledObstacles.removeAt(0);
+    }
+    _obstacles.removeWhere((o) => cullRight && o.x > _width + 140);
+    _coins.removeWhere(
+      (c) => c.x + c.radius < leftKill || (cullRight && c.x > _width + 140),
     );
-    _coins.removeWhere((c) => c.x + c.radius < leftKill || c.x > _width + 140);
     _powerUps.removeWhere(
-      (p) => p.x + p.size * 0.5 < leftKill || p.x > _width + 140,
+      (p) =>
+          p.x + p.size * 0.5 < leftKill ||
+          (cullRight && p.x > _width + 140),
     );
   }
 
