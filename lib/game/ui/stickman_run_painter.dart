@@ -2236,38 +2236,82 @@ class StickmanRunPainter extends CustomPainter {
   }
 
   void _drawCoin(Canvas canvas, Coin c) {
-    final r = c.radius;
-    final fill = Paint()..color = const Color.fromARGB(255, 255, 191, 0);
-    final outline = Paint()
-      ..color = Colors.black
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
-
     final phase = c.phase;
     final bob = sin(phase) * 2.0;
+    final center = Offset(c.x, c.y + bob);
+    final r = c.radius;
 
-    canvas.drawCircle(Offset(c.x, c.y + bob), r, fill);
-    canvas.drawCircle(Offset(c.x, c.y + bob), r, outline);
+    final sprite = sprites['assets/sprites/coin.png'];
+    if (sprite != null) {
+      _drawSpriteCentered(
+        canvas,
+        sprite,
+        center: center,
+        size: r * 1.8,
+      );
+    } else {
+      // Hand-drawn fallback while the sprite is still loading.
+      final fill = Paint()..color = const Color.fromARGB(255, 255, 191, 0);
+      final outline = Paint()
+        ..color = Colors.black
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3;
 
-    final shine = Paint()
-      ..color = Colors.white.withOpacity(0.8)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
+      canvas.drawCircle(center, r, fill);
+      canvas.drawCircle(center, r, outline);
 
-    canvas.drawArc(
-      Rect.fromCircle(center: Offset(c.x, c.y + bob), radius: r),
-      pi * 0.1,
-      pi * 0.3,
-      false,
-      shine,
-    );
+      final shine = Paint()
+        ..color = Colors.white.withOpacity(0.8)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2;
+
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: r),
+        pi * 0.1,
+        pi * 0.3,
+        false,
+        shine,
+      );
+    }
 
     // Sparkle glint: a flickering 4-point twinkle over the coin.
     _drawSparkleGlint(
       canvas,
-      center: Offset(c.x, c.y + bob),
+      center: center,
       phase: phase,
       scale: r,
+    );
+  }
+
+  /// Draws [image] centered at [center] with the sprite's longest side sized
+  /// to [size], preserving aspect ratio.
+  void _drawSpriteCentered(
+    Canvas canvas,
+    ui.Image image, {
+    required Offset center,
+    required double size,
+  }) {
+    final src = Rect.fromLTWH(
+      0,
+      0,
+      image.width.toDouble(),
+      image.height.toDouble(),
+    );
+    final scale = size / max(image.width, image.height);
+    final w = image.width * scale;
+    final h = image.height * scale;
+    final dst = Rect.fromCenter(
+      center: center,
+      width: w,
+      height: h,
+    );
+    canvas.drawImageRect(
+      image,
+      src,
+      dst,
+      Paint()
+        ..filterQuality = FilterQuality.low
+        ..color = Colors.white.withValues(alpha: 0.9),
     );
   }
 
@@ -2331,7 +2375,16 @@ class StickmanRunPainter extends CustomPainter {
     }
 
     if (p.type == PowerUpType.shield) {
-      // Shield = rounded pentagon-ish via arc strokes.
+      final sprite = sprites['assets/sprites/shield.png'];
+      if (sprite != null) {
+      _drawSpriteCentered(
+        canvas,
+        sprite,
+        center: Offset(cx, cy),
+        size: s * 1.0,
+      );
+    } else {
+      // Hand-drawn fallback while the sprite is still loading.
       final r = s * 0.5;
       canvas.drawRRect(
         RRect.fromRectAndRadius(
@@ -2340,28 +2393,47 @@ class StickmanRunPainter extends CustomPainter {
         ),
         fill,
       );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(cx - r, cy - r, s, s),
-          const Radius.circular(14),
-        ),
-        outline,
-      );
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTWH(cx - r, cy - r, s, s),
+            const Radius.circular(14),
+          ),
+          outline,
+        );
 
-      final bolt = Paint()
-        ..color = Colors.white
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 5;
+        final bolt = Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 5;
 
-      canvas.drawLine(
-        Offset(cx, cy - s * 0.15),
-        Offset(cx + s * 0.18, cy + s * 0.2),
-        bolt,
+        canvas.drawLine(
+          Offset(cx, cy - s * 0.15),
+          Offset(cx + s * 0.18, cy + s * 0.2),
+          bolt,
+        );
+        canvas.drawLine(
+          Offset(cx - s * 0.02, cy - s * 0.05),
+          Offset(cx + s * 0.22, cy - s * 0.05),
+          bolt,
+        );
+      }
+      _drawSparkleGlint(
+        canvas,
+        center: Offset(cx, cy),
+        phase: p.phase,
+        scale: s * 0.5,
       );
-      canvas.drawLine(
-        Offset(cx - s * 0.02, cy - s * 0.05),
-        Offset(cx + s * 0.22, cy - s * 0.05),
-        bolt,
+      return;
+    }
+
+    // Magnet.
+    final magnetSprite = sprites['assets/sprites/magnet.png'];
+    if (magnetSprite != null) {
+      _drawSpriteCentered(
+        canvas,
+        magnetSprite,
+        center: Offset(cx, cy),
+        size: s * 1.0,
       );
       _drawSparkleGlint(
         canvas,
@@ -2372,7 +2444,7 @@ class StickmanRunPainter extends CustomPainter {
       return;
     }
 
-    // Magnet = diamond with bars.
+    // Hand-drawn fallback: diamond with bars.
     final half = s * 0.5;
     final path = Path()
       ..moveTo(cx, cy - half)
@@ -2661,6 +2733,16 @@ class StickmanRunPainter extends CustomPainter {
     required Offset center,
     required double radius,
   }) {
+    final sprite = sprites['assets/sprites/coin.png'];
+    if (sprite != null) {
+      _drawSpriteCentered(
+        canvas,
+        sprite,
+        center: center,
+        size: radius * 2.4,
+      );
+      return;
+    }
     canvas.drawCircle(center, radius, Paint()..color = const Color(0xFFFFBF00));
     canvas.drawCircle(
       center,

@@ -32,6 +32,9 @@ flutter:
     - assets/images/firejet_obstacle.png
     - assets/images/fireball_obstacle.png
     - assets/images/pendulummine_obstacle.png
+    - assets/sprites/coin.png
+    - assets/sprites/magnet.png
+    - assets/sprites/shield.png
     - assets/images/forest_background.png
     - assets/images/desert_background.png
     - assets/images/nightcity_background.png

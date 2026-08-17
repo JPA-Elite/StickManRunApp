@@ -529,8 +529,11 @@ class _GuideGlyph extends StatelessWidget {
       case GuideKind.pendulumMine:
         return 'assets/images/pendulummine_obstacle.png';
       case GuideKind.coin:
+        return 'assets/sprites/coin.png';
       case GuideKind.shield:
+        return 'assets/sprites/shield.png';
       case GuideKind.magnet:
+        return 'assets/sprites/magnet.png';
       case GuideKind.heal25:
       case GuideKind.heal50:
         return null;
