@@ -156,9 +156,9 @@ class SettingsScreen extends StatelessWidget {
                             label: 'PRIVACY POLICY',
                             onTap: () => Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) => const GameInfoScreen(
+                                builder: (_) => const _GameInfoScreen(
                                   title: 'PRIVACY POLICY',
-                                  body: _privacyBody,
+                                  sections: _privacySections,
                                 ),
                               ),
                             ),
@@ -167,9 +167,9 @@ class SettingsScreen extends StatelessWidget {
                             label: 'TERMS OF USE',
                             onTap: () => Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) => const GameInfoScreen(
+                                builder: (_) => const _GameInfoScreen(
                                   title: 'TERMS OF USE',
-                                  body: _termsBody,
+                                  sections: _termsSections,
                                 ),
                               ),
                             ),
@@ -244,45 +244,226 @@ class SettingsScreen extends StatelessWidget {
   void _showAbout(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => GameInfoScreen(
+        builder: (_) => const _GameInfoScreen(
           title: 'ABOUT',
-          body: _aboutBody,
+          sections: _aboutSections,
         ),
       ),
      );
    }
  }
 
-  const String _aboutBody =
-      'Stickman Run is a fast-paced arcade runner where you guide a '
-      'stick figure through increasingly challenging levels packed with '
-      'obstacles, coins, and power-ups.\n\n'
-      '▸ Jump over ground obstacles by tapping the JUMP button.\n'
-      '▸ Crawl under high obstacles by tapping the CRAWL button.\n'
-      '▸ Smash obstacles with the SMASH button when they are close.\n'
-      '▸ Collect coins for points and grab shield/magnet boosts.\n'
-      '▸ Survive as long as you can — the difficulty scales up over time.\n\n'
-      'Controls:\n'
-      '▸ BUTTONS mode — use the on-screen JUMP, CRAWL, and SMASH buttons.\n'
-      '▸ GESTURES mode — swipe up to jump, swipe down to crawl, tap to smash.';
+/// One titled block of an info/legal page: a heading plus paragraphs.
+const List<_InfoSection> _aboutSections = [
+    _InfoSection(
+      heading: 'WELCOME TO STICKMAN RUN',
+      paragraphs: [
+        'Stickman Run is a fast-paced arcade runner in which you guide a '
+            'stick figure through increasingly challenging levels packed with '
+            'obstacles, coins, and power-ups. Designed as a pick-up-and-play '
+            'experience, the game blends reflex-based platforming with a '
+            'progression system of skills, legendary abilities, daily rewards, '
+            'and a coin wallet used to upgrade your runner.',
+      ],
+    ),
+    _InfoSection(
+      heading: 'HOW TO PLAY',
+      paragraphs: [
+        'Jump over ground obstacles, crawl beneath high obstacles, and smash '
+            'obstacles when they are close. Collect coins for points, grab '
+            'shield and magnet boosts, and survive as long as you can — the '
+            'difficulty scales up the farther you run.',
+        'Controls can be switched in Settings:\n'
+            '• BUTTONS mode — on-screen JUMP, CRAWL, and SMASH buttons.\n'
+            '• GESTURES mode — swipe up to jump, swipe down to crawl, tap to smash.',
+      ],
+    ),
+    _InfoSection(
+      heading: 'GAME FEATURES',
+      paragraphs: [
+        '• Five themed levels plus an endless mode with rotating scenes.\n'
+            '• Twelve upgradeable skills and five legendary abilities.\n'
+            '• Daily check-in streaks, daily missions, and rank progression.\n'
+            '• A coin economy for purchasing skills, legendaries, and packs.\n'
+            '• Full local customization: controls, difficulty, colors, and more.',
+      ],
+    ),
+    _InfoSection(
+      heading: 'VERSION & SUPPORT',
+      paragraphs: [
+        'This application is a standalone offline game. All progress, '
+            'settings, and purchases are stored locally on your device and are '
+            'never transmitted to any server.',
+        'For support or feedback, contact the developer at '
+            'algadipej962@gmail.com.',
+      ],
+    ),
+  ];
 
-  const String _privacyBody =
-      'Stickman Run does not collect, store or share any personal data. All '
-      'game progress and settings are stored locally on your device only.\n\n'
-      'No analytics, no ads, no third-party trackers are included in this game.';
+const List<_InfoSection> _privacySections = [
+    _InfoSection(
+      heading: 'INTRODUCTION',
+      paragraphs: [
+        'This Privacy Policy explains how Stickman Run (“the App”, '
+            '“we”, “us”) handles information when you use the App. '
+            'We believe in a simple, transparent approach: your data stays on '
+            'your device.',
+      ],
+    ),
+    _InfoSection(
+      heading: 'INFORMATION WE COLLECT',
+      paragraphs: [
+        'The App does not collect, store, or transmit any personal data. '
+            'Game progress, settings, and virtual currency balances are saved '
+            'locally on your device using on-device storage only.',
+        'We do not request or require an account, email address, or any '
+            'identifying information to play.',
+      ],
+    ),
+    _InfoSection(
+      heading: 'THIRD-PARTY SERVICES',
+      paragraphs: [
+        'The App contains no analytics, no advertising SDKs, and no '
+            'third-party trackers. No data is shared with any external service '
+            'or advertising partner.',
+      ],
+    ),
+    _InfoSection(
+      heading: 'CHILDREN’S PRIVACY',
+      paragraphs: [
+        'Because the App does not collect personal information, it is safe '
+            'for use by players of all ages, including children. We do not '
+            'knowingly collect data from children under 13.',
+      ],
+    ),
+    _InfoSection(
+      heading: 'CHANGES TO THIS POLICY',
+      paragraphs: [
+        'We may update this Privacy Policy from time to time. Any changes '
+            'will be reflected within the App. Continued use of the App after '
+            'changes are posted constitutes acceptance of the updated policy.',
+      ],
+    ),
+    _InfoSection(
+      heading: 'CONTACT',
+      paragraphs: [
+        'If you have any questions about this Privacy Policy, please contact '
+            'the developer at algadipej962@gmail.com. We do not provide '
+            'telephone support.',
+      ],
+    ),
+  ];
 
-  const String _termsBody =
-      'By playing Stickman Run you agree to enjoy it responsibly. The game is '
-      'provided as-is for entertainment purposes only.\n\n'
-      'All game assets, code and content belong to the game developers. '
-      'You may not resell or redistribute the game without permission.';
+const List<_InfoSection> _termsSections = [
+    _InfoSection(
+      heading: 'ACCEPTANCE OF TERMS',
+      paragraphs: [
+        'By downloading, accessing, or playing Stickman Run (“the '
+            'App”), you agree to be bound by these Terms of Use. If you do '
+            'not agree to these terms, please do not use the App.',
+      ],
+    ),
+    _InfoSection(
+      heading: 'LICENSE',
+      paragraphs: [
+        'We grant you a personal, non-exclusive, non-transferable, '
+            'revocable license to use the App for your personal, '
+            'non-commercial entertainment. You may not copy, modify, '
+            'distribute, sell, or lease any part of the App, its code, or its '
+            'assets without our prior written consent.',
+      ],
+    ),
+    _InfoSection(
+      heading: 'VIRTUAL CURRENCY & ITEMS',
+      paragraphs: [
+        'Coins, skills, and other in-game items are virtual and have no '
+            'real-world monetary value. Virtual currency cannot be exchanged '
+            'for cash, goods, or services outside of the App. All in-App '
+            'purchases are final where permitted by law.',
+      ],
+    ),
+    _InfoSection(
+      heading: 'ACCEPTABLE USE',
+      paragraphs: [
+        'You agree not to use the App in any way that is unlawful, '
+            'harassing, or abusive, and not to interfere with or disrupt the '
+            'App or any other user’s experience.',
+      ],
+    ),
+    _InfoSection(
+      heading: 'INTELLECTUAL PROPERTY',
+      paragraphs: [
+        'All game assets, artwork, code, audio, and content belong to the '
+            'App’s developers and are protected by applicable copyright and '
+            'intellectual property laws.',
+      ],
+    ),
+    _InfoSection(
+      heading: 'DISCLAIMER OF WARRANTIES',
+      paragraphs: [
+        'The App is provided “as is” and “as available”, without '
+            'warranties of any kind, whether express or implied, including '
+            'but not limited to implied warranties of merchantability and '
+            'fitness for a particular purpose.',
+      ],
+    ),
+    _InfoSection(
+      heading: 'LIMITATION OF LIABILITY',
+      paragraphs: [
+        'To the maximum extent permitted by law, the developers shall not '
+            'be liable for any indirect, incidental, special, consequential, '
+            'or punitive damages arising from your use of, or inability to '
+            'use, the App.',
+      ],
+    ),
+    _InfoSection(
+      heading: 'CHANGES TO THESE TERMS',
+      paragraphs: [
+        'We may revise these Terms of Use at any time. The most current '
+            'version will always be available within the App. Continued use '
+            'of the App after changes are posted constitutes acceptance of '
+            'the revised terms.',
+      ],
+    ),
+    _InfoSection(
+      heading: 'GOVERNING LAW',
+      paragraphs: [
+        'These Terms of Use shall be governed by and construed in '
+            'accordance with the laws of the jurisdiction in which the '
+            'developers are established, without regard to its conflict-of-law '
+            'principles.',
+      ],
+    ),
+    _InfoSection(
+      heading: 'CONTACT',
+      paragraphs: [
+        'If you have any questions regarding these Terms of Use, please '
+            'contact the developer at algadipej962@gmail.com. We do not '
+            'provide telephone support.',
+      ],
+    ),
+  ];
 
-/// Reusable lightweight full-screen info page for Privacy/Terms.
-class GameInfoScreen extends StatelessWidget {
+/// One titled block of an info/legal page: a heading plus one or more
+/// paragraphs of body text.
+class _InfoSection {
+  final String heading;
+  final List<String> paragraphs;
+
+  const _InfoSection({required this.heading, required this.paragraphs});
+}
+
+/// Reusable full-screen info page for About / Privacy Policy / Terms of Use.
+/// Renders structured sections with yellow headings over a dark panel, with
+/// a last-updated line in the header area.
+class _GameInfoScreen extends StatelessWidget {
   final String title;
-  final String body;
+  final List<_InfoSection> sections;
 
-  const GameInfoScreen({super.key, required this.title, required this.body});
+  const _GameInfoScreen({
+    required this.title,
+    required this.sections,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -308,17 +489,92 @@ class GameInfoScreen extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 480),
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(20),
-            child: Text(
-              body,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                height: 1.5,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Last-updated line.
+                Text(
+                  'Last updated: August 2026',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.5),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                for (var i = 0; i < sections.length; i++) ...[
+                  _SectionCard(section: sections[i]),
+                  if (i < sections.length - 1) const SizedBox(height: 12),
+                ],
+              ],
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// A dark panel containing one titled section of an info/legal page.
+class _SectionCard extends StatelessWidget {
+  final _InfoSection section;
+
+  const _SectionCard({required this.section});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF111318),
+        border: Border.all(
+          color: Colors.yellow.withValues(alpha: 0.5),
+          width: 1.5,
+        ),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 5,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: Colors.yellow,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  section.heading,
+                  style: const TextStyle(
+                    color: Colors.yellow,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          for (final para in section.paragraphs) ...[
+            Text(
+              para,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                height: 1.55,
+              ),
+            ),
+            if (para != section.paragraphs.last) const SizedBox(height: 10),
+          ],
+        ],
       ),
     );
   }
