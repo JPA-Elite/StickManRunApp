@@ -658,8 +658,13 @@ class _RunnerProfile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Rebuilds on score changes (rank/progress) AND settings changes
+    // (e.g. a new stickman color chosen in Settings).
     return ListenableBuilder(
-      listenable: ScoreHistoryController.instance,
+      listenable: Listenable.merge([
+        ScoreHistoryController.instance,
+        SettingsController.instance,
+      ]),
       builder: (context, _) {
         final history = ScoreHistoryController.instance;
         final total = _totalScore(history);

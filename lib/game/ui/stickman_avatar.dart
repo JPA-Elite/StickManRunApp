@@ -17,8 +17,24 @@ class StickmanAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color strokeColor =
-        color ?? Color(SettingsController.instance.settings.stickmanColor);
+    Widget avatar() {
+      final Color strokeColor =
+          color ?? Color(SettingsController.instance.settings.stickmanColor);
+      return _avatar(strokeColor);
+    }
+
+    // With an explicit [color] the avatar never depends on settings; without
+    // one it listens to the settings controller so a color change in Settings
+    // repaints this avatar even when the parent doesn't rebuild it (e.g. a
+    // const-constructed avatar whose element Flutter skips re-building).
+    if (color != null) return avatar();
+    return ListenableBuilder(
+      listenable: SettingsController.instance,
+      builder: (context, _) => avatar(),
+    );
+  }
+
+  Widget _avatar(Color strokeColor) {
     return Container(
       width: size,
       height: size,
