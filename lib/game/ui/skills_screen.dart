@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../settings/legendary_defs.dart';
 import '../settings/skill_controller.dart';
 import '../settings/skill_defs.dart';
+import 'shop_screen.dart';
 import 'stickman_avatar.dart';
 
 /// Shared modal chrome matching the in-game pause card: black background
@@ -128,9 +129,18 @@ class _SkillsScreenState extends State<SkillsScreen> {
                       ),
                       ListenableBuilder(
                         listenable: SkillController.instance,
-                        builder: (context, _) => _HeaderCoins(
-                          wallet: SkillController.instance.wallet,
-                          coinColor: _gold,
+                        builder: (context, _) => GestureDetector(
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const ShopScreen(),
+                              ),
+                            );
+                          },
+                          child: _HeaderCoins(
+                            wallet: SkillController.instance.wallet,
+                            coinColor: _gold,
+                          ),
                         ),
                       ),
                     ],

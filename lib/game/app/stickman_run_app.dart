@@ -9,6 +9,7 @@ import '../settings/skill_controller.dart';
 import '../ui/daily_streak_screen.dart';
 import '../ui/menu_backdrop.dart';
 import '../ui/profile_screen.dart';
+import '../ui/shop_screen.dart';
 import '../ui/stickman_guide.dart';
 import '../ui/score_history_screen.dart';
 import '../ui/settings_screen.dart';
@@ -395,48 +396,61 @@ class _BrandCard extends StatelessWidget {
           const SizedBox(width: 12),
           const Spacer(),
           // Permanent coin wallet badge — always visible in the home header.
-          ListenableBuilder(
-            listenable: SkillController.instance,
-            builder: (context, _) {
-              final wallet = SkillController.instance.wallet;
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: const Color(0xFFFFD700).withValues(alpha: 0.45),
-                  ),
-                  color: Colors.white.withValues(alpha: 0.06),
-                  gradient: const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Color(0x1F_D7FF_FF),
-                      Color(0x0A_FFFFFF),
-                    ],
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.monetization_on,
-                      color: Color(0xFFFFD700),
-                      size: 18,
+          // Tapping it opens the coin shop.
+          _PressableScale(
+            child: GestureDetector(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ShopScreen()),
+                );
+              },
+              child: ListenableBuilder(
+                listenable: SkillController.instance,
+                builder: (context, _) {
+                  final wallet = SkillController.instance.wallet;
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
                     ),
-                    const SizedBox(width: 5),
-                    Text(
-                      formatCoinAmount(wallet),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w900,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: const Color(0xFFFFD700).withValues(alpha: 0.45),
+                      ),
+                      color: Colors.white.withValues(alpha: 0.06),
+                      gradient: const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color(0x1F_D7FF_FF),
+                          Color(0x0A_FFFFFF),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              );
-            },
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.monetization_on,
+                          color: Color(0xFFFFD700),
+                          size: 18,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          formatCoinAmount(wallet),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
           ),
           const SizedBox(width: 8),
           IconButton(

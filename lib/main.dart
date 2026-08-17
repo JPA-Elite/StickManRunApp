@@ -6,6 +6,7 @@ import 'game/settings/daily_mission.dart';
 import 'game/settings/daily_streak.dart';
 import 'game/settings/score_history.dart';
 import 'game/settings/settings_controller.dart';
+import 'game/settings/shop.dart';
 import 'game/settings/skill_controller.dart';
 
 Future<void> main() async {
@@ -20,6 +21,7 @@ Future<void> main() async {
   await SettingsController.instance.load();
   await ScoreHistoryController.instance.load();
   await SkillController.instance.load();
+  await ShopController.instance.load();
   await DailyStreakController.instance.load();
   await DailyMissionController.instance.load();
   runApp(const StickmanRunApp());
