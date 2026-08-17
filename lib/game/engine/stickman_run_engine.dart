@@ -1980,7 +1980,7 @@ class StickmanRunEngine {
             coinRect.intersects(stickRect) || dx < 18 && _stickman.y < c.y + 18;
 
         if (hit) {
-          _coinsCollected += 50000; // TEMPORARY X50000 CHEAT - revert to += 1
+          _coinsCollected += 1;
           final coinGain = (10 * _skills.coinValueMult).round();
           var scoreGain = (coinGain * _skills.scoreMult).round();
           // Skill: coin streak triggers a magnet burst.
