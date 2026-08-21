@@ -34,7 +34,7 @@ class ShopController extends ChangeNotifier {
   static const String _keyBonusClaimed = 'shop_bonus_claimed_v1';
 
   /// Coins granted by the one-time welcome bonus.
-  static const int welcomeBonusCoins = 100000;
+  static const int welcomeBonusCoins = 20000;
 
   bool _bonusClaimed = false;
 
