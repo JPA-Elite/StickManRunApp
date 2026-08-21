@@ -32,8 +32,35 @@ class StickmanRunPainter extends CustomPainter {
     this.spriteColors = const {},
   });
 
+  /// Run sprite sizing: the sheet figures are near-square, so at the full
+  /// stickman height they render far wider than the slim hand-drawn runner.
+  /// Scale the sprite down and squeeze it slightly so it reads as the same
+  /// lean character instead of a large, bulky one.
+  static const double _runSpriteScale = 0.85;
+  static const double _runSpriteWidthFactor = 0.78;
+
+  /// Punch-sequence sprite sizing: the attack sheet's figures are drawn ~27%
+  /// smaller than the run sheet's, so the sprite is scaled up ([_attackSpriteScale]
+  /// > 1) until the body matches the run figure's size, keeping the character
+  /// consistent when a smash swaps the run cycle for the punch animation. The
+  /// width factor keeps it just as lean as the run sprite.
+  static const double _attackSpriteScale = 1.16;
+  static const double _attackSpriteWidthFactor = 0.78;
+
+  /// Crawl slide sprite sizing: the slide sheet's figures are drawn small, so
+  /// the sprite is scaled up so the upright end frame matches the run body;
+  /// the crouched start frames then render at the natural duck height. The
+  /// width factor keeps the character as lean as the run sprite.
+  static const double _crawlSpriteScale = 1.58;
+  static const double _crawlSpriteWidthFactor = 0.63;
+
+  /// Duration of the crawl slide (matches the engine's crawl duration).
+  static const double _crawlDurationSec = 0.8;
+
   /// Duration of the smash punch window (matches the engine's smash duration).
-  static const double _smashWindowSec = 0.18;
+  /// Fast enough to feel snappy while every pose in the 8-frame punch
+  /// sequence stays readable; the obstacle hit itself lands instantly.
+  static const double _smashWindowSec = 0.7;
 
   /// Duration of the cinematic theme-change transition (matches the engine).
   static const double _themeTransitionDurationSec = 1.4;
@@ -1204,153 +1231,270 @@ class StickmanRunPainter extends CustomPainter {
     final shoulderX = bodyCx + runLeanPx * 0.5;
     final hipX = bodyCx - runLeanPx * 0.5;
 
-    // Head.
-    canvas.drawCircle(
-      Offset(shoulderX, headCenterY),
-      effectiveH * 0.09,
-      fillPaint,
-    );
+    // Run-frame sprite cycle: when the 6 run sprites are loaded and the
+    // stickman is mid-run, the sprite sheet replaces the hand-drawn body.
+    // During a crawl the same cycle keeps playing but is drawn at the
+    // shrunk crawl height so the runner visibly ducks under obstacles. The
+    // smash punch keeps its impact effects overlaid on the sprite, and
+    // power-up auras/badges still draw on top afterwards.
+    final runFrame = _currentRunFrame();
+    // During a smash the 8-frame punch sequence replaces the run cycle; when
+    // the attack sprites aren't loaded yet it falls back to the run sprite
+    // with the procedural fist on top. During a crawl the 12-frame slide
+    // sequence plays instead (crouch start -> low sprint -> rise back up).
+    final attackFrame = _currentAttackFrame();
+    final crawlFrame = _currentCrawlFrame();
+    final useSprite = (attackFrame ?? crawlFrame ?? runFrame) != null && isRunning;
 
-    // Body: torso tilts forward while running.
-    canvas.drawLine(Offset(shoulderX, torsoTop), Offset(hipX, hipY), outline);
-
-    // --- Arms (2 segments) — boxing guard: both fists up & forward,
-    // elbows bent and tucked. Sized relative to the smaller of width/height
-    // so the arms stay balanced with the body.
-    final shoulderY = torsoTop;
-    final s = min(w, effectiveH) * 0.5;
-
-    // Small forward bob so the guard feels alive while running.
-    final guardBob = isRunning ? sin(phase) * s * 0.02 : 0.0;
-
-    if (smashActive) {
-      // Cinematic cross punch: rear fist chambers, lead fist drives forward.
-      final reach = w * (0.32 + punchExtend * 0.55);
-      final raise = s * (0.04 - punchExtend * 0.10);
-
-      final leadElbow = Offset(bodyCx + w * 0.02, shoulderY + s * 0.24);
-      final leadFist = Offset(bodyCx + reach, shoulderY + s * 0.04 + raise);
-      final rearElbow = Offset(bodyCx - w * 0.06, shoulderY + s * 0.28);
-      final rearFist = Offset(bodyCx + w * 0.12, shoulderY + s * 0.16);
-
-      canvas.drawLine(Offset(shoulderX, shoulderY), leadElbow, outline);
-      canvas.drawLine(leadElbow, leadFist, outline);
-      canvas.drawLine(Offset(shoulderX, shoulderY), rearElbow, outline);
-      canvas.drawLine(rearElbow, rearFist, outline);
-
-      // Glove: filled circle at the striking fist.
-      canvas.drawCircle(leadFist, s * (0.10 + punchExtend * 0.04), fillPaint);
-
-      // Impact burst when the fist is fully extended.
-      if (punchExtend > 0.55) {
-        _drawImpactBurst(
-          canvas,
-          center: leadFist,
-          size: s * (0.7 + punchExtend * 0.9),
-          strength: (punchExtend - 0.55) / 0.45,
-        );
+    // Power-up aura/badge anchor: for the sprite body this follows the
+    // sprite's actual head position (the sprite is drawn smaller than the
+    // full stickman height, so the procedural head center would float above
+    // the visible figure).
+    final double auraCenterX;
+    final double auraHeadY;
+    if (useSprite) {
+      if (crawlFrame != null) {
+        // The slide sprite's ducked head sits lower than the run sprite's;
+        // hover the aura just above it.
+        auraCenterX = cx;
+        auraHeadY = bodyBottom - h * 0.65;
+      } else {
+        final drawH = effectiveH * _runSpriteScale;
+        auraCenterX = cx;
+        auraHeadY = bodyBottom - drawH + drawH * 0.14;
       }
-
-      // Expose fist position so the streak trail can follow it.
-      _punchFist = leadFist;
-      _punchStrength = punchExtend;
     } else {
-      final rearElbow = Offset(cx - w * 0.03, shoulderY + s * 0.26);
-      final leadElbow = Offset(cx + w * 0.08, shoulderY + s * 0.20);
-      final rearFist = Offset(cx + w * 0.18, shoulderY + s * 0.12 + guardBob);
-      final leadFist = Offset(cx + w * 0.32, shoulderY + s * 0.04 - guardBob);
-
-      canvas.drawLine(Offset(shoulderX, shoulderY), rearElbow, outline);
-      canvas.drawLine(rearElbow, rearFist, outline);
-      canvas.drawLine(Offset(shoulderX, shoulderY), leadElbow, outline);
-      canvas.drawLine(leadElbow, leadFist, outline);
-
-      _punchFist = null;
-      _punchStrength = 0;
+      auraCenterX = shoulderX;
+      auraHeadY = headCenterY;
     }
 
-    // --- Legs — human running gait (2 segments + 2-bone IK) ---
-    final hip = Offset(hipX, hipY);
-
-    if (isRunning && !snapshot.crawlingActive) {
-      final thighLen = effectiveH * 0.21;
-      final shinLen = effectiveH * 0.22;
-      final maxReach = thighLen + shinLen - 1.0;
-      final strideLen = w * 0.14;
-      final maxLift = effectiveH * 0.13;
-
-      // Foot follows a triangle wave: lifts and reaches forward in a straight
-      // line (piston-like), so the runner moves straight ahead with the foot
-      // planted behind and the other planted in front.
-      Offset footFor(double p) {
-        final cycle = (p / pi) % 2.0;
-        final tri = cycle < 1.0 ? cycle : 2.0 - cycle;
-        final lift = tri * maxLift;
-        // Reach forward while lifted, back behind the hip while planted.
-        final fwd = (tri - 0.5) * 2.0;
-        final fx = hip.dx + strideLen * fwd;
-        return Offset(fx, bottomY - lift);
-      }
-
-      // Solve the knee so thigh+shin reach hip -> foot, bending the knee
-      // up/forward like a real runner.
-      Offset kneeFor(Offset foot) {
-        final dx = foot.dx - hip.dx;
-        final dy = foot.dy - hip.dy;
-        final rawD = sqrt(dx * dx + dy * dy);
-        // Pull the foot within the leg's reach so the shin never stretches.
-        final scale = rawD > 1.0 ? min(1.0, maxReach / rawD) : 1.0;
-        final fx = hip.dx + dx * scale;
-        final fy = hip.dy + dy * scale;
-        final d2 =
-            (fx - hip.dx) * (fx - hip.dx) + (fy - hip.dy) * (fy - hip.dy);
-        final D = max(1.0, sqrt(d2));
-        final cosA =
-            ((thighLen * thighLen + D * D - shinLen * shinLen) /
-                    (2 * thighLen * D))
-                .clamp(-1.0, 1.0);
-        final a = acos(cosA);
-        final base = atan2(fy - hip.dy, fx - hip.dx);
-        final knee1 = Offset(
-          hip.dx + thighLen * cos(base + a),
-          hip.dy + thighLen * sin(base + a),
+    if (useSprite) {
+      if (attackFrame != null) {
+        _drawAttackFrameSprite(
+          canvas,
+          attackFrame,
+          cx: cx,
+          bottomY: bodyBottom,
+          h: effectiveH,
         );
-        final knee2 = Offset(
-          hip.dx + thighLen * cos(base - a),
-          hip.dy + thighLen * sin(base - a),
+
+        // Smash punch feedback on top of the punch sprite: the lead fist
+        // tracks the sprite's drawn fist (in front of the body at chest
+        // height) so the streak trail + impact burst still sell the strike.
+        // It only activates once the arm is visibly extended, so the trail
+        // doesn't clash with the chambered stance/wind-up poses.
+        if (smashActive && punchExtend > 0.35) {
+          final drawH = effectiveH * _attackSpriteScale;
+          final reach = drawH * (0.12 + punchExtend * 0.30);
+          final fistY = bodyBottom - drawH * 0.47;
+          final leadFist = Offset(cx + reach, fistY);
+          _punchFist = leadFist;
+          _punchStrength = punchExtend;
+          if (punchExtend > 0.55) {
+            _drawImpactBurst(
+              canvas,
+              center: leadFist,
+              size: min(w, effectiveH) * (0.45 + punchExtend * 0.55),
+              strength: (punchExtend - 0.55) / 0.45,
+            );
+          }
+        } else {
+          _punchFist = null;
+          _punchStrength = 0;
+        }
+      } else if (crawlFrame != null) {
+        // 12-frame slide sequence: crouch start -> low sprint -> rise back
+        // to the running posture as the crawl ends.
+        _drawCrawlFrameSprite(
+          canvas,
+          crawlFrame,
+          cx: cx,
+          bottomY: bodyBottom,
+          h: h,
         );
-        // Pick the knee that points up/forward (reads as a bent running knee).
-        return knee1.dy <= knee2.dy ? knee1 : knee2;
+        _punchFist = null;
+        _punchStrength = 0;
+      } else {
+        _drawRunFrameSprite(
+          canvas,
+          runFrame!,
+          cx: cx,
+          bottomY: bodyBottom,
+          h: effectiveH,
+        );
+
+        // Smash punch feedback on the sprite body: the lead fist sits in front
+        // of the figure at shoulder height so the streak trail + impact burst
+        // still sell the strike.
+        if (smashActive) {
+          final drawH = effectiveH * _runSpriteScale;
+          final reach = w * (0.32 + punchExtend * 0.55);
+          final fistY = bodyBottom - drawH + drawH * 0.30;
+          final leadFist = Offset(cx + reach, fistY);
+          _punchFist = leadFist;
+          _punchStrength = punchExtend;
+          if (punchExtend > 0.55) {
+            _drawImpactBurst(
+              canvas,
+              center: leadFist,
+              size: min(w, effectiveH) * (0.45 + punchExtend * 0.55),
+              strength: (punchExtend - 0.55) / 0.45,
+            );
+          }
+        } else {
+          _punchFist = null;
+          _punchStrength = 0;
+        }
       }
-
-      final leftFoot = footFor(phase);
-      final rightFoot = footFor(phase + pi);
-      final leftKnee = kneeFor(leftFoot);
-      final rightKnee = kneeFor(rightFoot);
-
-      canvas.drawLine(hip, leftKnee, outline);
-      canvas.drawLine(leftKnee, leftFoot, outline);
-      canvas.drawLine(hip, rightKnee, outline);
-      canvas.drawLine(rightKnee, rightFoot, outline);
-    } else if (snapshot.crawlingActive) {
-      // Crawl: short, bent legs tucked under the body.
-      final leftKnee = Offset(hip.dx - w * 0.12, hipY + effectiveH * 0.14);
-      final leftFoot = Offset(hip.dx - w * 0.22, bottomY);
-      final rightKnee = Offset(hip.dx + w * 0.12, hipY + effectiveH * 0.14);
-      final rightFoot = Offset(hip.dx + w * 0.22, bottomY);
-
-      canvas.drawLine(hip, leftKnee, outline);
-      canvas.drawLine(leftKnee, leftFoot, outline);
-      canvas.drawLine(hip, rightKnee, outline);
-      canvas.drawLine(rightKnee, rightFoot, outline);
     } else {
-      // Standing: two straight legs slightly apart.
-      canvas.drawLine(hip, Offset(hip.dx - w * 0.12, bottomY), outline);
-      canvas.drawLine(hip, Offset(hip.dx + w * 0.12, bottomY), outline);
+      // Head.
+      canvas.drawCircle(
+        Offset(shoulderX, headCenterY),
+        effectiveH * 0.09,
+        fillPaint,
+      );
+
+      // Body: torso tilts forward while running.
+      canvas.drawLine(Offset(shoulderX, torsoTop), Offset(hipX, hipY), outline);
+
+      // --- Arms (2 segments) — boxing guard: both fists up & forward,
+      // elbows bent and tucked. Sized relative to the smaller of width/height
+      // so the arms stay balanced with the body.
+      final shoulderY = torsoTop;
+      final s = min(w, effectiveH) * 0.5;
+
+      // Small forward bob so the guard feels alive while running.
+      final guardBob = isRunning ? sin(phase) * s * 0.02 : 0.0;
+
+      if (smashActive) {
+        // Cinematic cross punch: rear fist chambers, lead fist drives forward.
+        final reach = w * (0.32 + punchExtend * 0.55);
+        final raise = s * (0.04 - punchExtend * 0.10);
+
+        final leadElbow = Offset(bodyCx + w * 0.02, shoulderY + s * 0.24);
+        final leadFist = Offset(bodyCx + reach, shoulderY + s * 0.04 + raise);
+        final rearElbow = Offset(bodyCx - w * 0.06, shoulderY + s * 0.28);
+        final rearFist = Offset(bodyCx + w * 0.12, shoulderY + s * 0.16);
+
+        canvas.drawLine(Offset(shoulderX, shoulderY), leadElbow, outline);
+        canvas.drawLine(leadElbow, leadFist, outline);
+        canvas.drawLine(Offset(shoulderX, shoulderY), rearElbow, outline);
+        canvas.drawLine(rearElbow, rearFist, outline);
+
+        // Glove: filled circle at the striking fist.
+        canvas.drawCircle(leadFist, s * (0.10 + punchExtend * 0.04), fillPaint);
+
+        // Impact burst when the fist is fully extended.
+        if (punchExtend > 0.55) {
+          _drawImpactBurst(
+            canvas,
+            center: leadFist,
+            size: s * (0.7 + punchExtend * 0.9),
+            strength: (punchExtend - 0.55) / 0.45,
+          );
+        }
+
+        // Expose fist position so the streak trail can follow it.
+        _punchFist = leadFist;
+        _punchStrength = punchExtend;
+      } else {
+        final rearElbow = Offset(cx - w * 0.03, shoulderY + s * 0.26);
+        final leadElbow = Offset(cx + w * 0.08, shoulderY + s * 0.20);
+        final rearFist = Offset(cx + w * 0.18, shoulderY + s * 0.12 + guardBob);
+        final leadFist = Offset(cx + w * 0.32, shoulderY + s * 0.04 - guardBob);
+
+        canvas.drawLine(Offset(shoulderX, shoulderY), rearElbow, outline);
+        canvas.drawLine(rearElbow, rearFist, outline);
+        canvas.drawLine(Offset(shoulderX, shoulderY), leadElbow, outline);
+        canvas.drawLine(leadElbow, leadFist, outline);
+
+        _punchFist = null;
+        _punchStrength = 0;
+      }
+
+      // --- Legs — human running gait (2 segments + 2-bone IK) ---
+      final hip = Offset(hipX, hipY);
+
+      if (isRunning && !snapshot.crawlingActive) {
+        final thighLen = effectiveH * 0.21;
+        final shinLen = effectiveH * 0.22;
+        final maxReach = thighLen + shinLen - 1.0;
+        final strideLen = w * 0.14;
+        final maxLift = effectiveH * 0.13;
+
+        // Foot follows a triangle wave: lifts and reaches forward in a straight
+        // line (piston-like), so the runner moves straight ahead with the foot
+        // planted behind and the other planted in front.
+        Offset footFor(double p) {
+          final cycle = (p / pi) % 2.0;
+          final tri = cycle < 1.0 ? cycle : 2.0 - cycle;
+          final lift = tri * maxLift;
+          // Reach forward while lifted, back behind the hip while planted.
+          final fwd = (tri - 0.5) * 2.0;
+          final fx = hip.dx + strideLen * fwd;
+          return Offset(fx, bottomY - lift);
+        }
+
+        // Solve the knee so thigh+shin reach hip -> foot, bending the knee
+        // up/forward like a real runner.
+        Offset kneeFor(Offset foot) {
+          final dx = foot.dx - hip.dx;
+          final dy = foot.dy - hip.dy;
+          final rawD = sqrt(dx * dx + dy * dy);
+          // Pull the foot within the leg's reach so the shin never stretches.
+          final scale = rawD > 1.0 ? min(1.0, maxReach / rawD) : 1.0;
+          final fx = hip.dx + dx * scale;
+          final fy = hip.dy + dy * scale;
+          final d2 =
+              (fx - hip.dx) * (fx - hip.dx) + (fy - hip.dy) * (fy - hip.dy);
+          final D = max(1.0, sqrt(d2));
+          final cosA =
+              ((thighLen * thighLen + D * D - shinLen * shinLen) /
+                      (2 * thighLen * D))
+                  .clamp(-1.0, 1.0);
+          final a = acos(cosA);
+          final base = atan2(fy - hip.dy, fx - hip.dx);
+          final knee1 = Offset(
+            hip.dx + thighLen * cos(base + a),
+            hip.dy + thighLen * sin(base + a),
+          );
+          final knee2 = Offset(
+            hip.dx + thighLen * cos(base - a),
+            hip.dy + thighLen * sin(base - a),
+          );
+          // Pick the knee that points up/forward (reads as a bent running knee).
+          return knee1.dy <= knee2.dy ? knee1 : knee2;
+        }
+
+        final leftFoot = footFor(phase);
+        final rightFoot = footFor(phase + pi);
+        final leftKnee = kneeFor(leftFoot);
+        final rightKnee = kneeFor(rightFoot);
+
+        canvas.drawLine(hip, leftKnee, outline);
+        canvas.drawLine(leftKnee, leftFoot, outline);
+        canvas.drawLine(hip, rightKnee, outline);
+        canvas.drawLine(rightKnee, rightFoot, outline);
+      } else if (snapshot.crawlingActive) {
+        // Crawl: short, bent legs tucked under the body.
+        final leftKnee = Offset(hip.dx - w * 0.12, hipY + effectiveH * 0.14);
+        final leftFoot = Offset(hip.dx - w * 0.22, bottomY);
+        final rightKnee = Offset(hip.dx + w * 0.12, hipY + effectiveH * 0.14);
+        final rightFoot = Offset(hip.dx + w * 0.22, bottomY);
+
+        canvas.drawLine(hip, leftKnee, outline);
+        canvas.drawLine(leftKnee, leftFoot, outline);
+        canvas.drawLine(hip, rightKnee, outline);
+        canvas.drawLine(rightKnee, rightFoot, outline);
+      } else {
+        // Standing: two straight legs slightly apart.
+        canvas.drawLine(hip, Offset(hip.dx - w * 0.12, bottomY), outline);
+        canvas.drawLine(hip, Offset(hip.dx + w * 0.12, bottomY), outline);
+      }
     }
 
     // Power-up auras + countdown badges around the stickman.
-    final powerupCenter = Offset(shoulderX, headCenterY);
+    final powerupCenter = Offset(auraCenterX, auraHeadY);
 
     // Shield halo: solid yellow ring.
     if (snapshot.shieldActive) {
@@ -1378,7 +1522,7 @@ class StickmanRunPainter extends CustomPainter {
     // Clamp vertically so the badge is never clipped when the stickman jumps
     // high (or during screen shake) and would otherwise leave the canvas top.
     const badgeRadius = 11.0;
-    final badgeY = (headCenterY - effectiveH * 0.09 - badgeRadius - 5).clamp(
+    final badgeY = (auraHeadY - effectiveH * 0.09 - badgeRadius - 5).clamp(
       badgeRadius + 6.0,
       height,
     );
@@ -1389,14 +1533,14 @@ class StickmanRunPainter extends CustomPainter {
       final gap = badgeRadius + 4;
       _drawPowerBadge(
         canvas,
-        center: Offset(shoulderX - gap, badgeY),
+        center: Offset(auraCenterX - gap, badgeY),
         secs: snapshot.shieldRemainingSec.ceil(),
         ringColor: Colors.yellow,
         type: PowerUpType.shield,
       );
       _drawPowerBadge(
         canvas,
-        center: Offset(shoulderX + gap, badgeY),
+        center: Offset(auraCenterX + gap, badgeY),
         secs: snapshot.magnetRemainingSec.ceil(),
         ringColor: Colors.cyanAccent,
         type: PowerUpType.magnet,
@@ -1404,7 +1548,7 @@ class StickmanRunPainter extends CustomPainter {
     } else if (showShield) {
       _drawPowerBadge(
         canvas,
-        center: Offset(shoulderX, badgeY),
+        center: Offset(auraCenterX, badgeY),
         secs: snapshot.shieldRemainingSec.ceil(),
         ringColor: Colors.yellow,
         type: PowerUpType.shield,
@@ -1412,12 +1556,150 @@ class StickmanRunPainter extends CustomPainter {
     } else if (showMagnet) {
       _drawPowerBadge(
         canvas,
-        center: Offset(shoulderX, badgeY),
+        center: Offset(auraCenterX, badgeY),
         secs: snapshot.magnetRemainingSec.ceil(),
         ringColor: Colors.cyanAccent,
         type: PowerUpType.magnet,
       );
     }
+  }
+
+  /// Run-cycle sprite for the current gait phase, or null when the run frames
+  /// aren't loaded yet (the painter then keeps the hand-drawn body). The run
+  /// cycle advances 6 frames per full stride (2π of [snapshot.timeSec] phase,
+  /// matching the procedural legs' foot swap at [pi]).
+  ui.Image? _currentRunFrame() {
+    final phase = snapshot.timeSec * 10.0;
+    // Full stride cycle spans 2π; 6 frames per cycle.
+    final frame = ((phase / (2 * pi)) * 6).floor() % 6;
+    return sprites['assets/sprites/stickman_run_${frame + 1}.png'];
+  }
+
+  /// Draws a run-cycle frame anchored by its feet at [bottomY], centered on
+  /// [cx], scaled so the figure is [h] pixels tall (the stickman's height).
+  /// The sheet figures are near-square, so the sprite is additionally scaled
+  /// down and squeezed horizontally to keep the runner lean instead of bulky.
+  void _drawRunFrameSprite(
+    Canvas canvas,
+    ui.Image image, {
+    required double cx,
+    required double bottomY,
+    required double h,
+  }) {
+    final src = Rect.fromLTWH(
+      0,
+      0,
+      image.width.toDouble(),
+      image.height.toDouble(),
+    );
+    final drawH = h * _runSpriteScale;
+    final drawW = drawH * _runSpriteWidthFactor;
+    final dst = Rect.fromLTWH(
+      cx - drawW / 2,
+      bottomY - drawH,
+      drawW,
+      drawH,
+    );
+    canvas.drawImageRect(
+      image,
+      src,
+      dst,
+      Paint()..filterQuality = FilterQuality.medium,
+    );
+  }
+
+  /// Picks the punch-sequence sprite frame for the current point in the smash
+  /// window (0.18s, 8 frames: stance -> wind-up -> thrust -> impact ->
+  /// follow-through -> recovery -> walk-back -> neutral). The impact frame
+  /// lingers longest so the strike reads clearly.
+  ui.Image? _currentAttackFrame() {
+    if (!snapshot.smashActive || snapshot.smashRemainingSec <= 0) return null;
+    final p = (1 - snapshot.smashRemainingSec / _smashWindowSec).clamp(0.0, 1.0);
+    // Key-pose timings across the smash window: every pose gets a readable
+    // beat (~0.07-0.17s), the impact frame sits right where the screen shake
+    // peaks, and the recovery plays out so each move is visible.
+    const timings = [0.00, 0.10, 0.20, 0.32, 0.44, 0.54, 0.64, 0.76];
+    var idx = 0;
+    for (var i = 0; i < timings.length; i++) {
+      if (p >= timings[i]) idx = i;
+    }
+    return sprites['assets/sprites/stickman_attack_${idx + 1}.png'];
+  }
+
+  /// Draws a punch-sequence frame anchored by its feet at [bottomY], centered
+  /// on [cx], scaled so the body matches the run sprite's size (the attack
+  /// sheet's figures are drawn smaller, hence [_attackSpriteScale] > 1).
+  void _drawAttackFrameSprite(
+    Canvas canvas,
+    ui.Image image, {
+    required double cx,
+    required double bottomY,
+    required double h,
+  }) {
+    final src = Rect.fromLTWH(
+      0,
+      0,
+      image.width.toDouble(),
+      image.height.toDouble(),
+    );
+    final drawH = h * _attackSpriteScale;
+    final drawW = drawH * _attackSpriteWidthFactor;
+    final dst = Rect.fromLTWH(
+      cx - drawW / 2,
+      bottomY - drawH,
+      drawW,
+      drawH,
+    );
+    canvas.drawImageRect(
+      image,
+      src,
+      dst,
+      Paint()..filterQuality = FilterQuality.medium,
+    );
+  }
+
+  /// Picks the crawl slide frame for the current point in the crawl window
+  /// (0.8s, 12 frames: crouch start -> low sprint -> rise back to running).
+  ui.Image? _currentCrawlFrame() {
+    if (!snapshot.crawlingActive || snapshot.crawlRemainingSec <= 0) {
+      return null;
+    }
+    final p =
+        (1 - snapshot.crawlRemainingSec / _crawlDurationSec).clamp(0.0, 1.0);
+    final idx = (p * 12).floor().clamp(0, 11);
+    return sprites['assets/sprites/stickman_crawl_${idx + 1}.png'];
+  }
+
+  /// Draws a crawl slide frame anchored by its feet at [bottomY], centered on
+  /// [cx], scaled so the upright end frame matches the run sprite's body size
+  /// (the slide sheet's figures are drawn small, hence [_crawlSpriteScale] > 1).
+  void _drawCrawlFrameSprite(
+    Canvas canvas,
+    ui.Image image, {
+    required double cx,
+    required double bottomY,
+    required double h,
+  }) {
+    final src = Rect.fromLTWH(
+      0,
+      0,
+      image.width.toDouble(),
+      image.height.toDouble(),
+    );
+    final drawH = h * _crawlSpriteScale;
+    final drawW = drawH * _crawlSpriteWidthFactor;
+    final dst = Rect.fromLTWH(
+      cx - drawW / 2,
+      bottomY - drawH,
+      drawW,
+      drawH,
+    );
+    canvas.drawImageRect(
+      image,
+      src,
+      dst,
+      Paint()..filterQuality = FilterQuality.medium,
+    );
   }
 
   /// Blazing speed lines trailing the AUTO-STRIKE teleport. Ghost afterimages
@@ -1630,9 +1912,9 @@ class StickmanRunPainter extends CustomPainter {
     required double strength,
   }) {
     final rayPaint = Paint()
-      ..color = Colors.yellow.withOpacity(0.35 + strength * 0.6)
+      ..color = Colors.yellow.withOpacity(0.30 + strength * 0.55)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
+      ..strokeWidth = 2
       ..strokeCap = StrokeCap.round;
 
     const rays = 8;
@@ -1640,16 +1922,19 @@ class StickmanRunPainter extends CustomPainter {
       final a = -pi / 2 + i * (2 * pi / rays) + 0.35;
       canvas.drawLine(
         center,
-        Offset(center.dx + cos(a) * size, center.dy + sin(a) * size),
+        Offset(
+          center.dx + cos(a) * size * 0.85,
+          center.dy + sin(a) * size * 0.85,
+        ),
         rayPaint,
       );
     }
 
     canvas.drawCircle(
       center,
-      size * 0.22,
+      size * 0.16,
       Paint()
-        ..color = Colors.white.withOpacity(0.4 + strength * 0.6)
+        ..color = Colors.white.withOpacity(0.35 + strength * 0.55)
         ..style = PaintingStyle.fill,
     );
   }

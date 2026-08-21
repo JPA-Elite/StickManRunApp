@@ -348,10 +348,13 @@ class StickmanRunEngine {
   // land again before jumping again. 1 = one extra air-jump remaining.
   int _airJumpsLeft = 1;
 
-  // Smash (punch/destroy front obstacle)
+  // Smash (punch/destroy front obstacle). The obstacle hit itself lands
+  // instantly when the button is pressed; this duration only drives the
+  // on-screen punch animation + shake so the 8-frame sequence is readable
+  // instead of flashing by.
   double _smashActiveSec = 0;
   double _smashCooldownSecRemaining = 0;
-  static const double _smashDurationSec = 0.18;
+  static const double _smashDurationSec = 0.7;
 
   // --- Skill-driven combo / buff state ---
   int _comboCount = 0;
@@ -803,8 +806,9 @@ class StickmanRunEngine {
     }
     if (_status != GameStatus.running) return;
 
-    // Duration for crawl/crouch.
-    _crawlRemainingSec = 0.55;
+    // Duration for crawl/crouch. Long enough for the 12-frame slide
+    // sequence to read (crouch start -> low sprint -> rise back up).
+    _crawlRemainingSec = 0.8;
 
     // If you crawl right after a jump, keep the short post-jump
     // invulnerability window (so it doesn't feel unfair).

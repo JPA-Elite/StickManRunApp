@@ -94,6 +94,32 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     'assets/sprites/coin.png',
     'assets/sprites/magnet.png',
     'assets/sprites/shield.png',
+    'assets/sprites/stickman_run_1.png',
+    'assets/sprites/stickman_run_2.png',
+    'assets/sprites/stickman_run_3.png',
+    'assets/sprites/stickman_run_4.png',
+    'assets/sprites/stickman_run_5.png',
+    'assets/sprites/stickman_run_6.png',
+    'assets/sprites/stickman_attack_1.png',
+    'assets/sprites/stickman_attack_2.png',
+    'assets/sprites/stickman_attack_3.png',
+    'assets/sprites/stickman_attack_4.png',
+    'assets/sprites/stickman_attack_5.png',
+    'assets/sprites/stickman_attack_6.png',
+    'assets/sprites/stickman_attack_7.png',
+    'assets/sprites/stickman_attack_8.png',
+    'assets/sprites/stickman_crawl_1.png',
+    'assets/sprites/stickman_crawl_2.png',
+    'assets/sprites/stickman_crawl_3.png',
+    'assets/sprites/stickman_crawl_4.png',
+    'assets/sprites/stickman_crawl_5.png',
+    'assets/sprites/stickman_crawl_6.png',
+    'assets/sprites/stickman_crawl_7.png',
+    'assets/sprites/stickman_crawl_8.png',
+    'assets/sprites/stickman_crawl_9.png',
+    'assets/sprites/stickman_crawl_10.png',
+    'assets/sprites/stickman_crawl_11.png',
+    'assets/sprites/stickman_crawl_12.png',
     'assets/images/forest_background.png',
     'assets/images/desert_background.png',
     'assets/images/nightcity_background.png',
@@ -160,12 +186,20 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
           asset == 'assets/images/nightcity_background.png' ||
           asset == 'assets/images/darkcave_background.png' ||
           asset == 'assets/images/volcano_background.png';
+      // Hero frames (run cycle + punch sequence) keep their full resolution
+      // so the stickman stays sharp; they are neither downscaled nor
+      // cartoonized.
+      final isHeroSprite =
+          asset.startsWith('assets/sprites/stickman_run_') ||
+          asset.startsWith('assets/sprites/stickman_attack_') ||
+          asset.startsWith('assets/sprites/stickman_crawl_');
+      final isFullRes = isBackground || isHeroSprite;
       final size = _pngSize(bytes);
       int? targetWidth;
       int? targetHeight;
       // Obstacle sprites are decoded small for a soft cartoon look, but the
-      // level background keeps its full resolution so it stays sharp.
-      if (size != null && !isBackground) {
+      // level background and run frames keep their full resolution.
+      if (size != null && !isFullRes) {
         const maxSide = 128.0;
         final scale = maxSide / max(size.$1, size.$2);
         if (scale < 1) {
@@ -188,6 +222,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
       // background keep their original look.
       var sprite = frame.image;
       final cartoonized =
+          !isHeroSprite &&
           asset != 'assets/images/laser_obstacle.png' &&
           asset != 'assets/images/cactus_obstacle.png' &&
           asset != 'assets/images/forest_background.png' &&
