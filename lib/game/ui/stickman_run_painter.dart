@@ -1244,7 +1244,11 @@ class StickmanRunPainter extends CustomPainter {
     // sequence plays instead (crouch start -> low sprint -> rise back up).
     final attackFrame = _currentAttackFrame();
     final crawlFrame = _currentCrawlFrame();
-    final useSprite = (attackFrame ?? crawlFrame ?? runFrame) != null && isRunning;
+    // Show the sprite while running and during game over. Previously this
+    // required `isRunning`, so on death the stickman reverted to the
+    // hand-drawn procedural body instead of keeping its sprite.
+    final showSprite = isRunning || snapshot.status == GameStatus.gameOver;
+    final useSprite = (attackFrame ?? crawlFrame ?? runFrame) != null && showSprite;
 
     // Power-up aura/badge anchor: for the sprite body this follows the
     // sprite's actual head position (the sprite is drawn smaller than the
@@ -1275,7 +1279,11 @@ class StickmanRunPainter extends CustomPainter {
           attackFrame,
           cx: cx,
           bottomY: bodyBottom,
-          h: effectiveH,
+          // Use the full (upright) body height, not the crawl-shrunk
+          // effectiveH. Otherwise attacking right after a crawl (while the
+          // 0.8s crawl window is still active) renders the attack sprite at
+          // the crouched height and the stickman appears small.
+          h: h,
         );
 
         // Smash punch feedback on top of the punch sprite: the lead fist
@@ -1284,7 +1292,7 @@ class StickmanRunPainter extends CustomPainter {
         // It only activates once the arm is visibly extended, so the trail
         // doesn't clash with the chambered stance/wind-up poses.
         if (smashActive && punchExtend > 0.35) {
-          final drawH = effectiveH * _attackSpriteScale;
+          final drawH = h * _attackSpriteScale;
           final reach = drawH * (0.12 + punchExtend * 0.30);
           final fistY = bodyBottom - drawH * 0.47;
           final leadFist = Offset(cx + reach, fistY);
