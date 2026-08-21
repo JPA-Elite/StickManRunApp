@@ -1209,7 +1209,9 @@ class StickmanRunPainter extends CustomPainter {
     // Pull torso up slightly so the head circle visually touches the body (no gap).
     // Put the torso start exactly where the head circle ends.
     final headCenterY = bodyBottom - effectiveH * 0.88;
-    final torsoTop = headCenterY + effectiveH * 0.09;
+    // Torso starts where the head circle ends; keep this in sync with the
+    // head radius below so the smaller head still connects to the body.
+    final torsoTop = headCenterY + effectiveH * 0.075;
     final hipY = bodyBottom - effectiveH * 0.42;
 
     // --- Smash punch animation ---
@@ -1358,7 +1360,7 @@ class StickmanRunPainter extends CustomPainter {
       // Head.
       canvas.drawCircle(
         Offset(shoulderX, headCenterY),
-        effectiveH * 0.09,
+        effectiveH * 0.075,
         fillPaint,
       );
 
