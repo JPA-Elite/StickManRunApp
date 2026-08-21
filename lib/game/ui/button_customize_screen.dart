@@ -93,6 +93,7 @@ class _ButtonCustomizeScreenState extends State<ButtonCustomizeScreen> {
       smashScorePopups: const [],
       timeSec: 0,
       hitCount: 0,
+      skillDamageCount: 0,
       randomThemeIndex: 0,
       randomThemeIndexPrev: 0,
       themeTransitionSec: 0,

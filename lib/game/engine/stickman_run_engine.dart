@@ -99,6 +99,10 @@ class StickmanRunSnapshot {
   /// changes in this value to trigger haptic feedback on each hit.
   final int hitCount;
 
+  /// Total number of skill damage events (obstacles destroyed by legendary skills).
+  /// The UI uses changes in this value to trigger haptic feedback.
+  final int skillDamageCount;
+
   /// Active visual theme index (0..4) for the RANDOM/endless level. Themes
   /// cycle every 500 meters; 0 for normal levels.
   final int randomThemeIndex;
@@ -148,8 +152,9 @@ class StickmanRunSnapshot {
     required this.smashDebris,
     required this.smashScorePopups,
     required this.timeSec,
-    required this.hitCount,
-    required this.randomThemeIndex,
+required this.hitCount,
+      required this.skillDamageCount,
+      required this.randomThemeIndex,
     required this.randomThemeIndexPrev,
     required this.themeTransitionSec,
     this.entranceCinematicSec = 0,
@@ -453,6 +458,7 @@ class StickmanRunEngine {
 
   /// Total damage events this run (drives per-hit haptic feedback).
   int _hitCount = 0;
+  int _skillDamageCount = 0;
 
   /// Seconds remaining of the fatal-hit camera kick (0 = calm). Set when the
   /// run ends so the death moment lands with a sharp shake + red flash.
@@ -539,6 +545,7 @@ class StickmanRunEngine {
       smashScorePopups: List.unmodifiable(_smashScorePopups),
       timeSec: _timeSec,
       hitCount: _hitCount,
+      skillDamageCount: _skillDamageCount,
       randomThemeIndex: _randomThemeIndex,
       randomThemeIndexPrev: _randomThemeIndexPrev,
       themeTransitionSec: _themeTransitionSec,
@@ -686,6 +693,7 @@ class StickmanRunEngine {
     _themeTransitionSec = 0;
     _entranceCinematicSec = 0;
     _hitCount = 0;
+    _skillDamageCount = 0;
 
     _comboCount = 0;
     _comboWindowSec = 0;
@@ -931,6 +939,7 @@ class StickmanRunEngine {
     if (_obstacles.isEmpty) return;
     final count = (3 * _legendaryDamageMult(LegendarySkill.goldRush)).round();
     for (final o in _obstacles) {
+      _skillDamageCount++;
       final cx = o.x + o.width / 2;
       final cy = o.y + o.height / 2;
       final radius = (5.5 + _rng.nextDouble() * 2.5) * _coinRadiusMultiplier;
@@ -1009,6 +1018,7 @@ class StickmanRunEngine {
     // stickman never lingers at the target between strikes. Upgraded tiers hit
     // harder.
     _spawnSmashDebris(target);
+    _skillDamageCount++;
     final gained =
         (5 * _comboMult * _legendaryDamageMult(LegendarySkill.autoStrike))
             .round();
@@ -1165,6 +1175,7 @@ class StickmanRunEngine {
     final cx = o.x + o.width / 2;
     final cy = o.y + o.height / 2;
     _spawnSmashDebris(o);
+    _skillDamageCount++;
     final gained =
         (5 * _comboMult * _legendaryDamageMult(LegendarySkill.roadSweep))
             .round();
@@ -1237,6 +1248,7 @@ class StickmanRunEngine {
       ),
     );
     _spawnSmashDebris(o);
+    _skillDamageCount++;
     final gained =
         (5 * _comboMult * _legendaryDamageMult(LegendarySkill.tempest)).round();
     _score += gained;
@@ -1266,6 +1278,7 @@ class StickmanRunEngine {
           1.0;
       if (!inBurst) continue;
       _spawnSmashDebris(o);
+      _skillDamageCount++;
       final gained = (5 * _comboMult * mult).round();
       _score += gained;
       _smashScorePopups.add(

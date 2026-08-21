@@ -70,6 +70,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     smashScorePopups: [],
     timeSec: 0,
     hitCount: 0,
+    skillDamageCount: 0,
     randomThemeIndex: 0,
     randomThemeIndexPrev: 0,
     themeTransitionSec: 0,
@@ -484,6 +485,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   double _lastTime = 0;
   bool _wasSmashActive = false;
   int _lastHitCount = 0;
+  int _lastSkillDamageCount = 0;
 
   /// Seconds spent on the game-over screen; drives the fatal-hit cinematic
   /// beat (the modal waits out the camera kick, then fades in).
@@ -602,6 +604,14 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
       _lastHitCount = _snapshot.hitCount;
       if (_settings.vibrationsEnabled) {
         vibrate(HapticIntensity.light);
+      }
+    }
+
+    // Vibrate on skill damage (legendary skills destroying obstacles).
+    if (_snapshot.skillDamageCount != _lastSkillDamageCount) {
+      _lastSkillDamageCount = _snapshot.skillDamageCount;
+      if (_settings.vibrationsEnabled) {
+        vibrate(HapticIntensity.medium);
       }
     }
 
@@ -749,6 +759,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     _showPauseCard = false;
     _lastTime = 0;
     _lastHitCount = 0;
+    _lastSkillDamageCount = 0;
     _controller.repeat();
     setState(() {});
   }
@@ -806,6 +817,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     _showPauseCard = false;
     _lastTime = 0;
     _lastHitCount = 0;
+    _lastSkillDamageCount = 0;
     _comboBuffer.clear();
     _legendaryBanner = '';
     _legendaryBannerSec = 0;
