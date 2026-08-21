@@ -1301,7 +1301,7 @@ class StickmanRunPainter extends CustomPainter {
         // doesn't clash with the chambered stance/wind-up poses.
         if (smashActive && punchExtend > 0.35) {
           final drawH = h * _attackSpriteScale;
-          final reach = drawH * (0.12 + punchExtend * 0.30);
+          final reach = drawH * (0.18 + punchExtend * 0.45);
           final fistY = bodyBottom - drawH * 0.47;
           final leadFist = Offset(cx + reach, fistY);
           _punchFist = leadFist;
@@ -1344,7 +1344,7 @@ class StickmanRunPainter extends CustomPainter {
         // still sell the strike.
         if (smashActive) {
           final drawH = effectiveH * _runSpriteScale;
-          final reach = w * (0.32 + punchExtend * 0.55);
+          final reach = w * (0.45 + punchExtend * 0.75);
           final fistY = bodyBottom - drawH + drawH * 0.30;
           final leadFist = Offset(cx + reach, fistY);
           _punchFist = leadFist;
@@ -1384,7 +1384,7 @@ class StickmanRunPainter extends CustomPainter {
 
       if (smashActive) {
         // Cinematic cross punch: rear fist chambers, lead fist drives forward.
-        final reach = w * (0.32 + punchExtend * 0.55);
+        final reach = w * (0.45 + punchExtend * 0.75);
         final raise = s * (0.04 - punchExtend * 0.10);
 
         final leadElbow = Offset(bodyCx + w * 0.02, shoulderY + s * 0.24);

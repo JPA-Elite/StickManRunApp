@@ -827,7 +827,7 @@ class StickmanRunEngine {
     final w = _stickmanWidthPx();
     final h = _stickmanHeightPx();
     final s = min(w, h) * 0.5;
-    final smashRange = 0.97 * w + 1.6 * s;
+    final smashRange = 1.3 * w + 2.0 * s;
 
     // Destroy obstacles within smash range (in front of stickman).
     double? firstHitX;
@@ -1033,7 +1033,7 @@ class StickmanRunEngine {
     final w = _stickmanWidthPx();
     final h = _stickmanHeightPx();
     final s = min(w, h) * 0.5;
-    return 0.97 * w + 1.6 * s;
+    return 1.3 * w + 2.0 * s;
   }
 
   /// Px/sec the stickman dashes toward a target while auto-striking.
