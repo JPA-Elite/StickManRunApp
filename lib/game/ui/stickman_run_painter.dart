@@ -57,6 +57,11 @@ class StickmanRunPainter extends CustomPainter {
   /// Duration of the crawl slide (matches the engine's crawl duration).
   static const double _crawlDurationSec = 0.8;
 
+  /// How much to sink the stickman's feet below its resting Y so it reads as
+  /// planted on the road. A tiny fraction of the body height, applied only at
+  /// draw time (physics/collision are untouched).
+  static const double _groundContactSinkFrac = 0.02;
+
   /// Duration of the smash punch window (matches the engine's smash duration).
   /// Fast enough to feel snappy while every pose in the 8-frame punch
   /// sequence stays readable; the obstacle hit itself lands instantly.
@@ -125,8 +130,7 @@ class StickmanRunPainter extends CustomPainter {
     // death moment lands with impact before the overlay takes over.
     if (snapshot.gameOverKickSec > 0) {
       final p =
-          (snapshot.gameOverKickSec /
-                  StickmanRunEngine.gameOverKickDurationSec)
+          (snapshot.gameOverKickSec / StickmanRunEngine.gameOverKickDurationSec)
               .clamp(0.0, 1.0);
       final t = snapshot.timeSec * 110.0;
       canvas.translate(sin(t) * p * 12.0, cos(t * 0.8) * p * 7.0);
@@ -274,7 +278,8 @@ class StickmanRunPainter extends CustomPainter {
     // HUD ornaments (top-right).
     // Hide HUD when the overlay is showing (ready/game-over/level-complete)
     // to prevent SCORE/COINS from overlapping the overlay card.
-    if (snapshot.status == GameStatus.running && snapshot.entranceCinematicSec <= 0) {
+    if (snapshot.status == GameStatus.running &&
+        snapshot.entranceCinematicSec <= 0) {
       _drawHud(canvas, groundY: groundY);
       _drawLifeBar(canvas, groundY: groundY);
       if (snapshot.combo > 1) _drawCombo(canvas, groundY: groundY);
@@ -283,13 +288,14 @@ class StickmanRunPainter extends CustomPainter {
     // Red flash overlay while taking damage — brighter and stronger on the
     // fatal hit, so the kill reads clearly through the camera kick.
     final fatalFlash = snapshot.gameOverKickSec > 0
-        ? (snapshot.gameOverKickSec /
-                  StickmanRunEngine.gameOverKickDurationSec)
+        ? (snapshot.gameOverKickSec / StickmanRunEngine.gameOverKickDurationSec)
               .clamp(0.0, 1.0)
         : 0.0;
     if (snapshot.damageFlashSec > 0 || fatalFlash > 0) {
-      final alpha = max(snapshot.damageFlashSec / 0.35, fatalFlash)
-          .clamp(0.0, 1.0);
+      final alpha = max(
+        snapshot.damageFlashSec / 0.35,
+        fatalFlash,
+      ).clamp(0.0, 1.0);
       canvas.drawRect(
         Rect.fromLTWH(0, 0, width, height),
         Paint()..color = Colors.red.withValues(alpha: alpha * 0.22),
@@ -324,9 +330,7 @@ class StickmanRunPainter extends CustomPainter {
     final total = StickmanRunEngine.goldRushSplashDurationSec;
     final p = (1 - snapshot.goldRushSplashSec / total).clamp(0.0, 1.0);
     // Fast attack (peak at 20% in), slow fade-out.
-    final strength = p < 0.2
-        ? p / 0.2
-        : ((1 - p) / 0.8).clamp(0.0, 1.0);
+    final strength = p < 0.2 ? p / 0.2 : ((1 - p) / 0.8).clamp(0.0, 1.0);
     if (strength <= 0.01) return;
 
     final center = Offset(width / 2, height * 0.42);
@@ -375,8 +379,7 @@ class StickmanRunPainter extends CustomPainter {
       canvas.drawCircle(
         Offset(center.dx + cos(a) * dist, center.dy + sin(a) * dist * 0.6),
         2.5 + 2.5 * (1 - p),
-        Paint()
-          ..color = const Color(0xFFFFBF00).withValues(alpha: strength),
+        Paint()..color = const Color(0xFFFFBF00).withValues(alpha: strength),
       );
     }
 
@@ -1181,7 +1184,9 @@ class StickmanRunPainter extends CustomPainter {
 
     // Center stickman on X. stickman.y is bottom.
     final cx = stickman.x;
-    final bottomY = stickman.y;
+    // Sink the figure slightly into the road so the feet visibly touch the
+    // asphalt instead of hovering from the run bounce.
+    final bottomY = stickman.y + h * _groundContactSinkFrac;
 
     final effectiveColor = _effectiveStickmanColor();
 
@@ -1250,7 +1255,8 @@ class StickmanRunPainter extends CustomPainter {
     // required `isRunning`, so on death the stickman reverted to the
     // hand-drawn procedural body instead of keeping its sprite.
     final showSprite = isRunning || snapshot.status == GameStatus.gameOver;
-    final useSprite = (attackFrame ?? crawlFrame ?? runFrame) != null && showSprite;
+    final useSprite =
+        (attackFrame ?? crawlFrame ?? runFrame) != null && showSprite;
 
     // Power-up aura/badge anchor: for the sprite body this follows the
     // sprite's actual head position (the sprite is drawn smaller than the
@@ -1579,6 +1585,13 @@ class StickmanRunPainter extends CustomPainter {
   /// cycle advances 6 frames per full stride (2π of [snapshot.timeSec] phase,
   /// matching the procedural legs' foot swap at [pi]).
   ui.Image? _currentRunFrame() {
+    // Freeze on a single frame once the game is over so the runner stops
+    // cycling through the stride. The engine keeps advancing snapshot.timeSec
+    // through the fatal cinematic (needed for the death-cam shake), so the
+    // phase here can't be used once the status leaves `running`.
+    if (snapshot.status == GameStatus.gameOver) {
+      return sprites['assets/sprites/stickman_run_1.png'];
+    }
     final phase = snapshot.timeSec * 10.0;
     // Full stride cycle spans 2π; 6 frames per cycle.
     final frame = ((phase / (2 * pi)) * 6).floor() % 6;
@@ -1604,12 +1617,7 @@ class StickmanRunPainter extends CustomPainter {
     );
     final drawH = h * _runSpriteScale;
     final drawW = drawH * _runSpriteWidthFactor;
-    final dst = Rect.fromLTWH(
-      cx - drawW / 2,
-      bottomY - drawH,
-      drawW,
-      drawH,
-    );
+    final dst = Rect.fromLTWH(cx - drawW / 2, bottomY - drawH, drawW, drawH);
     canvas.drawImageRect(
       image,
       src,
@@ -1624,7 +1632,10 @@ class StickmanRunPainter extends CustomPainter {
   /// lingers longest so the strike reads clearly.
   ui.Image? _currentAttackFrame() {
     if (!snapshot.smashActive || snapshot.smashRemainingSec <= 0) return null;
-    final p = (1 - snapshot.smashRemainingSec / _smashWindowSec).clamp(0.0, 1.0);
+    final p = (1 - snapshot.smashRemainingSec / _smashWindowSec).clamp(
+      0.0,
+      1.0,
+    );
     // Key-pose timings across the smash window: every pose gets a readable
     // beat (~0.07-0.17s), the impact frame sits right where the screen shake
     // peaks, and the recovery plays out so each move is visible.
@@ -1654,12 +1665,7 @@ class StickmanRunPainter extends CustomPainter {
     );
     final drawH = h * _attackSpriteScale;
     final drawW = drawH * _attackSpriteWidthFactor;
-    final dst = Rect.fromLTWH(
-      cx - drawW / 2,
-      bottomY - drawH,
-      drawW,
-      drawH,
-    );
+    final dst = Rect.fromLTWH(cx - drawW / 2, bottomY - drawH, drawW, drawH);
     canvas.drawImageRect(
       image,
       src,
@@ -1674,8 +1680,10 @@ class StickmanRunPainter extends CustomPainter {
     if (!snapshot.crawlingActive || snapshot.crawlRemainingSec <= 0) {
       return null;
     }
-    final p =
-        (1 - snapshot.crawlRemainingSec / _crawlDurationSec).clamp(0.0, 1.0);
+    final p = (1 - snapshot.crawlRemainingSec / _crawlDurationSec).clamp(
+      0.0,
+      1.0,
+    );
     final idx = (p * 12).floor().clamp(0, 11);
     return sprites['assets/sprites/stickman_crawl_${idx + 1}.png'];
   }
@@ -1698,12 +1706,7 @@ class StickmanRunPainter extends CustomPainter {
     );
     final drawH = h * _crawlSpriteScale;
     final drawW = drawH * _crawlSpriteWidthFactor;
-    final dst = Rect.fromLTWH(
-      cx - drawW / 2,
-      bottomY - drawH,
-      drawW,
-      drawH,
-    );
+    final dst = Rect.fromLTWH(cx - drawW / 2, bottomY - drawH, drawW, drawH);
     canvas.drawImageRect(
       image,
       src,
@@ -1784,11 +1787,7 @@ class StickmanRunPainter extends CustomPainter {
       ..color = const Color(0xFFFFD700).withValues(alpha: 0.45 * tp)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.5;
-    canvas.drawCircle(
-      Offset(to, bodyCenterY),
-      h * (0.18 + tp * 0.4),
-      impact,
-    );
+    canvas.drawCircle(Offset(to, bodyCenterY), h * (0.18 + tp * 0.4), impact);
   }
 
   /// A simple fading outline of the stickman body used as a teleport ghost.
@@ -1842,10 +1841,7 @@ class StickmanRunPainter extends CustomPainter {
     final lean = h * 0.08;
     final headP = Offset(cx + s * 0.42, cy - h * 0.16);
     final shoulder = Offset(cx + s * 0.15, cy - h * 0.06);
-    final hip = Offset(
-      cx - s * 0.28 + lean,
-      cy + h * 0.06,
-    );
+    final hip = Offset(cx - s * 0.28 + lean, cy + h * 0.06);
 
     // Head leads the way forward.
     canvas.drawCircle(headP, headR, paint);
@@ -1865,14 +1861,8 @@ class StickmanRunPainter extends CustomPainter {
     final swing = sin(phase) * s * 0.18 * strength;
 
     // --- Leading leg: tucked knee-up (mid-stride) ---
-    final leadKnee = Offset(
-      hip.dx + limb * 0.45,
-      hip.dy - limb * 0.5 + swing,
-    );
-    final leadFoot = Offset(
-      hip.dx + limb * 0.78,
-      cy + h * 0.16 - h * 0.06,
-    );
+    final leadKnee = Offset(hip.dx + limb * 0.45, hip.dy - limb * 0.5 + swing);
+    final leadFoot = Offset(hip.dx + limb * 0.78, cy + h * 0.16 - h * 0.06);
     canvas.drawLine(hip, leadKnee, paint);
     canvas.drawLine(leadKnee, leadFoot, paint);
 
@@ -1893,10 +1883,7 @@ class StickmanRunPainter extends CustomPainter {
       shoulder.dx + armL * 0.7,
       shoulder.dy + h * 0.02 + swing * 0.4,
     );
-    final leadFist = Offset(
-      shoulder.dx + armL * 1.4,
-      shoulder.dy - h * 0.02,
-    );
+    final leadFist = Offset(shoulder.dx + armL * 1.4, shoulder.dy - h * 0.02);
     canvas.drawLine(shoulder, leadElbow, paint);
     canvas.drawLine(leadElbow, leadFist, paint);
     canvas.drawCircle(leadFist, s * 0.09 * strength + h * 0.02, paint);
@@ -1906,10 +1893,7 @@ class StickmanRunPainter extends CustomPainter {
       shoulder.dx - armL * 0.55,
       shoulder.dy + h * 0.02 - h * 0.02,
     );
-    final trailFist = Offset(
-      shoulder.dx - armL,
-      shoulder.dy + h * 0.1,
-    );
+    final trailFist = Offset(shoulder.dx - armL, shoulder.dy + h * 0.1);
     canvas.drawLine(shoulder, trailElbow, paint);
     canvas.drawLine(trailElbow, trailFist, paint);
   }
@@ -2538,12 +2522,7 @@ class StickmanRunPainter extends CustomPainter {
 
     final sprite = sprites['assets/sprites/coin.png'];
     if (sprite != null) {
-      _drawSpriteCentered(
-        canvas,
-        sprite,
-        center: center,
-        size: r * 1.8,
-      );
+      _drawSpriteCentered(canvas, sprite, center: center, size: r * 1.8);
     } else {
       // Hand-drawn fallback while the sprite is still loading.
       final fill = Paint()..color = const Color.fromARGB(255, 255, 191, 0);
@@ -2570,12 +2549,7 @@ class StickmanRunPainter extends CustomPainter {
     }
 
     // Sparkle glint: a flickering 4-point twinkle over the coin.
-    _drawSparkleGlint(
-      canvas,
-      center: center,
-      phase: phase,
-      scale: r,
-    );
+    _drawSparkleGlint(canvas, center: center, phase: phase, scale: r);
   }
 
   /// Draws [image] centered at [center] with the sprite's longest side sized
@@ -2595,11 +2569,7 @@ class StickmanRunPainter extends CustomPainter {
     final scale = size / max(image.width, image.height);
     final w = image.width * scale;
     final h = image.height * scale;
-    final dst = Rect.fromCenter(
-      center: center,
-      width: w,
-      height: h,
-    );
+    final dst = Rect.fromCenter(center: center, width: w, height: h);
     canvas.drawImageRect(
       image,
       src,
@@ -2672,22 +2642,22 @@ class StickmanRunPainter extends CustomPainter {
     if (p.type == PowerUpType.shield) {
       final sprite = sprites['assets/sprites/shield.png'];
       if (sprite != null) {
-      _drawSpriteCentered(
-        canvas,
-        sprite,
-        center: Offset(cx, cy),
-        size: s * 1.0,
-      );
-    } else {
-      // Hand-drawn fallback while the sprite is still loading.
-      final r = s * 0.5;
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(cx - r, cy - r, s, s),
-          const Radius.circular(14),
-        ),
-        fill,
-      );
+        _drawSpriteCentered(
+          canvas,
+          sprite,
+          center: Offset(cx, cy),
+          size: s * 1.0,
+        );
+      } else {
+        // Hand-drawn fallback while the sprite is still loading.
+        final r = s * 0.5;
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTWH(cx - r, cy - r, s, s),
+            const Radius.circular(14),
+          ),
+          fill,
+        );
         canvas.drawRRect(
           RRect.fromRectAndRadius(
             Rect.fromLTWH(cx - r, cy - r, s, s),
@@ -2868,11 +2838,7 @@ class StickmanRunPainter extends CustomPainter {
       ..strokeWidth = 2.5;
 
     final rect = RRect.fromRectAndRadius(
-      Rect.fromCenter(
-        center: Offset(cx, cy),
-        width: 120,
-        height: 44,
-      ),
+      Rect.fromCenter(center: Offset(cx, cy), width: 120, height: 44),
       const Radius.circular(12),
     );
     canvas.drawRRect(rect, bg);
@@ -3030,12 +2996,7 @@ class StickmanRunPainter extends CustomPainter {
   }) {
     final sprite = sprites['assets/sprites/coin.png'];
     if (sprite != null) {
-      _drawSpriteCentered(
-        canvas,
-        sprite,
-        center: center,
-        size: radius * 2.4,
-      );
+      _drawSpriteCentered(canvas, sprite, center: center, size: radius * 2.4);
       return;
     }
     canvas.drawCircle(center, radius, Paint()..color = const Color(0xFFFFBF00));
@@ -3502,7 +3463,9 @@ class StickmanRunPainter extends CustomPainter {
       final fade = (1 - t).clamp(0.0, 1.0);
       final c = Offset(s.x, s.y);
       final gold = s.hue == ShockwaveHue.gold;
-      final flashColor = gold ? const Color(0xFFFF8A00) : const Color(0xFF00E5FF);
+      final flashColor = gold
+          ? const Color(0xFFFF8A00)
+          : const Color(0xFF00E5FF);
       final ringColor = gold ? const Color(0xFFFFD700) : Colors.cyanAccent;
 
       // Flash burst at the impact point.
