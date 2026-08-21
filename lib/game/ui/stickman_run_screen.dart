@@ -253,6 +253,16 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
             frame.image.dispose();
           }
         } catch (_) {}
+      } else if (isHeroSprite) {
+        // Convert black silhouette to white so it can be tinted at draw time
+        // with BlendMode.srcIn using the stickman color from settings.
+        try {
+          final inverted = await _invertColors(frame.image);
+          if (!identical(inverted, frame.image)) {
+            sprite = inverted;
+            frame.image.dispose();
+          }
+        } catch (_) {}
       }
       if (!mounted) {
         sprite.dispose();
@@ -365,6 +375,42 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
       out[i + 1] = (src[i + 1] * factor).round().clamp(0, 255);
       out[i + 2] = (src[i + 2] * factor).round().clamp(0, 255);
       out[i + 3] = (src[i + 3] * alphaFactor).round().clamp(0, 255);
+    }
+    final buffer = await ui.ImmutableBuffer.fromUint8List(out);
+    final descriptor = ui.ImageDescriptor.raw(
+      buffer,
+      width: w,
+      height: h,
+      pixelFormat: ui.PixelFormat.rgba8888,
+    );
+    final codec = await descriptor.instantiateCodec();
+    final frame = await codec.getNextFrame();
+    return frame.image;
+  }
+
+  /// Inverts RGB of every opaque pixel (black↔white) while preserving alpha.
+  /// Used to convert black stickman silhouettes to white so they can be
+  /// tinted at draw time with [BlendMode.srcIn].
+  Future<ui.Image> _invertColors(ui.Image image) async {
+    final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+    if (data == null) return image;
+    final src = data.buffer.asUint8List();
+    final w = image.width;
+    final h = image.height;
+    final out = Uint8List(w * h * 4);
+    for (var i = 0; i < src.length; i += 4) {
+      final a = src[i + 3];
+      if (a == 0) {
+        out[i] = 0;
+        out[i + 1] = 0;
+        out[i + 2] = 0;
+        out[i + 3] = 0;
+      } else {
+        out[i] = 255 - src[i];
+        out[i + 1] = 255 - src[i + 1];
+        out[i + 2] = 255 - src[i + 2];
+        out[i + 3] = a;
+      }
     }
     final buffer = await ui.ImmutableBuffer.fromUint8List(out);
     final descriptor = ui.ImageDescriptor.raw(

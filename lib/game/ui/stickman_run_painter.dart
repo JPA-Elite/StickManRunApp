@@ -1618,11 +1618,14 @@ class StickmanRunPainter extends CustomPainter {
     final drawH = h * _runSpriteScale;
     final drawW = drawH * _runSpriteWidthFactor;
     final dst = Rect.fromLTWH(cx - drawW / 2, bottomY - drawH, drawW, drawH);
+    final effectiveColor = _effectiveStickmanColor();
     canvas.drawImageRect(
       image,
       src,
       dst,
-      Paint()..filterQuality = FilterQuality.medium,
+      Paint()
+        ..filterQuality = FilterQuality.medium
+        ..colorFilter = ColorFilter.mode(effectiveColor, BlendMode.srcIn),
     );
   }
 
@@ -1666,11 +1669,14 @@ class StickmanRunPainter extends CustomPainter {
     final drawH = h * _attackSpriteScale;
     final drawW = drawH * _attackSpriteWidthFactor;
     final dst = Rect.fromLTWH(cx - drawW / 2, bottomY - drawH, drawW, drawH);
+    final effectiveColor = _effectiveStickmanColor();
     canvas.drawImageRect(
       image,
       src,
       dst,
-      Paint()..filterQuality = FilterQuality.medium,
+      Paint()
+        ..filterQuality = FilterQuality.medium
+        ..colorFilter = ColorFilter.mode(effectiveColor, BlendMode.srcIn),
     );
   }
 
@@ -1707,11 +1713,14 @@ class StickmanRunPainter extends CustomPainter {
     final drawH = h * _crawlSpriteScale;
     final drawW = drawH * _crawlSpriteWidthFactor;
     final dst = Rect.fromLTWH(cx - drawW / 2, bottomY - drawH, drawW, drawH);
+    final effectiveColor = _effectiveStickmanColor();
     canvas.drawImageRect(
       image,
       src,
       dst,
-      Paint()..filterQuality = FilterQuality.medium,
+      Paint()
+        ..filterQuality = FilterQuality.medium
+        ..colorFilter = ColorFilter.mode(effectiveColor, BlendMode.srcIn),
     );
   }
 
