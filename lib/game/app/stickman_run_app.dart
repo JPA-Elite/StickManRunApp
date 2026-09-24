@@ -141,6 +141,8 @@ class _StickmanRunAppState extends State<StickmanRunApp>
       history.setLastCelebratedTier(tier);
       setState(() => _pendingCelebrationTier = tier);
       _celebrationController.forward(from: 0);
+      // Congratulation fanfare, synced with the celebration overlay.
+      AudioController.effectiveInstance.play(SoundEffect.levelComplete);
     }
   }
 
