@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../audio/audio_controller.dart';
 import 'game_settings.dart';
 
 /// Singleton controller that owns the current [GameSettings] and persists
@@ -25,9 +28,18 @@ class SettingsController extends ChangeNotifier {
   static const String _keyAttackScale = 'btn_attack_scale';
   static const String _keyJumpScale = 'btn_jump_scale';
   static const String _keyCrawlScale = 'btn_crawl_scale';
+  static const String _keyMusicEnabled = 'audio_music_enabled';
+  static const String _keySfxEnabled = 'audio_sfx_enabled';
+  static const String _keyMusicVolume = 'audio_music_volume';
+  static const String _keySfxVolume = 'audio_sfx_volume';
 
   GameSettings _settings = const GameSettings();
   GameSettings get settings => _settings;
+
+  /// Serializes all persistence so rapid toggles can never interleave and
+  /// leave stale audio/prefs behind.
+  Future<void> _saveQueue = Future.value();
+  Timer? _volumeSaveTimer;
 
   /// Loads persisted settings (or defaults if none stored yet).
   Future<void> load() async {
@@ -54,6 +66,16 @@ class SettingsController extends ChangeNotifier {
       attackButtonScale: _scale(prefs.getDouble(_keyAttackScale), 1.0),
       jumpButtonScale: _scale(prefs.getDouble(_keyJumpScale), 1.0),
       crawlButtonScale: _scale(prefs.getDouble(_keyCrawlScale), 1.0),
+      musicEnabled: prefs.getBool(_keyMusicEnabled) ?? true,
+      sfxEnabled: prefs.getBool(_keySfxEnabled) ?? true,
+      musicVolume: (prefs.getDouble(_keyMusicVolume) ?? 0.7).clamp(0.0, 1.0),
+      sfxVolume: (prefs.getDouble(_keySfxVolume) ?? 1.0).clamp(0.0, 1.0),
+    );
+    AudioController.effectiveInstance.applySettings(
+      musicEnabled: _settings.musicEnabled,
+      sfxEnabled: _settings.sfxEnabled,
+      musicVolume: _settings.musicVolume,
+      sfxVolume: _settings.sfxVolume,
     );
     notifyListeners();
   }
@@ -70,23 +92,113 @@ class SettingsController extends ChangeNotifier {
     return value.clamp(0.5, 1.5);
   }
 
-  Future<void> _save() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyDifficulty, _settings.difficulty.name);
-    await prefs.setInt(_keyStickmanColor, _settings.stickmanColor);
-    await prefs.setString(_keyCoinSize, _settings.coinSize.name);
-    await prefs.setBool(_keyHighContrast, _settings.highContrast);
-    await prefs.setString(_keyControlScheme, _settings.controlScheme?.name ?? 'buttons');
-    await prefs.setBool(_keyVibrations, _settings.vibrationsEnabled);
-    await prefs.setDouble(_keyAttackDx, _settings.attackButtonDx);
-    await prefs.setDouble(_keyAttackDy, _settings.attackButtonDy);
-    await prefs.setDouble(_keyJumpDx, _settings.jumpButtonDx);
-    await prefs.setDouble(_keyJumpDy, _settings.jumpButtonDy);
-    await prefs.setDouble(_keyCrawlDx, _settings.crawlButtonDx);
-    await prefs.setDouble(_keyCrawlDy, _settings.crawlButtonDy);
-    await prefs.setDouble(_keyAttackScale, _settings.attackButtonScale);
-    await prefs.setDouble(_keyJumpScale, _settings.jumpButtonScale);
-    await prefs.setDouble(_keyCrawlScale, _settings.crawlButtonScale);
+  void _applyAudioNow() {
+    // Immediate feedback: audio reacts synchronously, persistence follows.
+    AudioController.effectiveInstance.applySettings(
+      musicEnabled: _settings.musicEnabled,
+      sfxEnabled: _settings.sfxEnabled,
+      musicVolume: _settings.musicVolume,
+      sfxVolume: _settings.sfxVolume,
+    );
+  }
+
+  Future<void> _save() {
+    // Chain writes so rapid toggles always finish in order.
+    _saveQueue = _saveQueue.then((_) async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_keyDifficulty, _settings.difficulty.name);
+      await prefs.setInt(_keyStickmanColor, _settings.stickmanColor);
+      await prefs.setString(_keyCoinSize, _settings.coinSize.name);
+      await prefs.setBool(_keyHighContrast, _settings.highContrast);
+      await prefs.setString(
+          _keyControlScheme, _settings.controlScheme?.name ?? 'buttons');
+      await prefs.setBool(_keyVibrations, _settings.vibrationsEnabled);
+      await prefs.setDouble(_keyAttackDx, _settings.attackButtonDx);
+      await prefs.setDouble(_keyAttackDy, _settings.attackButtonDy);
+      await prefs.setDouble(_keyJumpDx, _settings.jumpButtonDx);
+      await prefs.setDouble(_keyJumpDy, _settings.jumpButtonDy);
+      await prefs.setDouble(_keyCrawlDx, _settings.crawlButtonDx);
+      await prefs.setDouble(_keyCrawlDy, _settings.crawlButtonDy);
+      await prefs.setDouble(_keyAttackScale, _settings.attackButtonScale);
+      await prefs.setDouble(_keyJumpScale, _settings.jumpButtonScale);
+      await prefs.setDouble(_keyCrawlScale, _settings.crawlButtonScale);
+      await prefs.setBool(_keyMusicEnabled, _settings.musicEnabled);
+      await prefs.setBool(_keySfxEnabled, _settings.sfxEnabled);
+      await prefs.setDouble(_keyMusicVolume, _settings.musicVolume);
+      await prefs.setDouble(_keySfxVolume, _settings.sfxVolume);
+    });
+    return _saveQueue;
+  }
+
+  Timer? _volumeAudioTimer;
+  bool _volumeAudioPending = false;
+
+  void _applyAudioThrottledVolume() {
+    // C4: sliders fire dozens/sec; 49 setVolume + chain task per tick would
+    // flood the platform channel. Immediate first tick, then trailing 80ms.
+    if (_volumeAudioTimer?.isActive ?? false) {
+      _volumeAudioPending = true;
+      return;
+    }
+    _applyAudioNow();
+    _volumeAudioTimer = Timer(const Duration(milliseconds: 80), () {
+      if (_volumeAudioPending) {
+        _volumeAudioPending = false;
+        _applyAudioNow();
+      }
+    });
+  }
+
+  void _saveDebouncedVolume() {
+    _applyAudioThrottledVolume();
+    _volumeSaveTimer?.cancel();
+    _volumeSaveTimer = Timer(const Duration(milliseconds: 300), () {
+      unawaited(_save());
+    });
+  }
+
+  void setMusicEnabled(bool value) {
+    if (_settings.musicEnabled == value) return;
+    _settings = _settings.copyWith(musicEnabled: value);
+    _applyAudioNow();
+    unawaited(_save());
+    notifyListeners();
+  }
+
+  void setSfxEnabled(bool value) {
+    if (_settings.sfxEnabled == value) return;
+    _settings = _settings.copyWith(sfxEnabled: value);
+    _applyAudioNow();
+    unawaited(_save());
+    notifyListeners();
+  }
+
+  /// Master sound toggle used by the home header: music + SFX together.
+  void setSoundEnabled(bool value) {
+    if (_settings.musicEnabled == value && _settings.sfxEnabled == value) {
+      return;
+    }
+    _settings =
+        _settings.copyWith(musicEnabled: value, sfxEnabled: value);
+    _applyAudioNow();
+    unawaited(_save());
+    notifyListeners();
+  }
+
+  void setMusicVolume(double value) {
+    final clamped = value.clamp(0.0, 1.0);
+    if (_settings.musicVolume == clamped) return;
+    _settings = _settings.copyWith(musicVolume: clamped);
+    _saveDebouncedVolume();
+    notifyListeners();
+  }
+
+  void setSfxVolume(double value) {
+    final clamped = value.clamp(0.0, 1.0);
+    if (_settings.sfxVolume == clamped) return;
+    _settings = _settings.copyWith(sfxVolume: clamped);
+    _saveDebouncedVolume();
+    notifyListeners();
   }
 
   void setDifficulty(GameDifficulty value) {
@@ -220,6 +332,7 @@ class SettingsController extends ChangeNotifier {
   /// Restores every setting to its default and persists immediately.
   Future<void> reset() async {
     _settings = const GameSettings();
+    _applyAudioNow();
     await _save();
     notifyListeners();
   }

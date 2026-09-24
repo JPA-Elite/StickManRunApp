@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:flutter_app/game/audio/audio_controller.dart';
 import 'package:flutter_app/game/settings/legendary_defs.dart';
 import 'package:flutter_app/game/settings/skill_controller.dart';
 import 'package:flutter_app/game/ui/stickman_run_screen.dart';
+
+import 'fake_audio_players.dart';
 
 /// Verifies the GOLD RUSH legendary combo (attack · attack · jump) fires
 /// from the buttons control scheme, where the player taps the on-screen
@@ -15,6 +18,19 @@ void main() {
   testWidgets('GOLD RUSH triggers in button mode via ATTACK,ATTACK,JUMP', (
     tester,
   ) async {
+    final fakes = <FakeAudioPlayer>[];
+    final audio = AudioController(
+      playerFactory: () {
+        final f = FakeAudioPlayer();
+        fakes.add(f);
+        return f;
+      },
+      sfxEngine: FakeSfxEngine(),
+    );
+    AudioController.testInstance = audio;
+    addTearDown(() => AudioController.testInstance = null);
+    await audio.initialize();
+
     final sc = SkillController.instance;
     sc.debugResetForTests();
     await sc.awardCoins(100000);

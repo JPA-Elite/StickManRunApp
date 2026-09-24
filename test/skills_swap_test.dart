@@ -102,7 +102,7 @@ void main() {
     await tester.tap(
       find.descendant(
         of: find.byType(Dialog),
-        matching: find.text('UPGRADE 50◆'),
+        matching: find.text('UPGRADE 50'),
       ),
     );
     // Spinner holds for ~1s before the success modal appears.
@@ -241,7 +241,7 @@ void main() {
     await sc.awardCoins(100000);
     await openLegendaryTab(tester);
 
-    final buyButton = find.text('BUY 9000◆').first;
+    final buyButton = find.text('BUY 9000').first;
     await tester.ensureVisible(buyButton);
     await tester.tap(buyButton);
 

@@ -4,6 +4,7 @@ import '../settings/daily_mission.dart';
 import '../settings/rank.dart';
 import '../settings/score_history.dart';
 import '../settings/skill_controller.dart';
+import 'coin_amount.dart';
 import 'stickman_avatar.dart';
 
 /// Profile page opened by tapping the avatar on the home header. Shows the
@@ -228,7 +229,7 @@ class ProfileScreen extends StatelessWidget {
                                   ),
                                 ),
                                 const SizedBox(height: 4),
-                                Text(
+                                CoinText(
                                   mission.claimed
                                       ? 'REWARD CLAIMED · ${mission.mission!.rewardCoins}◆'
                                       : mission.completed
@@ -343,8 +344,9 @@ class _StatTile extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 6),
-            Text(
+            CoinText(
               value,
+              iconColor: accent,
               style: TextStyle(
                 color: accent,
                 fontSize: 18,

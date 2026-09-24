@@ -1,7 +1,12 @@
+import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../audio/audio_controller.dart';
+import '../audio/sound_effects.dart';
 import '../settings/rank.dart';
 import '../settings/score_history.dart';
 import '../settings/settings_controller.dart';
@@ -18,6 +23,16 @@ import '../ui/stickman_avatar.dart';
 import '../ui/stickman_run_screen.dart';
 import '../../game/engine/level_config.dart' as engine;
 
+/// Shared UI feedback: click blip + menu open/close whoosh (fire-and-forget,
+/// never throws, zero latency on the input path).
+void playUiTap({bool opening = true}) {
+  final audio = AudioController.effectiveInstance;
+  // Any explicit UI action counts as interaction (covers keyboard Enter).
+  audio.notifyUserInteraction();
+  audio.play(SoundEffect.buttonClick);
+  audio.play(opening ? SoundEffect.menuOpen : SoundEffect.menuClose);
+}
+
 class StickmanRunApp extends StatefulWidget {
   const StickmanRunApp({super.key});
 
@@ -26,11 +41,34 @@ class StickmanRunApp extends StatefulWidget {
 }
 
 class _StickmanRunAppState extends State<StickmanRunApp>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   final PageController _pageController = PageController(viewportFraction: 0.6);
   int _selectedLevel = 1;
   bool _showLevelSelect = false;
+
+  /// Guards PLAY LEVEL against double-taps that would push two game screens
+  /// (two `enterGameplay` counts, then one `exitGameplay` handing music back
+  /// to the menu while a run is still active).
+  bool _pushingGame = false;
+  int _lastGamePushMicros = 0;
+
+  Future<void> _pushGameScreen(int level) async {
+    final now = DateTime.now().microsecondsSinceEpoch;
+    if (_pushingGame || now - _lastGamePushMicros < 600000) return;
+    _pushingGame = true;
+    _lastGamePushMicros = now;
+    try {
+      playUiTap();
+      await _navigatorKey.currentState!.push(
+        MaterialPageRoute(
+          builder: (_) => StickmanRunScreen(initialLevel: level),
+        ),
+      );
+    } finally {
+      _pushingGame = false;
+    }
+  }
 
   /// Fires the level-up check whenever a pushed route (e.g. a finished run)
   /// is popped back to the homepage, where [initState] would not re-run.
@@ -59,7 +97,37 @@ class _StickmanRunAppState extends State<StickmanRunApp>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeCelebrateLevelUp());
+    // Preload all SFX after the first frame so gameplay never hits disk, then
+    // start the menu theme (deferred to user interaction on web autoplay).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(
+        AudioController.effectiveInstance.initialize().then((_) {
+          AudioController.effectiveInstance.requestMenuMusic();
+        }),
+      );
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    final audio = AudioController.effectiveInstance;
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      audio.handleAppPaused();
+    } else if (state == AppLifecycleState.inactive) {
+      // P1: inactive fires on every desktop focus flicker (alt-tab). Only
+      // treat as background on mobile/web where it means call/switcher.
+      if (!kIsWeb &&
+          (defaultTargetPlatform == TargetPlatform.android ||
+              defaultTargetPlatform == TargetPlatform.iOS)) {
+        audio.handleAppPaused();
+      }
+    } else if (state == AppLifecycleState.resumed) {
+      audio.handleAppResumed();
+    }
   }
 
   void _maybeCelebrateLevelUp() {
@@ -78,6 +146,7 @@ class _StickmanRunAppState extends State<StickmanRunApp>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pageController.dispose();
     _backdropController.dispose();
     _celebrationController.dispose();
@@ -108,6 +177,22 @@ class _StickmanRunAppState extends State<StickmanRunApp>
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: theme,
+      // L3: pointer + keyboard unlock (keyboard-only web never fired
+      // pointer events, leaving music gated forever).
+      builder: (context, child) => Focus(
+        autofocus: true,
+        onKeyEvent: (_, __) {
+          AudioController.effectiveInstance.notifyUserInteraction();
+          return KeyEventResult.ignored;
+        },
+        child: Listener(
+          onPointerDown: (_) =>
+              AudioController.effectiveInstance.notifyUserInteraction(),
+          onPointerUp: (_) =>
+              AudioController.effectiveInstance.notifyUserInteraction(),
+          child: child,
+        ),
+      ),
       navigatorKey: _navigatorKey,
       navigatorObservers: [_levelUpObserver],
       home: ListenableBuilder(
@@ -276,6 +361,7 @@ class _StickmanRunAppState extends State<StickmanRunApp>
                                             ),
                                             tooltip: 'Score History',
                                             onPressed: () {
+                                              playUiTap();
                                               Navigator.of(context).push(
                                                 MaterialPageRoute(
                                                   builder: (_) =>
@@ -291,15 +377,8 @@ class _StickmanRunAppState extends State<StickmanRunApp>
                                 ),
                                 _PressableScale(
                                   child: ElevatedButton.icon(
-                                    onPressed: () {
-                                      _navigatorKey.currentState!.push(
-                                        MaterialPageRoute(
-                                          builder: (_) => StickmanRunScreen(
-                                            initialLevel: _selectedLevel,
-                                          ),
-                                        ),
-                                      );
-                                    },
+                                    onPressed: () =>
+                                        _pushGameScreen(_selectedLevel),
                                     icon: const Icon(
                                       Icons.play_arrow,
                                       color: Colors.black,
@@ -342,6 +421,7 @@ class _StickmanRunAppState extends State<StickmanRunApp>
                                             ),
                                             tooltip: 'Skills',
                                             onPressed: () {
+                                              playUiTap();
                                               Navigator.of(context).push(
                                                 MaterialPageRoute(
                                                   builder: (_) =>
@@ -400,6 +480,7 @@ class _BrandCard extends StatelessWidget {
           _PressableScale(
             child: GestureDetector(
               onTap: () {
+                playUiTap();
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const ShopScreen()),
                 );
@@ -457,6 +538,7 @@ class _BrandCard extends StatelessWidget {
             icon: const Icon(Icons.help_outline, color: Colors.white, size: 24),
             tooltip: 'How to Play',
             onPressed: () {
+              playUiTap();
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const StickmanGuideScreen()),
               );
@@ -465,17 +547,21 @@ class _BrandCard extends StatelessWidget {
           ListenableBuilder(
             listenable: SettingsController.instance,
             builder: (context, _) {
-              final muted =
-                  !SettingsController.instance.settings.vibrationsEnabled;
+              final s = SettingsController.instance.settings;
+              // Master sound = music OR sfx on. Toggling flips both together
+              // so "Sound: Off" truly silences the game (previously this
+              // toggled vibrations only and music kept playing).
+              final soundOn = s.musicEnabled || s.sfxEnabled;
               return IconButton(
                 icon: Icon(
-                  muted ? Icons.volume_off : Icons.volume_up,
+                  soundOn ? Icons.volume_up : Icons.volume_off,
                   color: Colors.white,
                   size: 24,
                 ),
-                tooltip: muted ? 'Sound: Off' : 'Sound: On',
+                tooltip: soundOn ? 'Sound: On' : 'Sound: Off',
                 onPressed: () {
-                  SettingsController.instance.setVibrationsEnabled(muted);
+                  playUiTap(opening: !soundOn);
+                  SettingsController.instance.setSoundEnabled(!soundOn);
                 },
               );
             },
@@ -488,6 +574,7 @@ class _BrandCard extends StatelessWidget {
             ),
             tooltip: 'Daily Streak',
             onPressed: () {
+              playUiTap();
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => const DailyStreakScreen(),
@@ -499,6 +586,7 @@ class _BrandCard extends StatelessWidget {
             icon: const Icon(Icons.settings, color: Colors.white, size: 24),
             tooltip: 'Settings',
             onPressed: () {
+              playUiTap();
               Navigator.of(
                 context,
               ).push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
@@ -678,9 +766,12 @@ class _RunnerProfile extends StatelessWidget {
         // Tapping the avatar (or the rank chip) opens the profile page.
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const ProfileScreen()),
-          ),
+          onTap: () {
+            playUiTap();
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ProfileScreen()),
+            );
+          },
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

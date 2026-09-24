@@ -106,18 +106,8 @@ class StickmanRunPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Cinematic screen shake around the punch impact.
-    if (snapshot.smashActive && snapshot.smashRemainingSec > 0) {
-      final p = (1 - snapshot.smashRemainingSec / _smashWindowSec).clamp(
-        0.0,
-        1.0,
-      );
-      final impact = (1 - (p - 0.35).abs() / 0.35).clamp(0.0, 1.0);
-      if (impact > 0.05) {
-        final t = snapshot.timeSec * 130.0;
-        canvas.translate(sin(t) * impact * 6.0, cos(t * 0.8) * impact * 3.5);
-      }
-    }
+    // NOTE: no screen shake on smash — the punch impact plays steady while
+    // damage, game-over and sweep kicks keep their own shakes below.
 
     // Shake + red vignette while the stickman is taking damage.
     if (snapshot.damageFlashSec > 0) {

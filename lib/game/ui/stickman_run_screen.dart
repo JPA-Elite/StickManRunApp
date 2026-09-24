@@ -7,6 +7,8 @@ import 'package:flutter/services.dart';
 
 import '../engine/entities.dart';
 import '../engine/stickman_run_engine.dart';
+import '../audio/audio_controller.dart';
+import '../audio/sound_effects.dart';
 import '../settings/game_settings.dart';
 import '../settings/legendary_defs.dart';
 import '../settings/score_history.dart';
@@ -144,6 +146,9 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     _loadSprites();
 
     _snapshot = _engine.snapshot();
+    // Gameplay owns background music from here until the screen is disposed.
+    AudioController.effectiveInstance.enterGameplay(_biomeForLevel());
+    _syncAudioTrackersFromSnapshot();
 
     _controller = AnimationController(
       vsync: this,
@@ -158,6 +163,9 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   void dispose() {
     SettingsController.instance.removeListener(_onSettingsChanged);
     _controller.dispose();
+    // Hands music back to the menu theme so a gameplay track never keeps
+    // looping after leaving the run.
+    AudioController.effectiveInstance.exitGameplay();
     for (final image in _sprites.values) {
       image.dispose();
     }
@@ -487,6 +495,55 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   int _lastHitCount = 0;
   int _lastSkillDamageCount = 0;
 
+  // --- Audio event trackers (counter deltas drive SFX, same as haptics) ---
+  int _audioLastCoins = 0;
+  int _audioLastCoinStreakBucket = 0;
+  int _audioLastCombo = 0;
+  bool _audioWasHealing = false;
+  bool _audioWasShielded = false;
+  bool _audioWasMagnetized = false;
+  double _audioPrevSmashCooldownSec = 0;
+  int _audioThemeIndex = 0;
+  int _audioLastSweepShockwaves = 0;
+
+  /// Biome index for music selection: levels 1-5 map directly to their
+  /// biome; endless mode (6+) follows the engine's random theme index.
+  int _biomeForLevel([int? snapshotThemeIndex]) {
+    if (_levelIndex <= 5) return _levelIndex - 1;
+    return snapshotThemeIndex ?? _snapshot.randomThemeIndex;
+  }
+
+  /// Re-baselines every audio delta-tracker so no stale cue fires after a
+  /// reset/resume. Called on init, restart and resume.
+  void _syncAudioTrackersFromSnapshot() {
+    final s = _engine.snapshot();
+    _audioLastCoins = s.coins;
+    _audioLastCombo = s.combo;
+    _audioLastCoinStreakBucket = s.coins ~/ 25;
+    _audioWasHealing = s.healFlashSec > 0;
+    _audioWasShielded = s.shieldActive;
+    _audioWasMagnetized = s.magnetActive;
+    _audioPrevSmashCooldownSec = s.smashCooldownSec;
+    _audioThemeIndex = s.randomThemeIndex;
+    _audioLastSweepShockwaves = s.sweepShockwaves.length;
+  }
+
+  /// Maps each legendary skill to its activation sound.
+  SoundEffect _soundForLegendary(LegendarySkill id) {
+    switch (id) {
+      case LegendarySkill.autoStrike:
+        return SoundEffect.legendaryAutoStrike;
+      case LegendarySkill.reverseRun:
+        return SoundEffect.legendaryReverseRun;
+      case LegendarySkill.roadSweep:
+        return SoundEffect.legendaryRoadSweep;
+      case LegendarySkill.tempest:
+        return SoundEffect.legendaryTempest;
+      case LegendarySkill.goldRush:
+        return SoundEffect.legendaryGoldRush;
+    }
+  }
+
   /// Seconds spent on the game-over screen; drives the fatal-hit cinematic
   /// beat (the modal waits out the camera kick, then fades in).
   double _gameOverRevealSec = 0;
@@ -541,6 +598,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     SkillController.instance.recordLegendaryUse(def.id);
     _comboBuffer.clear();
 
+    AudioController.effectiveInstance.play(_soundForLegendary(def.id));
     if (_settings.vibrationsEnabled) {
       vibrate(HapticIntensity.heavy);
     }
@@ -587,6 +645,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
 
     // Vibrate when the smash actually impacts (animation starts).
     if (!_wasSmashActive && _snapshot.smashActive) {
+      AudioController.effectiveInstance.play(SoundEffect.smash);
       if (_settings.vibrationsEnabled) {
         vibrate(HapticIntensity.heavy);
       }
@@ -599,9 +658,10 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
       if (_legendaryBannerSec <= 0) _legendaryBanner = '';
     }
 
-    // Vibrate on every obstacle hit (damage taken), not just at game over.
+    // Sound + vibration on every obstacle hit (damage taken).
     if (_snapshot.hitCount != _lastHitCount) {
       _lastHitCount = _snapshot.hitCount;
+      AudioController.effectiveInstance.play(SoundEffect.hit);
       if (_settings.vibrationsEnabled) {
         vibrate(HapticIntensity.light);
       }
@@ -615,11 +675,33 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
       }
     }
 
+    // Damage sound for each ROAD SWEEP missile landing: every fireball that
+    // hits the ground adds a shockwave ring, so a growing ring count means a
+    // fresh impact — even when the blast caught empty road and the
+    // skill-damage counter didn't move. One voice per frame max, no matter
+    // how many missiles landed in the same tick.
+    final sweepShockwaveCount = _snapshot.sweepShockwaves.length;
+    if (sweepShockwaveCount > _audioLastSweepShockwaves &&
+        _snapshot.roadSweepSec > 0) {
+      AudioController.effectiveInstance.play(SoundEffect.hit);
+    }
+    _audioLastSweepShockwaves = sweepShockwaveCount;
+
+    _fireFrameAudioCues();
+
     // When a run ends (game over or level complete), record score, award coins,
     // and check the daily mission.
     if (wasRunning &&
         (_snapshot.status == GameStatus.gameOver ||
             _snapshot.status == GameStatus.levelComplete)) {
+      // Stinger + music fade-out, synced with the on-screen transition.
+      final audio = AudioController.effectiveInstance;
+      if (_snapshot.status == GameStatus.gameOver) {
+        audio.play(SoundEffect.gameOver);
+      } else {
+        audio.play(SoundEffect.levelComplete);
+      }
+      audio.fadeOutForRunEnd();
       // Vibrate on obstacle-hit death (not on level complete).
       if (_snapshot.status == GameStatus.gameOver &&
           _settings.vibrationsEnabled) {
@@ -653,6 +735,63 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   int _lastJumpMicros = 0;
   static const int _jumpCooldownMicros = 180000; // ~180ms
 
+  /// Fires SFX + music cues derived from per-frame snapshot deltas. Mirrors
+  /// the haptic pattern above: pure counter comparison, zero allocations,
+  /// fire-and-forget calls — safe at 60fps.
+  void _fireFrameAudioCues() {
+    if (_snapshot.status != GameStatus.running) return;
+    final audio = AudioController.effectiveInstance;
+
+    // Coin pickups (+ streak every 25 coins).
+    if (_snapshot.coins != _audioLastCoins) {
+      if (_snapshot.coins > _audioLastCoins) {
+        audio.play(SoundEffect.coinCollect);
+        final bucket = _snapshot.coins ~/ 25;
+        if (bucket > _audioLastCoinStreakBucket) {
+          audio.play(SoundEffect.coinStreak);
+          _audioLastCoinStreakBucket = bucket;
+        }
+      }
+      _audioLastCoins = _snapshot.coins;
+    }
+
+    // Combo escalation.
+    if (_snapshot.combo > _audioLastCombo && _snapshot.combo >= 2) {
+      audio.play(SoundEffect.comboIncrease);
+    }
+    _audioLastCombo = _snapshot.combo;
+
+    // Power-up / heal rising edges.
+    if (!_audioWasHealing && _snapshot.healFlashSec > 0) {
+      audio.play(SoundEffect.heal);
+    }
+    _audioWasHealing = _snapshot.healFlashSec > 0;
+
+    if (!_audioWasShielded && _snapshot.shieldActive) {
+      audio.play(SoundEffect.powerupShield);
+    }
+    _audioWasShielded = _snapshot.shieldActive;
+
+    if (!_audioWasMagnetized && _snapshot.magnetActive) {
+      audio.play(SoundEffect.powerupMagnet);
+    }
+    _audioWasMagnetized = _snapshot.magnetActive;
+
+    // Smash recharged.
+    if (_audioPrevSmashCooldownSec > 0 && _snapshot.smashCooldownSec <= 0) {
+      audio.play(SoundEffect.smashReady);
+    }
+    _audioPrevSmashCooldownSec = _snapshot.smashCooldownSec;
+
+    // Biome transition: theme stinger + music switch in the same frame as
+    // the visual cross-fade (single detection point = always in sync).
+    if (_snapshot.randomThemeIndex != _audioThemeIndex) {
+      _audioThemeIndex = _snapshot.randomThemeIndex;
+      audio.play(SoundEffect.themeTransition);
+      audio.updateGameplayTheme(_biomeForLevel(_snapshot.randomThemeIndex));
+    }
+  }
+
   void _onJump() {
     debugPrint('StickmanRunScreen: _onJump fired');
 
@@ -666,6 +805,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     _engine.jump();
     _engine.tick(1 / 60.0);
 
+    AudioController.effectiveInstance.play(SoundEffect.jump);
     if (_settings.vibrationsEnabled) {
       vibrate(HapticIntensity.heavy);
     }
@@ -741,6 +881,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   void _onCrawl() {
     _recordComboInput(ComboAction.crawl);
     _engine.crawl();
+    AudioController.effectiveInstance.play(SoundEffect.crawl);
     if (_settings.vibrationsEnabled) {
       vibrate(HapticIntensity.light);
     }
@@ -750,6 +891,8 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   void _pause() {
     _paused = true;
     _showPauseCard = true;
+    // Pause (not stop) the music so RESUME continues instantly with no reload.
+    AudioController.effectiveInstance.pauseMusic();
     _controller.stop();
     setState(() {});
   }
@@ -758,8 +901,12 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     _paused = false;
     _showPauseCard = false;
     _lastTime = 0;
-    _lastHitCount = 0;
-    _lastSkillDamageCount = 0;
+    _syncAudioTrackersFromSnapshot();
+    // Re-baseline damage counters so resume itself never re-fires hit/damage
+    // feedback for hits taken before the pause.
+    _lastHitCount = _snapshot.hitCount;
+    _lastSkillDamageCount = _snapshot.skillDamageCount;
+    AudioController.effectiveInstance.resumeMusic();
     _controller.repeat();
     setState(() {});
   }
@@ -821,6 +968,9 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     _comboBuffer.clear();
     _legendaryBanner = '';
     _legendaryBannerSec = 0;
+    _syncAudioTrackersFromSnapshot();
+    // Clears the run-end pause and restarts the level's biome track.
+    AudioController.effectiveInstance.notifyRunRestarted(_biomeForLevel());
     _controller.repeat();
     setState(() {
       _snapshot = _engine.snapshot();
@@ -833,6 +983,7 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   Future<void> _openGuide() async {
     if (!_paused) {
       _paused = true;
+      AudioController.effectiveInstance.pauseMusic();
       _controller.stop();
       setState(() {});
     }
@@ -1671,6 +1822,11 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                                             );
                                             _engine.startRunning();
                                             _engine.triggerCinematic();
+                                            // Restart music + re-baseline the
+                                            // audio trackers for the new run.
+                                            AudioController.effectiveInstance
+                                                .notifyRunRestarted(
+                                                    _biomeForLevel());
                                             setState(() {
                                               _snapshot = _engine.snapshot();
                                             });
@@ -1702,6 +1858,9 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                                             _engine.jump();
                                             _engine.tick(1 / 60.0);
                                             _engine.triggerCinematic();
+                                            AudioController
+                                                .effectiveInstance
+                                                .play(SoundEffect.jump);
                                             if (_settings.vibrationsEnabled) {
                                               vibrate(HapticIntensity.heavy);
                                             }

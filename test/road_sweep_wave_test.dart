@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:flutter_app/game/audio/audio_controller.dart';
+import 'package:flutter_app/game/audio/sound_effects.dart';
 import 'package:flutter_app/game/settings/legendary_defs.dart';
 import 'package:flutter_app/game/settings/skill_controller.dart';
 import 'package:flutter_app/game/ui/stickman_run_screen.dart';
+
+import 'fake_audio_players.dart';
 
 /// Verifies the ROAD SWEEP legendary combo (attack · jump · jump) fires
 /// from the buttons control scheme and that the fire-rain cinematic (falling
@@ -15,6 +19,23 @@ void main() {
   testWidgets('ROAD SWEEP triggers in button mode via ATTACK,JUMP,JUMP', (
     tester,
   ) async {
+    // Hermetic audio: real AudioPlayers need platform plugins (missing on
+    // Windows CI without Developer Mode). Use fakes so gameplay tests never
+    // touch audio hardware.
+    final fakes = <FakeAudioPlayer>[];
+    final sfx = FakeSfxEngine();
+    final audio = AudioController(
+      playerFactory: () {
+        final f = FakeAudioPlayer();
+        fakes.add(f);
+        return f;
+      },
+      sfxEngine: sfx,
+    );
+    AudioController.testInstance = audio;
+    addTearDown(() => AudioController.testInstance = null);
+    await audio.initialize();
+
     final sc = SkillController.instance;
     sc.debugResetForTests();
     await sc.awardCoins(100000);
@@ -53,6 +74,13 @@ void main() {
       reason: 'ATTACK button',
     );
 
+    // Let obstacles spawn and scroll on-screen so the sweep has targets to
+    // destroy (spawn starts ~3s after START RUN; an empty road deals no
+    // damage and would make the damage-SFX assertion vacuous).
+    for (var i = 0; i < 30; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
     // Attack -> jump -> jump. The jump input has a ~180ms REAL-time micro
     // cooldown, so wait it out for real between the two jumps (pump() only
     // advances the fake clock). No need to wait out the smash cooldown.
@@ -78,6 +106,11 @@ void main() {
     for (var i = 0; i < 40; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
+    // Each sweep explosion deals damage: the damage SFX must have fired at
+    // least once during the window (activation alone plays the legendary
+    // stinger, not hit).
+    expect(sfx.playCount(SoundEffect.hit), greaterThan(0),
+        reason: 'road sweep explosions must play the damage SFX');
     expect(tester.takeException(), isNull);
   });
 }

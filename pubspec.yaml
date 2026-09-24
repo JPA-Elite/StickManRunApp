@@ -11,6 +11,8 @@ dependencies:
     sdk: flutter
 
   shared_preferences: ^2.3.0
+  audioplayers: ^6.1.0
+  flutter_soloud: ^4.1.7
 
 dev_dependencies:
   flutter_test:
@@ -66,3 +68,39 @@ flutter:
     - assets/images/nightcity_background.png
     - assets/images/darkcave_background.png
     - assets/images/volcano_background.png
+    # SFX
+    - assets/audio/sfx/jump.wav
+    - assets/audio/sfx/crawl.wav
+    - assets/audio/sfx/smash.wav
+    - assets/audio/sfx/smash_ready.wav
+    - assets/audio/sfx/coin_collect.wav
+    - assets/audio/sfx/coin_streak.wav
+    - assets/audio/sfx/powerup_shield.wav
+    - assets/audio/sfx/powerup_magnet.wav
+    - assets/audio/sfx/heal.wav
+    - assets/audio/sfx/hit.wav
+    - assets/audio/sfx/game_over.wav
+    - assets/audio/sfx/level_complete.wav
+    - assets/audio/sfx/theme_transition.wav
+    - assets/audio/sfx/combo_increase.wav
+    - assets/audio/sfx/legendary_auto_strike.wav
+    - assets/audio/sfx/legendary_tempest.wav
+    - assets/audio/sfx/legendary_road_sweep.wav
+    - assets/audio/sfx/legendary_gold_rush.wav
+    - assets/audio/sfx/legendary_reverse_run.wav
+    - assets/audio/sfx/button_click.wav
+    - assets/audio/sfx/menu_open.wav
+    - assets/audio/sfx/menu_close.wav
+    # Music (MP3 = universal: Android, iOS, web; OGG kept as fallback)
+    - assets/audio/music/menu_theme.mp3
+    - assets/audio/music/gameplay_forest.mp3
+    - assets/audio/music/gameplay_desert.mp3
+    - assets/audio/music/gameplay_nightcity.mp3
+    - assets/audio/music/gameplay_cave.mp3
+    - assets/audio/music/gameplay_volcano.mp3
+    - assets/audio/music/menu_theme.ogg
+    - assets/audio/music/gameplay_forest.ogg
+    - assets/audio/music/gameplay_desert.ogg
+    - assets/audio/music/gameplay_nightcity.ogg
+    - assets/audio/music/gameplay_cave.ogg
+    - assets/audio/music/gameplay_volcano.ogg

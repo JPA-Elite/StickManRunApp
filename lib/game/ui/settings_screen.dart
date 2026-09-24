@@ -98,6 +98,42 @@ class SettingsScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     _SettingsPanel(
+                      title: 'AUDIO',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _SettingRow(
+                            label: 'BACKGROUND MUSIC',
+                            control: _ArcadeSwitch(
+                              value: settings.musicEnabled,
+                              onChanged:
+                                  SettingsController.instance.setMusicEnabled,
+                            ),
+                          ),
+                          _ArcadeSlider(
+                            value: settings.musicVolume,
+                            onChanged:
+                                SettingsController.instance.setMusicVolume,
+                          ),
+                          const _RowDivider(),
+                          _SettingRow(
+                            label: 'SOUND EFFECTS',
+                            control: _ArcadeSwitch(
+                              value: settings.sfxEnabled,
+                              onChanged:
+                                  SettingsController.instance.setSfxEnabled,
+                            ),
+                          ),
+                          _ArcadeSlider(
+                            value: settings.sfxVolume,
+                            onChanged:
+                                SettingsController.instance.setSfxVolume,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _SettingsPanel(
                       title: 'APPEARANCE',
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -851,6 +887,28 @@ class _ArcadeSwitch extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Yellow-accented volume slider used under the AUDIO toggles. Compact height
+/// so it lines up with its toggle row.
+class _ArcadeSlider extends StatelessWidget {
+  final double value;
+  final ValueChanged<double> onChanged;
+
+  const _ArcadeSlider({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 28,
+      child: Slider(
+        value: value.clamp(0.0, 1.0),
+        onChanged: onChanged,
+        activeColor: Colors.yellow,
+        inactiveColor: Colors.white24,
       ),
     );
   }

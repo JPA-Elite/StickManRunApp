@@ -2,7 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../audio/audio_controller.dart';
+import '../audio/sound_effects.dart';
 import '../settings/legendary_defs.dart';
+import 'coin_amount.dart';
 import '../settings/skill_controller.dart';
 import '../settings/skill_defs.dart';
 import 'shop_screen.dart';
@@ -131,6 +134,11 @@ class _SkillsScreenState extends State<SkillsScreen> {
                         listenable: SkillController.instance,
                         builder: (context, _) => GestureDetector(
                           onTap: () {
+                            // Same open sound as Skills / Score History.
+                            final audio =
+                                AudioController.effectiveInstance;
+                            audio.play(SoundEffect.buttonClick);
+                            audio.play(SoundEffect.menuOpen);
                             Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) => const ShopScreen(),
@@ -447,9 +455,20 @@ class _AsyncActionButton extends StatelessWidget {
         disabledBackgroundColor: Colors.white.withValues(alpha: 0.08),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       ),
-      child: Text(
-        '${enabled ? '$label ' : ''}$cost◆',
-        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          CoinIcon(
+            size: 12,
+            color: enabled ? Colors.black : Colors.white,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '${enabled ? '$label ' : ''}$cost',
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+          ),
+        ],
       ),
     );
   }
@@ -1276,12 +1295,23 @@ class _UpgradeInfoDialog extends StatelessWidget {
                       vertical: 9,
                     ),
                   ),
-                  child: Text(
-                    'UPGRADE $cost◆',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 12,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      CoinIcon(
+                        size: 12,
+                        color: canAfford ? Colors.black : Colors.white,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'UPGRADE $cost',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -1369,8 +1399,8 @@ class _UpgradeTierRow extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                 ],
-                Text(
-                  '${tier.cost}◆',
+                CoinAmount(
+                  amount: '${tier.cost}',
                   style: const TextStyle(
                     color: Color(0xFFFFD700),
                     fontWeight: FontWeight.w900,
@@ -1523,7 +1553,7 @@ Future<void> _showSuccessModal(
               ),
             ),
             const SizedBox(height: 8),
-            Text(
+            CoinText(
               message,
               textAlign: TextAlign.center,
               style: TextStyle(
@@ -1873,7 +1903,7 @@ class _LegendaryInfoDialog extends StatelessWidget {
             const SizedBox(height: 10),
             _LegendaryStatsLine(def: def),
             const SizedBox(height: 6),
-            Text(
+            CoinText(
               '${def.cost}◆ to buy · ready to use in your next run',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.55),

@@ -126,6 +126,18 @@ class GameSettings {
   /// When true, the device vibrates on smash and on hitting an obstacle.
   final bool vibrationsEnabled;
 
+  /// Whether looping background music plays (menus + gameplay).
+  final bool musicEnabled;
+
+  /// Whether one-shot sound effects play.
+  final bool sfxEnabled;
+
+  /// Background music loudness (0..1).
+  final double musicVolume;
+
+  /// Sound effect loudness (0..1).
+  final double sfxVolume;
+
   /// Normalized (0..1, 0..1) position of the SMASH (attack) button center
   /// within the play area (origin = top-left). Only used in BUTTONS mode.
   final double attackButtonDx;
@@ -154,6 +166,10 @@ class GameSettings {
     this.highContrast = false,
     this.controlScheme = ControlScheme.buttons,
     this.vibrationsEnabled = false,
+    this.musicEnabled = true,
+    this.sfxEnabled = true,
+    this.musicVolume = 0.7,
+    this.sfxVolume = 1.0,
     this.attackButtonDx = 0.07,
     this.attackButtonDy = 0.865,
     this.jumpButtonDx = 0.855,
@@ -172,6 +188,10 @@ class GameSettings {
     bool? highContrast,
     ControlScheme? controlScheme,
     bool? vibrationsEnabled,
+    bool? musicEnabled,
+    bool? sfxEnabled,
+    double? musicVolume,
+    double? sfxVolume,
     double? attackButtonDx,
     double? attackButtonDy,
     double? jumpButtonDx,
@@ -189,6 +209,10 @@ class GameSettings {
       highContrast: highContrast ?? this.highContrast,
       controlScheme: controlScheme ?? this.controlScheme,
       vibrationsEnabled: vibrationsEnabled ?? this.vibrationsEnabled,
+      musicEnabled: musicEnabled ?? this.musicEnabled,
+      sfxEnabled: sfxEnabled ?? this.sfxEnabled,
+      musicVolume: musicVolume ?? this.musicVolume,
+      sfxVolume: sfxVolume ?? this.sfxVolume,
       attackButtonDx: attackButtonDx ?? this.attackButtonDx,
       attackButtonDy: attackButtonDy ?? this.attackButtonDy,
       jumpButtonDx: jumpButtonDx ?? this.jumpButtonDx,

@@ -3,7 +3,10 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../audio/audio_controller.dart';
+import '../audio/sound_effects.dart';
 import '../settings/shop.dart';
+import 'coin_amount.dart';
 import '../settings/skill_controller.dart';
 
 /// Coin shop page: a one-time welcome bonus plus purchasable coin packs.
@@ -32,15 +35,53 @@ class _ShopScreenState extends State<ShopScreen> {
   }
 
   Future<void> _claimBonus() async {
+    final audio = AudioController.effectiveInstance;
+    audio.play(SoundEffect.buttonClick);
+    audio.play(SoundEffect.menuOpen);
     final controller = ShopController.instance;
     final ok = await controller.claimBonus();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          ok ? 'Welcome bonus claimed: +${ShopController.welcomeBonusCoins}◆!' : 'Bonus already claimed.',
+    // Result modal (replaces the old toast) so the reward is unmissable.
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF111318),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: _gold, width: 2),
         ),
-        backgroundColor: Colors.orangeAccent,
+        title: Text(
+          ok ? 'BONUS CLAIMED!' : 'ALREADY CLAIMED',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: _gold,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1,
+          ),
+        ),
+        content: CoinText(
+          ok
+              ? 'Welcome bonus claimed: +${ShopController.welcomeBonusCoins}◆!\nSpend it on skills and packs.'
+              : 'Bonus already claimed.',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text(
+              'OK',
+              style: TextStyle(
+                color: Colors.yellow,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -227,8 +268,10 @@ class _ShopScreenState extends State<ShopScreen> {
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              Text(
-                                '+${ShopController.welcomeBonusCoins}◆',
+                              CoinAmount(
+                                amount:
+                                    '+${ShopController.welcomeBonusCoins}',
+                                alignment: MainAxisAlignment.center,
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w900,
