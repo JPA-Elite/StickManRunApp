@@ -42,47 +42,14 @@ class _ShopScreenState extends State<ShopScreen> {
     final ok = await controller.claimBonus();
     if (!mounted) return;
     // Result modal (replaces the old toast) so the reward is unmissable.
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF111318),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: _gold, width: 2),
-        ),
-        title: Text(
-          ok ? 'BONUS CLAIMED!' : 'ALREADY CLAIMED',
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: _gold,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1,
-          ),
-        ),
-        content: CoinText(
-          ok
-              ? 'Welcome bonus claimed: +${ShopController.welcomeBonusCoins}◆!\nSpend it on skills and packs.'
-              : 'Bonus already claimed.',
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text(
-              'OK',
-              style: TextStyle(
-                color: Colors.yellow,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-        ],
-      ),
+    // Shared chrome with the daily streak claim modal.
+    await showCoinsClaimedModal(
+      context,
+      title: ok ? 'BONUS CLAIMED!' : 'ALREADY CLAIMED',
+      amountLine: ok ? '+${ShopController.welcomeBonusCoins}◆' : null,
+      message: ok
+          ? 'Welcome bonus claimed!\nSpend it on skills and packs.'
+          : 'Bonus already claimed.',
     );
   }
 

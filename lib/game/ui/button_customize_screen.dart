@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../engine/entities.dart';
 import '../engine/level_config.dart' as lc;
@@ -33,10 +36,93 @@ class _ButtonCustomizeScreenState extends State<ButtonCustomizeScreen> {
   /// loading spinner and ignores further taps.
   bool _saving = false;
 
+  /// In-game visuals for the preview: the level background image plus the
+  /// stickman run-cycle sprites, decoded like the real run screen does.
+  final Map<String, ui.Image> _sprites = {};
+
+  static const List<String> _previewSpriteAssets = [
+    'assets/images/forest_background.png',
+    'assets/sprites/stickman_run_1.png',
+    'assets/sprites/stickman_run_2.png',
+    'assets/sprites/stickman_run_3.png',
+    'assets/sprites/stickman_run_4.png',
+    'assets/sprites/stickman_run_5.png',
+    'assets/sprites/stickman_run_6.png',
+  ];
+
   @override
   void initState() {
     super.initState();
     _draft = SettingsController.instance.settings;
+    _loadPreviewSprites();
+  }
+
+  @override
+  void dispose() {
+    for (final image in _sprites.values) {
+      image.dispose();
+    }
+    _sprites.clear();
+    super.dispose();
+  }
+
+  /// Decodes the preview background + hero frames. Run frames are inverted
+  /// (black→white) exactly like the run screen so the painter can tint them
+  /// with the stickman color via `BlendMode.srcIn`.
+  Future<void> _loadPreviewSprites() async {
+    for (final asset in _previewSpriteAssets) {
+      try {
+        final data = await rootBundle.load(asset);
+        final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
+        final frame = await codec.getNextFrame();
+        var image = frame.image;
+        if (asset.contains('stickman_run_')) {
+          try {
+            final inverted = await _invertColors(image);
+            if (!identical(inverted, image)) {
+              image = inverted;
+              frame.image.dispose();
+            }
+          } catch (_) {}
+        }
+        if (!mounted) {
+          image.dispose();
+          return;
+        }
+        setState(() => _sprites[asset] = image);
+      } catch (_) {
+        // Keep the painter's gradient/hand-drawn fallback for this asset.
+      }
+    }
+  }
+
+  /// Inverts RGB of every opaque pixel (black↔white), preserving alpha.
+  Future<ui.Image> _invertColors(ui.Image image) async {
+    final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+    if (data == null) return image;
+    final src = data.buffer.asUint8List();
+    final out = Uint8List(src.length);
+    for (var i = 0; i < src.length; i += 4) {
+      final a = src[i + 3];
+      if (a == 0) {
+        out[i + 3] = 0;
+      } else {
+        out[i] = 255 - src[i];
+        out[i + 1] = 255 - src[i + 1];
+        out[i + 2] = 255 - src[i + 2];
+        out[i + 3] = a;
+      }
+    }
+    final buffer = await ui.ImmutableBuffer.fromUint8List(out);
+    final descriptor = ui.ImageDescriptor.raw(
+      buffer,
+      width: image.width,
+      height: image.height,
+      pixelFormat: ui.PixelFormat.rgba8888,
+    );
+    final codec = await descriptor.instantiateCodec();
+    final frame = await codec.getNextFrame();
+    return frame.image;
   }
 
   StickmanRunSnapshot _previewSnapshot(double width, double height) {
@@ -143,6 +229,7 @@ class _ButtonCustomizeScreenState extends State<ButtonCustomizeScreen> {
                         height: height,
                         stickmanColor: Color(s.stickmanColor),
                         highContrast: s.highContrast,
+                        sprites: _sprites,
                       ),
                     ),
                   ),
@@ -167,8 +254,7 @@ class _ButtonCustomizeScreenState extends State<ButtonCustomizeScreen> {
                   scale: s.crawlButtonScale,
                   buttonW: 52,
                   buttonH: 52,
-                  button:
-                      _buildCrawlVisual(scale: s.crawlButtonScale),
+                  button: _buildCrawlVisual(scale: s.crawlButtonScale),
                 ),
                 _buildResizableButton(
                   width: width,
@@ -179,9 +265,7 @@ class _ButtonCustomizeScreenState extends State<ButtonCustomizeScreen> {
                   scale: s.attackButtonScale,
                   buttonW: 64,
                   buttonH: 72,
-                  button: _buildSmashButtonVisual(
-                    scale: s.attackButtonScale,
-                  ),
+                  button: _buildSmashButtonVisual(scale: s.attackButtonScale),
                 ),
                 _buildTopBar(),
               ],
@@ -243,7 +327,9 @@ class _ButtonCustomizeScreenState extends State<ButtonCustomizeScreen> {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: _saving ? Colors.yellow.withValues(alpha: 0.5) : Colors.yellow,
+                  color: _saving
+                      ? Colors.yellow.withValues(alpha: 0.5)
+                      : Colors.yellow,
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Row(

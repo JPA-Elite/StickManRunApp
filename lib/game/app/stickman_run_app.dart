@@ -1134,9 +1134,12 @@ class _CarouselLevelCard extends StatelessWidget {
     return AnimatedScale(
       scale: scale,
       duration: const Duration(milliseconds: 250),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
-        child: Container(
+      child: AnimatedOpacity(
+        opacity: isActive ? 1.0 : 0.55,
+        duration: const Duration(milliseconds: 250),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
+          child: Container(
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             border: Border.all(color: border, width: isActive ? 4 : 3),
@@ -1384,6 +1387,7 @@ class _CarouselLevelCard extends StatelessWidget {
               ),
             ],
           ),
+        ),
         ),
       ),
     );

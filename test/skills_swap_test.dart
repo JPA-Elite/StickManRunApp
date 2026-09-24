@@ -244,8 +244,18 @@ void main() {
     final buyButton = find.text('BUY 9000').first;
     await tester.ensureVisible(buyButton);
     await tester.tap(buyButton);
+    await tester.pumpAndSettle();
 
-    // The loading dialog is shown right after the tap.
+    // Buying a legendary now asks for confirmation first.
+    await tester.pumpAndSettle();
+    final confirmButton = find.descendant(
+      of: find.byType(Dialog),
+      matching: find.text('BUY 9000'),
+    );
+    expect(confirmButton, findsOneWidget);
+    await tester.tap(confirmButton);
+
+    // The loading dialog is shown right after confirming.
     await tester.pump();
     expect(find.text('PROCESSING…'), findsOneWidget);
 

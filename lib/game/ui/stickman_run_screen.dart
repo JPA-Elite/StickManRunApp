@@ -83,26 +83,21 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   final Map<String, ui.Image> _sprites = {};
   final Map<String, Color> _spriteColors = {};
 
+  // Decode order matters: the hero run cycle first so the START RUN jump
+  // never falls back to the hand-drawn body, then backgrounds, then the
+  // attack/crawl sequences, with obstacles and pickups last.
   static const List<String> _spriteAssets = [
-    'assets/images/cactus_obstacle.png',
-    'assets/images/spike_obstacle.png',
-    'assets/images/stalagmite_obstacle.png',
-    'assets/images/rollingrock_obstacle.png',
-    'assets/images/drone_obstacle.png',
-    'assets/images/laser_obstacle.png',
-    'assets/images/bat_obstacle.png',
-    'assets/images/firejet_obstacle.png',
-    'assets/images/fireball_obstacle.png',
-    'assets/images/pendulummine_obstacle.png',
-    'assets/sprites/coin.png',
-    'assets/sprites/magnet.png',
-    'assets/sprites/shield.png',
     'assets/sprites/stickman_run_1.png',
     'assets/sprites/stickman_run_2.png',
     'assets/sprites/stickman_run_3.png',
     'assets/sprites/stickman_run_4.png',
     'assets/sprites/stickman_run_5.png',
     'assets/sprites/stickman_run_6.png',
+    'assets/images/forest_background.png',
+    'assets/images/desert_background.png',
+    'assets/images/nightcity_background.png',
+    'assets/images/darkcave_background.png',
+    'assets/images/volcano_background.png',
     'assets/sprites/stickman_attack_1.png',
     'assets/sprites/stickman_attack_2.png',
     'assets/sprites/stickman_attack_3.png',
@@ -123,12 +118,34 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     'assets/sprites/stickman_crawl_10.png',
     'assets/sprites/stickman_crawl_11.png',
     'assets/sprites/stickman_crawl_12.png',
-    'assets/images/forest_background.png',
-    'assets/images/desert_background.png',
-    'assets/images/nightcity_background.png',
-    'assets/images/darkcave_background.png',
-    'assets/images/volcano_background.png',
+    'assets/images/cactus_obstacle.png',
+    'assets/images/spike_obstacle.png',
+    'assets/images/stalagmite_obstacle.png',
+    'assets/images/rollingrock_obstacle.png',
+    'assets/images/drone_obstacle.png',
+    'assets/images/laser_obstacle.png',
+    'assets/images/bat_obstacle.png',
+    'assets/images/firejet_obstacle.png',
+    'assets/images/fireball_obstacle.png',
+    'assets/images/pendulummine_obstacle.png',
+    'assets/sprites/coin.png',
+    'assets/sprites/magnet.png',
+    'assets/sprites/shield.png',
   ];
+
+  /// True once every sprite asset has been attempted (success or fallback),
+  /// so the lobby never waits forever on a failed decode.
+  bool _spriteLoadDone = false;
+
+  /// The run cycle is fully decoded — the opening jump can play in sprites.
+  bool get _runSpritesReady {
+    for (var i = 1; i <= 6; i++) {
+      if (!_sprites.containsKey('assets/sprites/stickman_run_$i.png')) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   @override
   void initState() {
@@ -180,6 +197,8 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     for (final asset in _spriteAssets) {
       await _loadSprite(asset);
     }
+    if (!mounted) return;
+    setState(() => _spriteLoadDone = true);
   }
 
   /// Decodes obstacle sprites at a small size so their crisp, high-res detail
@@ -502,9 +521,10 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   bool _audioWasHealing = false;
   bool _audioWasShielded = false;
   bool _audioWasMagnetized = false;
-  double _audioPrevSmashCooldownSec = 0;
   int _audioThemeIndex = 0;
   int _audioLastSweepShockwaves = 0;
+  int _audioLastTempestZaps = 0;
+  bool _audioWasReversing = false;
 
   /// Biome index for music selection: levels 1-5 map directly to their
   /// biome; endless mode (6+) follows the engine's random theme index.
@@ -523,9 +543,10 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     _audioWasHealing = s.healFlashSec > 0;
     _audioWasShielded = s.shieldActive;
     _audioWasMagnetized = s.magnetActive;
-    _audioPrevSmashCooldownSec = s.smashCooldownSec;
     _audioThemeIndex = s.randomThemeIndex;
     _audioLastSweepShockwaves = s.sweepShockwaves.length;
+    _audioLastTempestZaps = s.tempestZaps.length;
+    _audioWasReversing = s.reversing;
   }
 
   /// Maps each legendary skill to its activation sound.
@@ -667,9 +688,14 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
       }
     }
 
-    // Vibrate on skill damage (legendary skills destroying obstacles).
+    // Skill damage feedback: vibration always; plus a strike swoosh for
+    // every AUTO-STRIKE hit (one voice per frame max, no matter how many
+    // targets the strike wiped).
     if (_snapshot.skillDamageCount != _lastSkillDamageCount) {
       _lastSkillDamageCount = _snapshot.skillDamageCount;
+      if (_snapshot.autoStrikeSec > 0) {
+        AudioController.effectiveInstance.play(SoundEffect.smash);
+      }
       if (_settings.vibrationsEnabled) {
         vibrate(HapticIntensity.medium);
       }
@@ -686,6 +712,24 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
       AudioController.effectiveInstance.play(SoundEffect.hit);
     }
     _audioLastSweepShockwaves = sweepShockwaveCount;
+
+    // TIME REWIND payoff: the closing temporal shockwave gets the page-open
+    // swoosh the moment the rewind window ends (falling edge of the reversing
+    // flag) — fired even when the burst caught no obstacles.
+    if (_audioWasReversing && !_snapshot.reversing) {
+      AudioController.effectiveInstance.play(SoundEffect.menuOpen);
+    }
+    _audioWasReversing = _snapshot.reversing;
+
+    // TEMPEST storm: replay the lightning stinger for every bolt that
+    // appears on screen (the engine strikes about every 0.8s while the
+    // window is open), not just once at activation. One voice per frame max.
+    final tempestZapCount = _snapshot.tempestZaps.length;
+    if (tempestZapCount > _audioLastTempestZaps &&
+        _snapshot.tempestSec > 0) {
+      AudioController.effectiveInstance.play(SoundEffect.legendaryTempest);
+    }
+    _audioLastTempestZaps = tempestZapCount;
 
     _fireFrameAudioCues();
 
@@ -776,12 +820,6 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
       audio.play(SoundEffect.powerupMagnet);
     }
     _audioWasMagnetized = _snapshot.magnetActive;
-
-    // Smash recharged.
-    if (_audioPrevSmashCooldownSec > 0 && _snapshot.smashCooldownSec <= 0) {
-      audio.play(SoundEffect.smashReady);
-    }
-    _audioPrevSmashCooldownSec = _snapshot.smashCooldownSec;
 
     // Biome transition: theme stinger + music switch in the same frame as
     // the visual cross-fade (single detection point = always in sync).
@@ -1839,21 +1877,11 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                                           ),
                                         ),
                                       if (isReady)
-                                        ElevatedButton(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.white
-                                                .withOpacity(0.9),
-                                            foregroundColor: Colors.black,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(14),
-                                            ),
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 20,
-                                              vertical: 12,
-                                            ),
-                                          ),
-                                          onPressed: () {
+                                        _StartRunButton(
+                                          enabled:
+                                              _runSpritesReady ||
+                                              _spriteLoadDone,
+                                          onStart: () {
                                             _engine.startRunning();
                                             _engine.jump();
                                             _engine.tick(1 / 60.0);
@@ -1868,12 +1896,6 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
                                               _snapshot = _engine.snapshot();
                                             });
                                           },
-                                          child: const Text(
-                                            'START RUN',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w900,
-                                            ),
-                                          ),
                                         ),
                                       // EXIT button.
                                       Padding(
@@ -1984,6 +2006,37 @@ class _TopCircleButton extends StatelessWidget {
           ),
           child: Icon(icon, color: Colors.white, size: 22),
         ),
+      ),
+    );
+  }
+}
+
+/// START RUN lobby button. Stays in a disabled LOADING state until the hero
+/// run-cycle sprites are decoded, so the opening jump always plays in
+/// sprites and never falls back to the hand-drawn body.
+class _StartRunButton extends StatelessWidget {
+  final bool enabled;
+  final VoidCallback onStart;
+
+  const _StartRunButton({required this.enabled, required this.onStart});
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.white.withOpacity(0.9),
+        foregroundColor: Colors.black,
+        disabledBackgroundColor: Colors.white.withOpacity(0.25),
+        disabledForegroundColor: Colors.black.withOpacity(0.5),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      ),
+      onPressed: enabled ? onStart : null,
+      child: Text(
+        enabled ? 'START RUN' : 'LOADING...',
+        style: const TextStyle(fontWeight: FontWeight.w900),
       ),
     );
   }

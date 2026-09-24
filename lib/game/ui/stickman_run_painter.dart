@@ -1241,10 +1241,10 @@ class StickmanRunPainter extends CustomPainter {
     // sequence plays instead (crouch start -> low sprint -> rise back up).
     final attackFrame = _currentAttackFrame();
     final crawlFrame = _currentCrawlFrame();
-    // Show the sprite while running and during game over. Previously this
-    // required `isRunning`, so on death the stickman reverted to the
-    // hand-drawn procedural body instead of keeping its sprite.
-    final showSprite = isRunning || snapshot.status == GameStatus.gameOver;
+    // Show the sprite in every state (ready lobby, running, game over,
+    // level complete) once frames are loaded — the hand-drawn procedural
+    // body is only a fallback while sprites are still decoding.
+    final showSprite = true;
     final useSprite =
         (attackFrame ?? crawlFrame ?? runFrame) != null && showSprite;
 

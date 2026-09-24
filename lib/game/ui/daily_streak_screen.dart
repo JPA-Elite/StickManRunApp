@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../audio/audio_controller.dart';
+import '../audio/sound_effects.dart';
 import '../settings/daily_mission.dart';
 import '../settings/daily_streak.dart';
 import '../settings/skill_controller.dart';
+import 'coin_amount.dart';
 
 /// Daily check-in streak page. Shows the current streak, allows manual
 /// check-in, displays the rewards track, and lists past check-in history.
@@ -36,16 +39,22 @@ class _DailyStreakScreenState extends State<DailyStreakScreen>
   }
 
   void _checkIn() async {
+    final audio = AudioController.effectiveInstance;
+    audio.play(SoundEffect.buttonClick);
+    audio.play(SoundEffect.menuOpen);
     final controller = DailyStreakController.instance;
     final awarded = await controller.checkIn();
     if (!mounted) return;
     if (awarded != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Claimed $awarded◆!'),
-          backgroundColor: Colors.orangeAccent,
-        ),
+      // Same reward modal chrome as the shop welcome bonus.
+      await showCoinsClaimedModal(
+        context,
+        title: 'CHECK-IN CLAIMED!',
+        amountLine: '+$awarded◆',
+        message: 'See you tomorrow to keep the streak alive!',
+        accent: Colors.orangeAccent,
       );
+      if (!mounted) return;
       // Celebrate when hitting a milestone streak.
       final streak = controller.currentStreak;
       if (DailyStreakController.streakRewards.containsKey(streak)) {
@@ -211,16 +220,35 @@ class _DailyStreakScreenState extends State<DailyStreakScreen>
                               ),
                               padding: const EdgeInsets.symmetric(vertical: 14),
                             ),
-                            child: Text(
-                              checkedIn
-                                  ? 'CHECKED IN TODAY ✓'
-                                  : 'CHECK IN +$nextReward◆',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w900,
-                                fontSize: 16,
-                                letterSpacing: 1,
-                              ),
-                            ),
+                            child: checkedIn
+                                ? const Text(
+                                    'CHECKED IN TODAY ✓',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 16,
+                                      letterSpacing: 1,
+                                    ),
+                                  )
+                                : Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      const CoinIcon(
+                                        size: 16,
+                                        color: Colors.black,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'CHECK IN +$nextReward',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 16,
+                                          letterSpacing: 1,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -306,7 +334,7 @@ class _DailyStreakScreenState extends State<DailyStreakScreen>
                                 ),
                               ),
                               const Spacer(),
-                              Text(
+                              CoinText(
                                 'NEXT: $nextReward◆${nextMilestone > 0 ? ' +$nextMilestone◆ BONUS' : ''}',
                                 style: const TextStyle(
                                   color: Color(0xFFFFD700),
@@ -487,7 +515,7 @@ class _DailyStreakScreenState extends State<DailyStreakScreen>
                               ),
                             ),
                             const SizedBox(height: 8),
-                            Text(
+                            CoinText(
                               'MILESTONE BONUS: +$reward◆',
                               style: const TextStyle(
                                 color: Colors.white,
@@ -690,8 +718,9 @@ class _MilestoneProgress extends StatelessWidget {
                 ),
               ),
               if (next != null)
-                Text(
+                CoinText(
                   'DAY $next · +$reward◆',
+                  iconColor: Colors.orangeAccent,
                   style: const TextStyle(
                     color: Colors.orangeAccent,
                     fontWeight: FontWeight.w900,
@@ -711,7 +740,7 @@ class _MilestoneProgress extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Text(
+          CoinText(
             next == null
                 ? 'ALL MILESTONES UNLOCKED!'
                 : '$daysLeft DAY${daysLeft == 1 ? '' : 'S'} TO $reward◆ BONUS',
@@ -849,8 +878,10 @@ class _CalendarDayCell extends StatelessWidget {
                   ),
                 )
               else if (reward != null)
-                Text(
+                CoinText(
                   '$reward◆',
+                  textAlign: TextAlign.center,
+                  iconColor: color,
                   style: TextStyle(
                     color: color,
                     fontSize: 11,
@@ -925,7 +956,7 @@ class _StatTile extends StatelessWidget {
         children: [
           Icon(icon, color: Colors.orangeAccent, size: 18),
           const SizedBox(height: 8),
-          Text(
+          CoinText(
             value,
             style: const TextStyle(
               color: Colors.white,
@@ -1011,8 +1042,9 @@ class _DailyMissionCard extends StatelessWidget {
                   letterSpacing: 1.2,
                 ),
               ),
-              Text(
-                '$reward◆',
+              CoinAmount(
+                amount: '$reward',
+                iconColor: Colors.orangeAccent,
                 style: const TextStyle(
                   color: Colors.orangeAccent,
                   fontWeight: FontWeight.w900,
@@ -1065,13 +1097,17 @@ class _DailyMissionCard extends StatelessWidget {
                   ? null
                   : completed
                       ? () async {
+                          final audio =
+                              AudioController.effectiveInstance;
+                          audio.play(SoundEffect.buttonClick);
+                          audio.play(SoundEffect.menuOpen);
                           await controller.claim();
                           if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Claimed $reward◆!'),
-                                backgroundColor: Colors.orangeAccent,
-                              ),
+                            await showCoinsClaimedModal(
+                              context,
+                              title: 'REWARD CLAIMED!',
+                              amountLine: '+$reward◆',
+                              accent: Colors.orangeAccent,
                             );
                           }
                         }
@@ -1164,8 +1200,11 @@ class _RewardBadge extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            '$reward◆',
+          CoinAmount(
+            amount: '$reward',
+            iconColor: achieved
+                ? Colors.orangeAccent
+                : Colors.white.withValues(alpha: 0.4),
             style: TextStyle(
               color: achieved
                   ? Colors.orangeAccent

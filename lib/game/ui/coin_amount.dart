@@ -114,3 +114,81 @@ class CoinText extends StatelessWidget {
     );
   }
 }
+
+/// Shared reward-claimed modal: the same chrome the shop uses for the welcome
+/// bonus (dark panel, accent border, big icon + amount, message, OK).
+/// [amountLine] may contain `◆` markers — they are stripped since the big
+/// [CoinAmount] already carries the icon. [message] may also contain `◆`.
+Future<void> showCoinsClaimedModal(
+  BuildContext context, {
+  required String title,
+  String? amountLine,
+  String? message,
+  Color accent = kCoinGold,
+}) {
+  return showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      backgroundColor: const Color(0xFF111318),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: accent, width: 2),
+      ),
+      title: Text(
+        title,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: accent,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1,
+        ),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (amountLine != null) ...[
+            const Icon(
+              Icons.card_giftcard,
+              color: kCoinGold,
+              size: 40,
+            ),
+            const SizedBox(height: 8),
+            CoinAmount(
+              amount: amountLine.replaceAll('◆', ''),
+              iconColor: accent,
+              alignment: MainAxisAlignment.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 26,
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+          if (message != null)
+            CoinText(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+        ],
+      ),
+      actionsAlignment: MainAxisAlignment.center,
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text(
+            'OK',
+            style: TextStyle(
+              color: Colors.yellow,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}

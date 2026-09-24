@@ -18,6 +18,15 @@ const Color _modalBorder = Colors.yellow;
 const double _modalBorderWidth = 2;
 const double _modalRadius = 18;
 
+/// Shared UI tap feedback for the skills page (click + open/close whoosh),
+/// matching the home screen's tap sound. Kept local to avoid a UI import
+/// cycle with the app shell.
+void _playSkillTap({bool opening = true}) {
+  final audio = AudioController.effectiveInstance;
+  audio.play(SoundEffect.buttonClick);
+  audio.play(opening ? SoundEffect.menuOpen : SoundEffect.menuClose);
+}
+
 /// Cinematic arcade-style page for purchasing the always-active skill upgrades
 /// and single-purchase legendary skills, funded by coins collected during runs.
 class SkillsScreen extends StatefulWidget {
@@ -135,8 +144,7 @@ class _SkillsScreenState extends State<SkillsScreen> {
                         builder: (context, _) => GestureDetector(
                           onTap: () {
                             // Same open sound as Skills / Score History.
-                            final audio =
-                                AudioController.effectiveInstance;
+                            final audio = AudioController.effectiveInstance;
                             audio.play(SoundEffect.buttonClick);
                             audio.play(SoundEffect.menuOpen);
                             Navigator.of(context).push(
@@ -438,6 +446,7 @@ class _AsyncActionButton extends StatelessWidget {
     return ElevatedButton(
       onPressed: enabled
           ? () async {
+              AudioController.effectiveInstance.play(SoundEffect.buttonClick);
               if (onConfirm != null && !await onConfirm!()) return;
               if (!context.mounted) return;
               final navigator = Navigator.of(context);
@@ -459,10 +468,7 @@ class _AsyncActionButton extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          CoinIcon(
-            size: 12,
-            color: enabled ? Colors.black : Colors.white,
-          ),
+          CoinIcon(size: 12, color: enabled ? Colors.black : Colors.white),
           const SizedBox(width: 4),
           Text(
             '${enabled ? '$label ' : ''}$cost',
@@ -499,10 +505,7 @@ class _ProcessingDialog extends StatelessWidget {
       backgroundColor: _modalBg,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(_modalRadius),
-        side: const BorderSide(
-          color: _modalBorder,
-          width: _modalBorderWidth,
-        ),
+        side: const BorderSide(color: _modalBorder, width: _modalBorderWidth),
       ),
       child: const Padding(
         padding: EdgeInsets.all(28),
@@ -621,9 +624,7 @@ class _SkillCard extends StatelessWidget {
             'Lv ${tier + 1}${isMaxed ? ' · MAX' : ''} · '
             '${_standardTierSummary(def.id, tier)}',
             style: TextStyle(
-              color: isMaxed
-                  ? accent
-                  : Colors.white.withValues(alpha: 0.6),
+              color: isMaxed ? accent : Colors.white.withValues(alpha: 0.6),
               fontSize: 11,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.3,
@@ -894,7 +895,10 @@ class _LegendaryCard extends StatelessWidget {
                         ),
                       )
                     : ElevatedButton(
-                        onPressed: () => _equipLegendaryFromCard(context, def),
+                        onPressed: () {
+                          _playSkillTap();
+                          _equipLegendaryFromCard(context, def);
+                        },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _crimson,
                           foregroundColor: Colors.black,
@@ -947,8 +951,9 @@ class _LegendaryCard extends StatelessWidget {
                         SkillController.instance.upgradeLegendary(def.id),
                     onSuccess: () async {
                       if (!context.mounted) return;
-                      final tier =
-                          SkillController.instance.legendaryTierOf(def.id);
+                      final tier = SkillController.instance.legendaryTierOf(
+                        def.id,
+                      );
                       await _showSuccessModal(
                         context,
                         icon: def.icon,
@@ -965,6 +970,7 @@ class _LegendaryCard extends StatelessWidget {
                   cost: cost,
                   accent: _crimson,
                   enabled: canAfford,
+                  onConfirm: () => _confirmLegendaryBuy(context, def),
                   onAction: () => SkillController.instance.purchase(def.id),
                   onSuccess: () async {
                     if (!context.mounted) return;
@@ -1097,11 +1103,13 @@ String _legendaryTierSummary(LegendaryDef def, int tier) {
 /// Shows the upgrade preview dialog for a standard skill; resolves true only
 /// when the player confirms the purchase from inside the dialog.
 Future<bool> _confirmStandardUpgrade(BuildContext context, SkillDef def) async {
+  AudioController.effectiveInstance.play(SoundEffect.menuOpen);
   final sc = SkillController.instance;
   final tier = sc.tierOf(def.id);
   final cost = sc.nextCost(def.id);
-  final accent =
-      def.isCombo ? const Color(0xFF4DD8FF) : const Color(0xFFFFD700);
+  final accent = def.isCombo
+      ? const Color(0xFF4DD8FF)
+      : const Color(0xFFFFD700);
   final confirmed = await showDialog<bool>(
     context: context,
     barrierDismissible: false,
@@ -1133,6 +1141,7 @@ Future<bool> _confirmLegendaryUpgrade(
   BuildContext context,
   LegendaryDef def,
 ) async {
+  AudioController.effectiveInstance.play(SoundEffect.menuOpen);
   final sc = SkillController.instance;
   final tier = sc.legendaryTierOf(def.id);
   final cost = sc.legendaryNextCost(def.id);
@@ -1161,6 +1170,41 @@ Future<bool> _confirmLegendaryUpgrade(
   return confirmed ?? false;
 }
 
+/// Shows the purchase confirmation dialog for a legendary skill; resolves
+/// true only when the player confirms the buy from inside the dialog.
+Future<bool> _confirmLegendaryBuy(
+  BuildContext context,
+  LegendaryDef def,
+) async {
+  AudioController.effectiveInstance.play(SoundEffect.menuOpen);
+  final sc = SkillController.instance;
+  final cost = def.cost;
+  final confirmed = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => _UpgradeInfoDialog(
+      icon: def.icon,
+      name: def.name,
+      description: def.description,
+      accent: const Color(0xFFFF5C8A),
+      cost: cost,
+      canAfford: sc.wallet >= cost,
+      confirmLabel: 'BUY',
+      tiers: [
+        for (var l = 1; l <= def.maxTier; l++)
+          _UpgradeTier(
+            level: l,
+            summary: _legendaryTierSummary(def, l),
+            cost: def.costs[l - 1],
+            owned: false,
+            isNext: l == 1,
+          ),
+      ],
+    ),
+  );
+  return confirmed ?? false;
+}
+
 /// Upgrade preview dialog: shows the full tier ladder — what each level
 /// grants and what it costs — with the next purchasable level highlighted,
 /// plus CANCEL / UPGRADE actions so the player confirms before spending.
@@ -1173,6 +1217,10 @@ class _UpgradeInfoDialog extends StatelessWidget {
   final bool canAfford;
   final List<_UpgradeTier> tiers;
 
+  /// Action label on the confirm button (`UPGRADE` for upgrades, `BUY` for
+  /// first-time legendary purchases).
+  final String confirmLabel;
+
   const _UpgradeInfoDialog({
     required this.icon,
     required this.name,
@@ -1181,6 +1229,7 @@ class _UpgradeInfoDialog extends StatelessWidget {
     required this.cost,
     required this.canAfford,
     required this.tiers,
+    this.confirmLabel = 'UPGRADE',
   });
 
   @override
@@ -1189,10 +1238,7 @@ class _UpgradeInfoDialog extends StatelessWidget {
       backgroundColor: _modalBg,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(_modalRadius),
-        side: const BorderSide(
-          color: _modalBorder,
-          width: _modalBorderWidth,
-        ),
+        side: const BorderSide(color: _modalBorder, width: _modalBorderWidth),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
@@ -1288,8 +1334,9 @@ class _UpgradeInfoDialog extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: accent,
                     foregroundColor: Colors.black,
-                    disabledBackgroundColor:
-                        Colors.white.withValues(alpha: 0.08),
+                    disabledBackgroundColor: Colors.white.withValues(
+                      alpha: 0.08,
+                    ),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 9,
@@ -1305,7 +1352,7 @@ class _UpgradeInfoDialog extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        'UPGRADE $cost',
+                        '$confirmLabel $cost',
                         style: const TextStyle(
                           fontWeight: FontWeight.w900,
                           fontSize: 12,
@@ -1499,6 +1546,7 @@ Future<void> _showSuccessModal(
   required String message,
   required Color accent,
 }) async {
+  AudioController.effectiveInstance.play(SoundEffect.menuOpen);
   await showDialog<void>(
     context: context,
     barrierDismissible: false,
@@ -1506,10 +1554,7 @@ Future<void> _showSuccessModal(
       backgroundColor: _modalBg,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(_modalRadius),
-        side: const BorderSide(
-          color: _modalBorder,
-          width: _modalBorderWidth,
-        ),
+        side: const BorderSide(color: _modalBorder, width: _modalBorderWidth),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -1836,10 +1881,7 @@ class _LegendaryInfoDialog extends StatelessWidget {
       backgroundColor: _modalBg,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(_modalRadius),
-        side: const BorderSide(
-          color: _modalBorder,
-          width: _modalBorderWidth,
-        ),
+        side: const BorderSide(color: _modalBorder, width: _modalBorderWidth),
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -1981,10 +2023,7 @@ class _EquipReplaceDialog extends StatelessWidget {
       backgroundColor: _modalBg,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(_modalRadius),
-        side: const BorderSide(
-          color: _modalBorder,
-          width: _modalBorderWidth,
-        ),
+        side: const BorderSide(color: _modalBorder, width: _modalBorderWidth),
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),

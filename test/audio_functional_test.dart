@@ -80,7 +80,19 @@ void main() {
   /// wrap-around glitch to one wasted frame per second and lets the cinematic
   /// finish normally.
   Future<void> startRun(WidgetTester tester) async {
-    await tester.tap(find.text('START RUN'));
+    // START RUN stays LOADING until the hero run sprites decode. Decoding
+    // is real async work (asset bundle + image codec), so advance real time
+    // between pumps — fake-clock pumps alone never flush it.
+    final startBtn = find.text('START RUN');
+    for (var i = 0; i < 40 && startBtn.evaluate().isEmpty; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(startBtn, findsOneWidget,
+        reason: 'START RUN enables once run sprites are decoded');
+    await tester.tap(startBtn);
     await tester.pump();
 
     final pauseBtn = find.byTooltip('Pause');

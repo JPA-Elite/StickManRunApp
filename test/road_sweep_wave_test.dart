@@ -56,8 +56,17 @@ void main() {
     );
     await tester.pump();
 
-    // Start the run (default control scheme is BUTTONS).
-    await tester.tap(find.text('START RUN'));
+    // Start the run (default control scheme is BUTTONS). START RUN stays
+    // LOADING until the hero run sprites decode (real async work, so use
+    // real delays between pumps).
+    final startBtn = find.text('START RUN');
+    for (var i = 0; i < 40 && startBtn.evaluate().isEmpty; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await tester.tap(startBtn);
     await tester.pump();
     // Let the entrance cinematic finish so the buttons become visible.
     await tester.pump(const Duration(milliseconds: 100));
