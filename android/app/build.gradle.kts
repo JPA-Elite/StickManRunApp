@@ -64,13 +64,25 @@ android {
         }
     }
 
-    // Every release build also produces stickman-run.apk (a copy of
-    // app-release.apk) using only core Gradle APIs.
+    // Every release build drops both app-release.apk and stickman-run.apk
+    // into <project>/build/app/outputs/flutter-apk, copied from AGP's
+    // native output dir using only core Gradle APIs.
+    val flutterApkDir =
+        rootProject.layout.projectDirectory.dir("../build/app/outputs/flutter-apk")
+    val nativeApkDir =
+        rootProject.layout.projectDirectory.dir("../build/app/outputs/apk/release")
     tasks.register<Copy>("copyReleaseApk") {
-        from(layout.buildDirectory.dir("app/outputs/flutter-apk"))
-        include("app-release.apk")
-        rename("app-release.apk", "stickman-run.apk")
-        into(layout.buildDirectory.dir("app/outputs/flutter-apk"))
+        from(nativeApkDir) {
+            include("app-release.apk")
+            rename("app-release.apk", "stickman-run.apk")
+        }
+        into(flutterApkDir)
+    }
+    tasks.register<Copy>("ensureFlutterApk") {
+        from(nativeApkDir) {
+            include("app-release.apk")
+        }
+        into(flutterApkDir)
     }
 }
 
@@ -83,7 +95,7 @@ kotlin {
 // Hooked after evaluation: variant tasks (assembleRelease) only exist then.
 afterEvaluate {
     tasks.named("assembleRelease") {
-        finalizedBy("copyReleaseApk")
+        finalizedBy("copyReleaseApk", "ensureFlutterApk")
     }
 }
 
