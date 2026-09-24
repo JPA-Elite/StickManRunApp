@@ -1,5 +1,22 @@
 import 'package:flutter/material.dart';
 
+import '../audio/audio_controller.dart';
+import '../audio/sound_effects.dart';
+
+/// Page-open feedback (click + open whoosh), matching the home screen taps.
+void playPageOpen() {
+  final audio = AudioController.effectiveInstance;
+  audio.play(SoundEffect.buttonClick);
+  audio.play(SoundEffect.menuOpen);
+}
+
+/// Page-close feedback (click + close whoosh) for back buttons.
+void playPageClose() {
+  final audio = AudioController.effectiveInstance;
+  audio.play(SoundEffect.buttonClick);
+  audio.play(SoundEffect.menuClose);
+}
+
 /// Default gold for coin icons/amounts across shop, skills and profile.
 const Color kCoinGold = Color(0xFFFFD700);
 

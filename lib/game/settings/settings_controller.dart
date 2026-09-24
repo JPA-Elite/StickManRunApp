@@ -86,10 +86,10 @@ class SettingsController extends ChangeNotifier {
     return value.clamp(0.0, 1.0);
   }
 
-  /// Clamps a persisted button size multiplier into 0.5..1.5.
+  /// Clamps a persisted button size multiplier into 0.5..2.05.
   static double _scale(double? value, double fallback) {
     if (value == null) return fallback;
-    return value.clamp(0.5, 1.5);
+    return value.clamp(0.5, 2.05);
   }
 
   void _applyAudioNow() {
@@ -272,7 +272,7 @@ class SettingsController extends ChangeNotifier {
 
   void setAttackButtonScale(double value) {
     _settings = _settings.copyWith(
-      attackButtonScale: value.clamp(0.5, 1.5),
+      attackButtonScale: value.clamp(0.5, 2.05),
     );
     _save();
     notifyListeners();
@@ -280,7 +280,7 @@ class SettingsController extends ChangeNotifier {
 
   void setJumpButtonScale(double value) {
     _settings = _settings.copyWith(
-      jumpButtonScale: value.clamp(0.5, 1.5),
+      jumpButtonScale: value.clamp(0.5, 2.05),
     );
     _save();
     notifyListeners();
@@ -288,7 +288,7 @@ class SettingsController extends ChangeNotifier {
 
   void setCrawlButtonScale(double value) {
     _settings = _settings.copyWith(
-      crawlButtonScale: value.clamp(0.5, 1.5),
+      crawlButtonScale: value.clamp(0.5, 2.05),
     );
     _save();
     notifyListeners();

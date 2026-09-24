@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../settings/game_settings.dart';
 import '../settings/settings_controller.dart';
 import 'button_customize_screen.dart';
+import 'coin_amount.dart';
 import 'haptics.dart';
 
 /// Arcade-Console style settings screen.
@@ -21,7 +22,10 @@ class SettingsScreen extends StatelessWidget {
         backgroundColor: Colors.black,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white, size: 26),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () {
+            playPageClose();
+            Navigator.of(context).pop();
+          },
         ),
         title: const Text(
           'SETTINGS',

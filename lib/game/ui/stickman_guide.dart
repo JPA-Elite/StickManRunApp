@@ -4,6 +4,7 @@ import '../settings/game_settings.dart';
 import '../settings/legendary_defs.dart';
 import '../settings/settings_controller.dart';
 import '../settings/skill_controller.dart';
+import 'coin_amount.dart';
 
 /// All things the guide can describe: every obstacle type plus the
 /// collectibles (coins and power-ups).
@@ -143,7 +144,10 @@ class StickmanGuideScreen extends StatelessWidget {
                       size: 28,
                     ),
                     tooltip: 'Back',
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () {
+                      playPageClose();
+                      Navigator.of(context).pop();
+                    },
                   ),
                   const Expanded(
                     child: Text(

@@ -31,7 +31,10 @@ class ProfileScreen extends StatelessWidget {
                       size: 28,
                     ),
                     tooltip: 'Back',
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () {
+                      playPageClose();
+                      Navigator.of(context).pop();
+                    },
                   ),
                   const Expanded(
                     child: Text(
@@ -111,7 +114,7 @@ class ProfileScreen extends StatelessWidget {
                                       tier.level >= rankTierNames.length
                                           ? 'MAX RANK · ${tier.name}'
                                           : '$total / ${tier.nextMilestone} '
-                                                'to ${tier.name} ${tier.level + 1}',
+                                                'to ${rankTierNames[tier.level]} ${tier.level + 1}',
                                       style: TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.w700,
@@ -126,6 +129,10 @@ class ProfileScreen extends StatelessWidget {
                             ],
                           ),
                         ),
+                        const SizedBox(height: 12),
+
+                        // Journey roadmap: rank tiers from rookie to legend.
+                        _JourneySection(currentLevel: tier.level),
                         const SizedBox(height: 12),
 
                         // Lifetime stat tiles.
@@ -306,6 +313,162 @@ class _SectionTitle extends StatelessWidget {
         fontSize: 12,
         letterSpacing: 1.2,
       ),
+    );
+  }
+}
+
+/// Rank journey roadmap: ROOKIE → … → LEGEND with the player's current
+/// position highlighted (gold check = cleared, cyan ring = current, grey =
+/// locked). Second section of the profile page.
+class _JourneySection extends StatelessWidget {
+  final int currentLevel;
+
+  const _JourneySection({required this.currentLevel});
+
+  @override
+  Widget build(BuildContext context) {
+    return _ProfileCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SectionTitle(title: 'JOURNEY', accent: Color(0xFFFFD700)),
+          const SizedBox(height: 12),
+          // Fits the full width: six equal node cells with flexible
+          // connectors between them, so every tier is visible at once.
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var i = 1; i <= rankTierNames.length; i++) ...[
+                if (i > 1)
+                  Expanded(
+                    flex: 2,
+                    child: Container(
+                      height: 3,
+                      margin: const EdgeInsets.only(top: 17.5),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(2),
+                        color: i - 1 < currentLevel
+                            ? const Color(0xFFFFD700)
+                            : Colors.white.withValues(alpha: 0.15),
+                      ),
+                    ),
+                  ),
+                Expanded(
+                  flex: 5,
+                  child: _JourneyNode(
+                    name: rankTierNames[i - 1],
+                    milestone: i == 1 ? 'START' : '${(i - 1) * 10}K',
+                    state: i < currentLevel
+                        ? _JourneyState.cleared
+                        : i == currentLevel
+                        ? _JourneyState.current
+                        : _JourneyState.locked,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+enum _JourneyState { cleared, current, locked }
+
+class _JourneyNode extends StatelessWidget {
+  final String name;
+  final String milestone;
+  final _JourneyState state;
+
+  const _JourneyNode({
+    required this.name,
+    required this.milestone,
+    required this.state,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final Color ring;
+    final Color fill;
+    final Widget glyph;
+    switch (state) {
+      case _JourneyState.cleared:
+        ring = const Color(0xFFFFD700);
+        fill = const Color(0xFFFFD700);
+        glyph = const Icon(Icons.check, color: Colors.black, size: 22);
+      case _JourneyState.current:
+        ring = const Color(0xFF4DD8FF);
+        fill = const Color(0xFF4DD8FF).withValues(alpha: 0.15);
+        glyph = const Icon(
+          Icons.directions_run,
+          color: Color(0xFF4DD8FF),
+          size: 22,
+        );
+      case _JourneyState.locked:
+        ring = Colors.white.withValues(alpha: 0.2);
+        fill = Colors.white.withValues(alpha: 0.04);
+        glyph = Icon(
+          Icons.lock_outline,
+          color: Colors.white.withValues(alpha: 0.35),
+          size: 16,
+        );
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 38,
+          height: 38,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: fill,
+            border: Border.all(color: ring, width: 2),
+            boxShadow: state == _JourneyState.current
+                ? [
+                    BoxShadow(
+                      color: const Color(
+                        0xFF4DD8FF,
+                      ).withValues(alpha: 0.5),
+                      blurRadius: 12,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : null,
+          ),
+          child: glyph,
+        ),
+        const SizedBox(height: 5),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            name,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: state == _JourneyState.locked
+                  ? Colors.white.withValues(alpha: 0.35)
+                  : Colors.white,
+              fontWeight: FontWeight.w900,
+              fontSize: 8,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          milestone,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: state == _JourneyState.locked
+                ? Colors.white.withValues(alpha: 0.3)
+                : const Color(0xFFFFD700),
+            fontWeight: FontWeight.w800,
+            fontSize: 7.5,
+          ),
+        ),
+      ],
     );
   }
 }

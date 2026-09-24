@@ -117,7 +117,10 @@ class _ShopScreenState extends State<ShopScreen> {
                       size: 28,
                     ),
                     tooltip: 'Back',
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () {
+                      playPageClose();
+                      Navigator.of(context).pop();
+                    },
                   ),
                   const Expanded(
                     child: Text(

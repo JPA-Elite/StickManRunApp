@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../engine/level_config.dart' as lc;
 import '../settings/score_history.dart';
+import 'coin_amount.dart';
 
 /// Dark arcade-style page listing best score, per-level bests, and the last
 /// runs. Header holds a back icon.
@@ -36,7 +37,10 @@ class ScoreHistoryScreen extends StatelessWidget {
                       size: 28,
                     ),
                     tooltip: 'Back',
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () {
+                      playPageClose();
+                      Navigator.of(context).pop();
+                    },
                   ),
                   const Expanded(
                     child: Text(

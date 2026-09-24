@@ -485,7 +485,7 @@ class _ButtonCustomizeScreenState extends State<ButtonCustomizeScreen> {
       'jump' => _draft.jumpButtonScale,
       _ => _draft.crawlButtonScale,
     };
-    final next = (current + delta).clamp(0.5, 1.5);
+    final next = (current + delta).clamp(0.5, 2.05);
     setState(() {
       switch (which) {
         case 'attack':

@@ -133,7 +133,10 @@ class _SkillsScreenState extends State<SkillsScreen> {
                           size: 28,
                         ),
                         tooltip: 'Back',
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: () {
+                          playPageClose();
+                          Navigator.of(context).pop();
+                        },
                       ),
                       Expanded(
                         child: Text(

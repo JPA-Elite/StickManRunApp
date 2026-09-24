@@ -153,7 +153,7 @@ class GameSettings {
   final double crawlButtonDx;
   final double crawlButtonDy;
 
-  /// Per-button size multipliers (0.5..1.5) applied to each on-screen button
+  /// Per-button size multipliers (0.5..2.05) applied to each on-screen button
   /// (SMASH, JUMP, CRAWL). Only used in BUTTONS mode.
   final double attackButtonScale;
   final double jumpButtonScale;
