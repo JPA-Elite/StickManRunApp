@@ -526,6 +526,53 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
   int _audioLastTempestZaps = 0;
   bool _audioWasReversing = false;
 
+  /// White touch trail for GESTURES mode: (position, ageSec) samples recorded
+  /// from raw pointer events so swipes/taps for jump, crawl, smash and holds
+  /// paint a fading line shadow while the finger is down and briefly after.
+  static const Color _touchTrailColor = Colors.white;
+  static const double _touchTrailMaxAgeSec = 0.45;
+  static const int _touchTrailMaxPoints = 80;
+
+  /// Maximum on-screen trail length so long swipes stay a short ribbon.
+  static const double _touchTrailMaxLengthPx = 140.0;
+  final List<(Offset pos, double ageSec)> _touchTrail = [];
+
+  bool get _touchTrailActive =>
+      _settings.controlScheme == ControlScheme.gestures;
+
+  double _trailLengthPx() {
+    var length = 0.0;
+    for (var i = 1; i < _touchTrail.length; i++) {
+      length += (_touchTrail[i].$1 - _touchTrail[i - 1].$1).distance;
+    }
+    return length;
+  }
+
+  void _addTrailPoint(Offset pos) {
+    if (!_touchTrailActive) return;
+    if (_touchTrail.length >= _touchTrailMaxPoints) {
+      _touchTrail.removeAt(0);
+    }
+    _touchTrail.add((pos, 0));
+    while (_touchTrail.length > 2 &&
+        _trailLengthPx() > _touchTrailMaxLengthPx) {
+      _touchTrail.removeAt(0);
+    }
+  }
+
+  void _ageTouchTrail(double dtSec) {
+    if (_touchTrail.isEmpty) return;
+    if (!_touchTrailActive) {
+      _touchTrail.clear();
+      return;
+    }
+    for (var i = 0; i < _touchTrail.length; i++) {
+      final p = _touchTrail[i];
+      _touchTrail[i] = (p.$1, p.$2 + dtSec);
+    }
+    _touchTrail.removeWhere((p) => p.$2 > _touchTrailMaxAgeSec);
+  }
+
   /// Biome index for music selection: levels 1-5 map directly to their
   /// biome; endless mode (6+) follows the engine's random theme index.
   int _biomeForLevel([int? snapshotThemeIndex]) {
@@ -648,6 +695,9 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
     setState(() {
       _snapshot = _engine.snapshot();
     });
+
+    // Age the gesture touch trail so it fades shortly after liftoff.
+    _ageTouchTrail(dtSec);
 
     // Track how long the game-over screen has been shown so the modal can
     // wait out the fatal-hit camera kick before fading in.
@@ -1054,33 +1104,58 @@ class _StickmanRunScreenState extends State<StickmanRunScreen>
               child: Stack(
                 children: [
                   Positioned.fill(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: _canTapToJump
-                          ? _onJump
-                          : (_canTapToSmash ? _onSmash : null),
-                      onVerticalDragEnd: _gesturesActive
-                          ? _onVerticalSwipe
-                          : null,
-                      onLongPressStart: _canRewindHold
-                          ? (_) => _onRewindHold()
-                          : null,
+                    // Raw pointer listener (never competes with the tap /
+                    // swipe / long-press recognizers below) feeding the
+                    // gesture-mode touch trail.
+                    child: Listener(
+                      behavior: HitTestBehavior.translucent,
+                      onPointerDown: (e) => _addTrailPoint(e.localPosition),
+                      onPointerMove: (e) => _addTrailPoint(e.localPosition),
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _canTapToJump
+                            ? _onJump
+                            : (_canTapToSmash ? _onSmash : null),
+                        onVerticalDragEnd: _gesturesActive
+                            ? _onVerticalSwipe
+                            : null,
+                        onLongPressStart: _canRewindHold
+                            ? (_) => _onRewindHold()
+                            : null,
+                        child: RepaintBoundary(
+                          child: CustomPaint(
+                            painter: StickmanRunPainter(
+                              snapshot: _snapshot,
+                              level:
+                                  _engine.snapshot().levelIndex ==
+                                      _snapshot.levelIndex
+                                  ? _engine.levels[_levelIndex - 1]
+                                  : _engine.levels[(_snapshot.levelIndex - 1)
+                                        .clamp(0, _engine.levels.length - 1)],
+                              width: width,
+                              height: height,
+                              stickmanColor: Color(_settings.stickmanColor),
+                              highContrast: _settings.highContrast,
+                              sprites: _sprites,
+                              spriteColors: _spriteColors,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Cyan line-shadow trail above the play field (gestures
+                  // mode only; empty — and paint-skipped — otherwise).
+                  Positioned.fill(
+                    child: IgnorePointer(
                       child: RepaintBoundary(
                         child: CustomPaint(
-                          painter: StickmanRunPainter(
-                            snapshot: _snapshot,
-                            level:
-                                _engine.snapshot().levelIndex ==
-                                    _snapshot.levelIndex
-                                ? _engine.levels[_levelIndex - 1]
-                                : _engine.levels[(_snapshot.levelIndex - 1)
-                                      .clamp(0, _engine.levels.length - 1)],
-                            width: width,
-                            height: height,
-                            stickmanColor: Color(_settings.stickmanColor),
-                            highContrast: _settings.highContrast,
-                            sprites: _sprites,
-                            spriteColors: _spriteColors,
+                          painter: _TouchTrailPainter(
+                            points: _touchTrailActive
+                                ? _touchTrail
+                                : const [],
+                            color: _touchTrailColor,
+                            maxAgeSec: _touchTrailMaxAgeSec,
                           ),
                         ),
                       ),
@@ -2039,6 +2114,100 @@ class _StartRunButton extends StatelessWidget {
         style: const TextStyle(fontWeight: FontWeight.w900),
       ),
     );
+  }
+}
+
+/// Soft smooth trail for GESTURES mode: recent touch samples joined into one
+/// midpoint-smoothed curve (no pointed joints) with a blurred glow under a
+/// thin bright core, fading out with age. Repaints every game frame via the
+/// parent rebuild; an empty point list paints nothing.
+class _TouchTrailPainter extends CustomPainter {
+  final List<(Offset pos, double ageSec)> points;
+  final Color color;
+  final double maxAgeSec;
+
+  const _TouchTrailPainter({
+    required this.points,
+    required this.color,
+    required this.maxAgeSec,
+  });
+
+  /// Single smooth path through the samples (quadratic smoothing via
+  /// segment midpoints, so fast swipes never look pointed).
+  Path _smoothPath() {
+    final path = Path()..moveTo(points.first.$1.dx, points.first.$1.dy);
+    for (var i = 1; i < points.length; i++) {
+      final prev = points[i - 1].$1;
+      final curr = points[i].$1;
+      final mid = Offset((prev.dx + curr.dx) / 2, (prev.dy + curr.dy) / 2);
+      if (i == 1) {
+        path.lineTo(mid.dx, mid.dy);
+      } else {
+        path.quadraticBezierTo(prev.dx, prev.dy, mid.dx, mid.dy);
+      }
+      if (i == points.length - 1) {
+        path.lineTo(curr.dx, curr.dy);
+      }
+    }
+    return path;
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.isEmpty) return;
+    final headFade =
+        (1 - points.last.$2 / maxAgeSec).clamp(0.0, 1.0);
+    if (headFade <= 0.01) return;
+    if (points.length == 1) {
+      canvas.drawCircle(
+        points.first.$1,
+        3.0 * headFade + 1.0,
+        Paint()
+          ..color = color.withValues(alpha: 0.5 * headFade)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.0),
+      );
+      return;
+    }
+    final path = _smoothPath();
+    // Wide faint halo for softness.
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..strokeWidth = 7.0
+        ..color = color.withValues(alpha: 0.10 * headFade)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0),
+    );
+    // Thin bright core.
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..strokeWidth = 2.5
+        ..color = color.withValues(alpha: 0.55 * headFade)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.0),
+    );
+    // Soft fingertip dot on the newest sample.
+    canvas.drawCircle(
+      points.last.$1,
+      3.0 * headFade + 1.0,
+      Paint()
+        ..color = color.withValues(alpha: 0.6 * headFade)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.0),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _TouchTrailPainter oldDelegate) {
+    // The point list is mutated in place every frame (samples age out while
+    // the List instance stays identical), so identity comparison would
+    // freeze the trail forever. Repaint whenever the parent rebuilds — the
+    // layer is tiny and the game repaints every frame anyway.
+    return true;
   }
 }
 

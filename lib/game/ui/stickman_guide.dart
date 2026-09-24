@@ -519,7 +519,9 @@ class _GuideGlyph extends StatelessWidget {
       case GuideKind.drone:
         return 'assets/images/drone_obstacle.png';
       case GuideKind.laser:
-        return 'assets/images/laser_obstacle.png';
+        // Hand-drawn glyph: the beam asset is 1536x198, so thumbnailed into
+        // the 38px guide box it collapses into a tiny dark sliver.
+        return null;
       case GuideKind.bat:
         return 'assets/images/bat_obstacle.png';
       case GuideKind.fireJet:

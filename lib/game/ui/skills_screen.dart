@@ -92,6 +92,14 @@ class _SkillsScreenState extends State<SkillsScreen> {
     });
   }
 
+  /// Switches the STANDARD / LEGENDARY tab with tap feedback (silent when
+  /// re-tapping the already active tab).
+  void _switchTab(int index) {
+    if (_activeTab == index) return;
+    _playSkillTap();
+    setState(() => _activeTab = index);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -181,7 +189,7 @@ class _SkillsScreenState extends State<SkillsScreen> {
                                     label: 'STANDARD ♢',
                                     active: _activeTab == 0,
                                     color: _gold,
-                                    onTap: () => setState(() => _activeTab = 0),
+                                    onTap: () => _switchTab(0),
                                   ),
                                 ),
                                 const SizedBox(width: 10),
@@ -190,7 +198,7 @@ class _SkillsScreenState extends State<SkillsScreen> {
                                     label: '★ LEGENDARY',
                                     active: _activeTab == 1,
                                     color: _crimson,
-                                    onTap: () => setState(() => _activeTab = 1),
+                                    onTap: () => _switchTab(1),
                                   ),
                                 ),
                               ],
